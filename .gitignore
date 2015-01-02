@@ -1,6 +1,6 @@
 .dropbox
 desktop.ini
-.o
+*.o
 *.jpg
 *.bin
-
+gateway
