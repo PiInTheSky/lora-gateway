@@ -1,0 +1,8 @@
+tracker=M0RPI
+
+frequency_0=434.451
+mode_0=2
+
+#frequency_1=434.450
+#mode_1=0
+

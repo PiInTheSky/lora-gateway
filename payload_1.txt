@@ -1,0 +1,2 @@
+payload=PI_SKY_LORA2
+

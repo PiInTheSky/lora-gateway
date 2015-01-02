@@ -125,7 +125,8 @@ struct TLoRaDevice
 	unsigned int TelemetryCount, SSDVCount, BadCRCCount, UnknownCount, SSDVMissing;
 	
 	char Payload[16], Time[12];
-	unsigned int Counter, Seconds;
+	unsigned int Counter;
+	unsigned long Seconds;
 	double Longitude, Latitude;
 	unsigned int Altitude, PreviousAltitude;
 	unsigned int Satellites;
@@ -158,7 +159,7 @@ struct TBinaryPacket
 {
 	uint8_t 	PayloadIDs;
 	uint16_t	Counter;
-	uint16_t	Seconds;
+	uint16_t	BiSeconds;
 	float		Latitude;
 	float		Longitude;
 	uint16_t	Altitude;
@@ -942,6 +943,31 @@ int NewBoard(void)
 	
 	return boardRev;
 }	
+
+uint16_t CRC16(unsigned char *ptr)
+{
+    uint16_t CRC, xPolynomial;
+	int j;
+	
+    CRC = 0xffff;           // Seed
+    xPolynomial = 0x1021;
+   
+    for (; *ptr; ptr++)
+    {   // For speed, repeat calculation instead of looping for each bit
+        CRC ^= (((unsigned int)*ptr) << 8);
+        for (j=0; j<8; j++)
+        {
+            if (CRC & 0x8000)
+                CRC = (CRC << 1) ^ 0x1021;
+            else
+                CRC <<= 1;
+        }
+    }
+	 
+	return CRC;
+}
+
+
 int main(int argc, char **argv)
 {
 	unsigned char Message[257], Command[200], Telemetry[100], filename[100], *dest, *src;
@@ -1052,23 +1078,38 @@ int main(int argc, char **argv)
 						{
 							// Binary telemetry packet
 							struct TBinaryPacket BinaryPacket;
+							char Data[100], Sentence[100];
 							int SourceID, SenderID;
 							
+							SourceID = Message[1] & 0x07;
+							SenderID = (Message[1] >> 3) & 0x07;
+
 							ChannelPrintf(Channel, 3, 1, "Binary Telemetry");
 
 							memcpy(&BinaryPacket, Message+1, sizeof(BinaryPacket));
 							
 							strcpy(Config.LoRaDevices[Channel].Payload, "Binary");
+							Config.LoRaDevices[Channel].Seconds = (unsigned long) BinaryPacket.BiSeconds * 2L;
 							Config.LoRaDevices[Channel].Counter = BinaryPacket.Counter;
-							Config.LoRaDevices[Channel].Seconds = BinaryPacket.Seconds; 
 							Config.LoRaDevices[Channel].Latitude = BinaryPacket.Latitude;
 							Config.LoRaDevices[Channel].Longitude = BinaryPacket.Longitude;
 							Config.LoRaDevices[Channel].Altitude = BinaryPacket.Altitude;
 
+							sprintf(Data, "%s,%u,%02d:%02d:%02d,%8.5f,%8.5f,%u",
+										  Payloads[SourceID].Payload,
+										  BinaryPacket.Counter,
+										  (int)(Config.LoRaDevices[Channel].Seconds / 3600),
+										  (int)((Config.LoRaDevices[Channel].Seconds / 60) % 60),
+										  (int)(Config.LoRaDevices[Channel].Seconds % 60),
+										  BinaryPacket.Latitude,
+										  BinaryPacket.Longitude,
+										  BinaryPacket.Altitude);
+							sprintf(Sentence, "$$%s*%04X\n", Data, CRC16(Data));
+							UploadTelemetryPacket(Sentence);
+
 							DoPositionCalcs(Channel);
 							
-							SourceID = Message[1] & 0x07;
-							SenderID = (Message[1] >> 3) & 0x07;
+							Config.LoRaDevices[Channel].TelemetryCount++;
 
 							LogMessage("Ch %d: Sender %d Source %d (%s) Position %8.5lf, %8.5lf, %05u\n",
 								Channel,
