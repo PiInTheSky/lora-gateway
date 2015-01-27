@@ -15,6 +15,7 @@
 #include <pthread.h>
 
 #include "ssdv.h"
+#include "global.h"
 
 void ConvertFile(char *FileName)
 {
@@ -33,9 +34,12 @@ void ConvertFile(char *FileName)
 		sprintf(CommandLine, "ssdv -d /tmp/%s %s 2> /dev/null > /dev/null", FileName, TargetFile);
 		system(CommandLine);	
 		
-		// Upload to balloon.photos
-		sprintf(CommandLine, "curl -T %s ftp.daveakerman.com -Q \"TYPE I\" --user balloon@daveakerman.com:pi-in-the-sky 2> /dev/null > /dev/null", TargetFile);
-		system(CommandLine);		
+		if (Config.ftpServer[0] && Config.ftpUser[0] && Config.ftpPassword[0])
+		{
+			// Upload to ftp server
+			sprintf(CommandLine, "curl -T %s %s -Q \"TYPE I\" --user %s:%s 2> /dev/null > /dev/null", TargetFile, Config.ftpServer, Config.ftpUser, Config.ftpPassword);
+			system(CommandLine);
+		}
 	}
 }
 

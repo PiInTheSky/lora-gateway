@@ -1,2 +1,0 @@
-Payload=NOTASPOT
-Format=$$NOTASPOT,<count>,<time>,<latitude>,<longitude>,<altitude>*<CRC16>

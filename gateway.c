@@ -23,6 +23,7 @@
 #include "urlencode.h"
 #include "base64.h"
 #include "ssdv.h"
+#include "global.h"
 
 
 // RFM98
@@ -104,44 +105,6 @@ uint8_t currentMode = 0x81;
 #define LNA_MAX_GAIN                0x23  // 0010 0011
 #define LNA_OFF_GAIN                0x00
 #define LNA_LOW_GAIN                0xC0  // 1100 0000
-
-struct TLoRaDevice
-{
-	int InUse;
-	int DIO0;
-	int DIO5;
-	char Frequency[16];
-	int SpeedMode;
-	int PayloadLength;
-	int ImplicitOrExplicit;
-	int ErrorCoding;
-	int Bandwidth;
-	double Reference;
-	int SpreadingFactor;
-	int LowDataRateOptimize;
-	
-	WINDOW *Window;
-	
-	unsigned int TelemetryCount, SSDVCount, BadCRCCount, UnknownCount, SSDVMissing;
-	
-	char Payload[16], Time[12];
-	unsigned int Counter;
-	unsigned long Seconds;
-	double Longitude, Latitude;
-	unsigned int Altitude, PreviousAltitude;
-	unsigned int Satellites;
-	unsigned long LastPositionAt;
-	time_t LastPacketAt;
-	float AscentRate;
-};
-
-struct TConfig
-{
-	char Tracker[16];
-	int EnableHabitat;
-	int EnableSSDV;
-	struct TLoRaDevice LoRaDevices[2];
-};
 
 struct TPayload
 {
@@ -473,79 +436,82 @@ size_t write_data(void *buffer, size_t size, size_t nmemb, void *userp)
 
 void UploadTelemetryPacket(char *Telemetry)
 {
-	CURL *curl;
-	CURLcode res;
-	char PostFields[200];
- 
-	/* In windows, this will init the winsock stuff */ 
-	curl_global_init(CURL_GLOBAL_ALL);
- 
-	/* get a curl handle */ 
-	curl = curl_easy_init();
-	if (curl)
+	if (Config.EnableHabitat)
 	{
-		// So that the response to the curl POST doesn;'t mess up my finely crafted display!
-		curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_data);
+		CURL *curl;
+		CURLcode res;
+		char PostFields[200];
+	 
+		/* In windows, this will init the winsock stuff */ 
+		curl_global_init(CURL_GLOBAL_ALL);
+	 
+		/* get a curl handle */ 
+		curl = curl_easy_init();
+		if (curl)
+		{
+			// So that the response to the curl POST doesn;'t mess up my finely crafted display!
+			curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_data);
 
-		// Set the URL that is about to receive our POST
-		curl_easy_setopt(curl, CURLOPT_URL, "http://habitat.habhub.org/transition/payload_telemetry");
-    
-		// Now specify the POST data
-		sprintf(PostFields, "callsign=%s&string=%s&string_type=ascii&metadata={}", Config.Tracker, Telemetry);
-		curl_easy_setopt(curl, CURLOPT_POSTFIELDS, PostFields);
- 
-		// Perform the request, res will get the return code
-		res = curl_easy_perform(curl);
-    
-		// Check for errors
-		if(res != CURLE_OK)
-		{
-			fprintf(stderr, "curl_easy_perform() failed: %s\n", curl_easy_strerror(res));
+			// Set the URL that is about to receive our POST
+			curl_easy_setopt(curl, CURLOPT_URL, "http://habitat.habhub.org/transition/payload_telemetry");
+		
+			// Now specify the POST data
+			sprintf(PostFields, "callsign=%s&string=%s&string_type=ascii&metadata={}", Config.Tracker, Telemetry);
+			curl_easy_setopt(curl, CURLOPT_POSTFIELDS, PostFields);
+	 
+			// Perform the request, res will get the return code
+			res = curl_easy_perform(curl);
+		
+			// Check for errors
+			if(res != CURLE_OK)
+			{
+				fprintf(stderr, "curl_easy_perform() failed: %s\n", curl_easy_strerror(res));
+			}
+			
+			// always cleanup
+			curl_easy_cleanup(curl);
 		}
-		
-		// always cleanup
-		curl_easy_cleanup(curl);
+	  
+		curl_global_cleanup();
 	}
-  
-	curl_global_cleanup();
-}
-		
-void UploadImagePacket(char *EncodedCallsign, char *EncodedEncoding, char *EncodedData)
-{
-	CURL *curl;
-	CURLcode res;
-	char PostFields[1000];
- 
-	/* In windows, this will init the winsock stuff */ 
-	curl_global_init(CURL_GLOBAL_ALL);
- 
-	/* get a curl handle */ 
-	curl = curl_easy_init();
-	if(curl)
+			
+	void UploadImagePacket(char *EncodedCallsign, char *EncodedEncoding, char *EncodedData)
 	{
-		/* First set the URL that is about to receive our POST. This URL can
-		   just as well be a https:// URL if that is what should receive the
-           data. */ 
-		curl_easy_setopt(curl, CURLOPT_URL, "http://www.sanslogic.co.uk/ssdv/data.php");
-    
-		/* Now specify the POST data */ 
-		sprintf(PostFields, "callsign=%s&encoding=%s&packet=%s", EncodedCallsign, EncodedEncoding, EncodedData);
-		curl_easy_setopt(curl, CURLOPT_POSTFIELDS, PostFields);
- 
-		/* Perform the request, res will get the return code */ 
-		res = curl_easy_perform(curl);
-    
-		/* Check for errors */ 
-		if(res != CURLE_OK)
+		CURL *curl;
+		CURLcode res;
+		char PostFields[1000];
+	 
+		/* In windows, this will init the winsock stuff */ 
+		curl_global_init(CURL_GLOBAL_ALL);
+	 
+		/* get a curl handle */ 
+		curl = curl_easy_init();
+		if(curl)
 		{
-			fprintf(stderr, "curl_easy_perform() failed: %s\n", curl_easy_strerror(res));
-		}
+			/* First set the URL that is about to receive our POST. This URL can
+			   just as well be a https:// URL if that is what should receive the
+			   data. */ 
+			curl_easy_setopt(curl, CURLOPT_URL, "http://www.sanslogic.co.uk/ssdv/data.php");
 		
-		/* always cleanup */ 
-		curl_easy_cleanup(curl);
+			/* Now specify the POST data */ 
+			sprintf(PostFields, "callsign=%s&encoding=%s&packet=%s", EncodedCallsign, EncodedEncoding, EncodedData);
+			curl_easy_setopt(curl, CURLOPT_POSTFIELDS, PostFields);
+	 
+			/* Perform the request, res will get the return code */ 
+			res = curl_easy_perform(curl);
+		
+			/* Check for errors */ 
+			if(res != CURLE_OK)
+			{
+				fprintf(stderr, "curl_easy_perform() failed: %s\n", curl_easy_strerror(res));
+			}
+			
+			/* always cleanup */ 
+			curl_easy_cleanup(curl);
+		}
+	  
+		curl_global_cleanup();
 	}
-  
-	curl_global_cleanup();
 }
 
 void ReadString(FILE *fp, char *keyword, char *Result, int Length, int NeedValue)
@@ -573,13 +539,18 @@ void ReadString(FILE *fp, char *keyword, char *Result, int Length, int NeedValue
 	}
 }
 
-int ReadInteger(FILE *fp, char *keyword, int NeedValue)
+int ReadInteger(FILE *fp, char *keyword, int NeedValue, int DefaultValue)
 {
-	char Temp[32];
+	char Temp[64];
 
 	ReadString(fp, keyword, Temp, sizeof(Temp), NeedValue);
 
-	return atoi(Temp);
+	if (Temp[0])
+	{
+		return atoi(Temp);
+	}
+	
+	return DefaultValue;
 }
 
 int ReadBoolean(FILE *fp, char *keyword, int NeedValue, int *Result)
@@ -591,9 +562,6 @@ int ReadBoolean(FILE *fp, char *keyword, int NeedValue, int *Result)
 	if (*Temp)
 	{
 		*Result = (*Temp == '1') || (*Temp == 'Y') || (*Temp == 'y') || (*Temp == 't') || (*Temp == 'T');
-	}
-	{
-		*Result = 0;
 	}
 
 	return *Temp;
@@ -607,6 +575,13 @@ void LoadConfigFile()
 	int Channel, Temp;
 	char TempString[16];
 
+	Config.EnableHabitat = 1;
+	Config.EnableSSDV = 1;
+	Config.ftpServer[0] = '\0';
+	Config.ftpUser[0] = '\0';
+	Config.ftpPassword[0] = '\0';
+	Config.ftpFolder[0] = '\0';
+	
 	if ((fp = fopen(filename, "r")) == NULL)
 	{
 		printf("\nFailed to open config file %s (error %d - %s).\nPlease check that it exists and has read permission.\n", filename, errno, strerror(errno));
@@ -615,6 +590,14 @@ void LoadConfigFile()
 
 	ReadString(fp, "tracker", Config.Tracker, sizeof(Config.Tracker), 1);
 	LogMessage("Tracker = '%s'\n", Config.Tracker);
+	
+	ReadBoolean(fp, "EnableHabitat", 0, &Config.EnableHabitat);
+	ReadBoolean(fp, "EnableSSDV", 0, &Config.EnableSSDV);
+
+	ReadString(fp, "ftpserver", Config.ftpServer, sizeof(Config.ftpServer), 0);
+	ReadString(fp, "ftpUser", Config.ftpUser, sizeof(Config.ftpUser), 0);
+	ReadString(fp, "ftpPassword", Config.ftpPassword, sizeof(Config.ftpPassword), 0);
+	ReadString(fp, "ftpFolder", Config.ftpFolder, sizeof(Config.ftpFolder), 0);	
 
 	for (Channel=0; Channel<=1; Channel++)
 	{
@@ -633,10 +616,19 @@ void LoadConfigFile()
 			
 			LogMessage("Channel %d frequency set to %s\n", Channel, Config.LoRaDevices[Channel].Frequency);
 			Config.LoRaDevices[Channel].InUse = 1;
-	
+
+			// DIO0 / DIO5 overrides
+			sprintf(Keyword, "DIO0_%d", Channel);
+			Config.LoRaDevices[Channel].DIO0 = ReadInteger(fp, Keyword, 0, Config.LoRaDevices[Channel].DIO0);
+
+			sprintf(Keyword, "DIO5_%d", Channel);
+			Config.LoRaDevices[Channel].DIO5 = ReadInteger(fp, Keyword, 0, Config.LoRaDevices[Channel].DIO5);
+
+			LogMessage("LoRa Channel %d DIO0=%d DIO5=%d\n", Channel, Config.LoRaDevices[Channel].DIO0, Config.LoRaDevices[Channel].DIO5);
+			
 			Config.LoRaDevices[Channel].SpeedMode = 0;
 			sprintf(Keyword, "mode_%d", Channel);
-			Config.LoRaDevices[Channel].SpeedMode = ReadInteger(fp, Keyword, 0);
+			Config.LoRaDevices[Channel].SpeedMode = ReadInteger(fp, Keyword, 0, 0);
 			Config.LoRaDevices[Channel].PayloadLength = 255;	// Config.LoRaDevices[Channel].SlowMode ? 80 : 255;
 			ChannelPrintf(Channel, 1, 1, "Channel %d %sMHz %s mode", Channel, Config.LoRaDevices[Channel].Frequency, Modes[Config.LoRaDevices[Channel].SpeedMode]);
 
@@ -686,7 +678,7 @@ void LoadConfigFile()
 			}
 
 			sprintf(Keyword, "sf_%d", Channel);
-			Temp = ReadInteger(fp, Keyword, 0);
+			Temp = ReadInteger(fp, Keyword, 0, 0);
 			if ((Temp >= 6) && (Temp <= 12))
 			{
 				Config.LoRaDevices[Channel].SpreadingFactor = Temp << 4;
@@ -764,7 +756,7 @@ void LoadConfigFile()
 			}
 			
 			sprintf(Keyword, "coding_%d", Channel);
-			Temp = ReadInteger(fp, Keyword, 0);
+			Temp = ReadInteger(fp, Keyword, 0, 0);
 			if ((Temp >= 5) && (Temp <= 8))
 			{
 				Config.LoRaDevices[Channel].ErrorCoding = (Temp-4) << 1;
@@ -990,17 +982,16 @@ int main(int argc, char **argv)
 	Config.LoRaDevices[0].InUse = 0;
 	Config.LoRaDevices[1].InUse = 0;
 	
-	LoadConfigFile();
-	LoadPayloadFiles();
-
 	if (NewBoard())
 	{
-		// For dual card
-		Config.LoRaDevices[0].DIO0 = 31;
-		Config.LoRaDevices[0].DIO5 = 26;
+		// For dual card.  These are for the second prototype (earlier one will need overrides)
 
-		Config.LoRaDevices[1].DIO0 = 6;
-		Config.LoRaDevices[1].DIO5 = 5;
+		Config.LoRaDevices[0].DIO0 = 6;
+		Config.LoRaDevices[0].DIO5 = 5;
+		
+		Config.LoRaDevices[1].DIO0 = 31;
+		Config.LoRaDevices[1].DIO5 = 26;
+		
 		LogMessage("Pi A+/B+ board\n");
 	}
 	else
@@ -1008,10 +999,14 @@ int main(int argc, char **argv)
 		Config.LoRaDevices[0].DIO0 = 6;
 		Config.LoRaDevices[0].DIO5 = 5;
 		
-		Config.LoRaDevices[0].InUse = 1;
-		Config.LoRaDevices[1].InUse = 0;
+		Config.LoRaDevices[1].DIO0 = 3;
+		Config.LoRaDevices[1].DIO5 = 4;
+
 		LogMessage("Pi A/B board\n");
 	}
+
+	LoadConfigFile();
+	LoadPayloadFiles();
 	
 	if (wiringPiSetup() < 0)
 	{
@@ -1105,6 +1100,7 @@ int main(int argc, char **argv)
 										  BinaryPacket.Longitude,
 										  BinaryPacket.Altitude);
 							sprintf(Sentence, "$$%s*%04X\n", Data, CRC16(Data));
+							
 							UploadTelemetryPacket(Sentence);
 
 							DoPositionCalcs(Channel);
@@ -1131,11 +1127,11 @@ int main(int argc, char **argv)
 							SenderID = (Message[1] >> 3) & 0x07;
 
 							LogMessage("Ch %d: Sender %d Target %d (%s) Message %s\n",
-								Channel,
-								SenderID,
-								TargetID,
-								Payloads[TargetID].Payload,
-								Message+2);
+										Channel,
+										SenderID,
+										TargetID,
+										Payloads[TargetID].Payload,
+										Message+2);
 						}
 						else if (Message[1] == 0x66)
 						{
@@ -1191,22 +1187,25 @@ int main(int argc, char **argv)
 
 							/*
 							// Upload to server
-							EncodedCallsign = url_encode(Callsign); 
-							EncodedEncoding = url_encode("hex"); 
+							if (Config.EnableSSDV)
+							{
+								EncodedCallsign = url_encode(Callsign); 
+								EncodedEncoding = url_encode("hex"); 
 
-							// Base64Data = base64_encode(Message, 256, &output_length);
-							// printf("output_length=%d, byte=%02Xh\n", output_length, Base64Data[output_length]);
-							// Base64Data[output_length] = '\0';
-							// printf ("Base64Data '%s'\n", Base64Data);
-							ConvertStringToHex(HexString, Message, 256);
-							EncodedData = url_encode(HexString); 
+								// Base64Data = base64_encode(Message, 256, &output_length);
+								// printf("output_length=%d, byte=%02Xh\n", output_length, Base64Data[output_length]);
+								// Base64Data[output_length] = '\0';
+								// printf ("Base64Data '%s'\n", Base64Data);
+								ConvertStringToHex(HexString, Message, 256);
+								EncodedData = url_encode(HexString); 
 
-							// UploadImagePacket(EncodedCallsign, EncodedEncoding, EncodedData);
-							
-							free(EncodedCallsign);
-							free(EncodedEncoding);
-							// free(Base64Data);
-							free(EncodedData);
+								// UploadImagePacket(EncodedCallsign, EncodedEncoding, EncodedData);
+								
+								free(EncodedCallsign);
+								free(EncodedEncoding);
+								// free(Base64Data);
+								free(EncodedData);
+							}
 							
 							*/
 
