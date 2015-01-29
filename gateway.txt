@@ -3,12 +3,12 @@ EnableHabitat=Y
 EnableSSDV=Y
 
 frequency_0=868.451
-mode_0=0
+mode_0=1
 DIO0_0=31
 DIO5_0=26
 
-frequency_1=434.450
-mode_1=0
+frequency_1=434.4566
+mode_1=1
 DIO0_1=6
 DIO5_1=5
 

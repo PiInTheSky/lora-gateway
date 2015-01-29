@@ -261,13 +261,15 @@ void startReceiving(int Channel)
 	writeRegister(Channel, REG_MODEM_CONFIG, Config.LoRaDevices[Channel].ImplicitOrExplicit | Config.LoRaDevices[Channel].ErrorCoding | Config.LoRaDevices[Channel].Bandwidth);
 	writeRegister(Channel, REG_MODEM_CONFIG2, Config.LoRaDevices[Channel].SpreadingFactor | CRC_ON);
 	writeRegister(Channel, REG_MODEM_CONFIG3, 0x04 | Config.LoRaDevices[Channel].LowDataRateOptimize);									// 0x04: AGC sets LNA gain
-	writeRegister(Channel, REG_DETECT_OPT, (Config.LoRaDevices[Channel].SpreadingFactor == SPREADING_6) ? 0x05 : 0x03);					// 0x05 For SF6; 0x03 otherwise
+	writeRegister(Channel, REG_DETECT_OPT, (readRegister(Channel, REG_DETECT_OPT) & 0xF8) | ((Config.LoRaDevices[Channel].SpreadingFactor == SPREADING_6) ? 0x05 : 0x03));	// 0x05 For SF6; 0x03 otherwise
 	writeRegister(Channel, REG_DETECTION_THRESHOLD, (Config.LoRaDevices[Channel].SpreadingFactor == SPREADING_6) ? 0x0C : 0x0A);		// 0x0C for SF6, 0x0A otherwise
 
 	LogMessage("Channel %d %s mode\n", Channel, Modes[Config.LoRaDevices[Channel].SpeedMode]);
 
-	writeRegister(Channel, REG_PAYLOAD_LENGTH, Config.LoRaDevices[Channel].PayloadLength);
-	writeRegister(Channel, REG_RX_NB_BYTES, Config.LoRaDevices[Channel].PayloadLength);
+	// writeRegister(Channel, REG_PAYLOAD_LENGTH, Config.LoRaDevices[Channel].PayloadLength);
+	// writeRegister(Channel, REG_RX_NB_BYTES, Config.LoRaDevices[Channel].PayloadLength);
+	writeRegister(Channel, REG_PAYLOAD_LENGTH, 255);
+	writeRegister(Channel, REG_RX_NB_BYTES, 255);
 
 	// writeRegister(Channel, REG_HOP_PERIOD,0xFF);
 	
@@ -474,44 +476,47 @@ void UploadTelemetryPacket(char *Telemetry)
 	  
 		curl_global_cleanup();
 	}
+}
 			
-	void UploadImagePacket(char *EncodedCallsign, char *EncodedEncoding, char *EncodedData)
+void UploadImagePacket(char *EncodedCallsign, char *EncodedEncoding, char *EncodedData)
+{
+	CURL *curl;
+	CURLcode res;
+	char PostFields[1000];
+ 
+	/* In windows, this will init the winsock stuff */ 
+	curl_global_init(CURL_GLOBAL_ALL);
+ 
+	/* get a curl handle */ 
+	curl = curl_easy_init();
+	if (curl)
 	{
-		CURL *curl;
-		CURLcode res;
-		char PostFields[1000];
-	 
-		/* In windows, this will init the winsock stuff */ 
-		curl_global_init(CURL_GLOBAL_ALL);
-	 
-		/* get a curl handle */ 
-		curl = curl_easy_init();
-		if(curl)
+		// So that the response to the curl POST doesn;'t mess up my finely crafted display!
+		curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_data);
+		
+		/* Set the URL that is about to receive our POST. This URL can
+		   just as well be a https:// URL if that is what should receive the
+		   data. */ 
+		curl_easy_setopt(curl, CURLOPT_URL, "http://www.sanslogic.co.uk/ssdv/data.php");
+	
+		/* Now specify the POST data */ 
+		sprintf(PostFields, "callsign=%s&encoding=%s&packet=%s", EncodedCallsign, EncodedEncoding, EncodedData);
+		curl_easy_setopt(curl, CURLOPT_POSTFIELDS, PostFields);
+ 
+		/* Perform the request, res will get the return code */ 
+		res = curl_easy_perform(curl);
+	
+		/* Check for errors */ 
+		if(res != CURLE_OK)
 		{
-			/* First set the URL that is about to receive our POST. This URL can
-			   just as well be a https:// URL if that is what should receive the
-			   data. */ 
-			curl_easy_setopt(curl, CURLOPT_URL, "http://www.sanslogic.co.uk/ssdv/data.php");
-		
-			/* Now specify the POST data */ 
-			sprintf(PostFields, "callsign=%s&encoding=%s&packet=%s", EncodedCallsign, EncodedEncoding, EncodedData);
-			curl_easy_setopt(curl, CURLOPT_POSTFIELDS, PostFields);
-	 
-			/* Perform the request, res will get the return code */ 
-			res = curl_easy_perform(curl);
-		
-			/* Check for errors */ 
-			if(res != CURLE_OK)
-			{
-				fprintf(stderr, "curl_easy_perform() failed: %s\n", curl_easy_strerror(res));
-			}
-			
-			/* always cleanup */ 
-			curl_easy_cleanup(curl);
+			fprintf(stderr, "curl_easy_perform() failed: %s\n", curl_easy_strerror(res));
 		}
-	  
-		curl_global_cleanup();
+		
+		/* always cleanup */ 
+		curl_easy_cleanup(curl);
 	}
+	  
+	curl_global_cleanup();
 }
 
 void ReadString(FILE *fp, char *keyword, char *Result, int Length, int NeedValue)
@@ -629,7 +634,7 @@ void LoadConfigFile()
 			Config.LoRaDevices[Channel].SpeedMode = 0;
 			sprintf(Keyword, "mode_%d", Channel);
 			Config.LoRaDevices[Channel].SpeedMode = ReadInteger(fp, Keyword, 0, 0);
-			Config.LoRaDevices[Channel].PayloadLength = 255;	// Config.LoRaDevices[Channel].SlowMode ? 80 : 255;
+			// Config.LoRaDevices[Channel].PayloadLength = Config.LoRaDevices[Channel].SpeedMode == 0 ? 80 : 255;
 			ChannelPrintf(Channel, 1, 1, "Channel %d %sMHz %s mode", Channel, Config.LoRaDevices[Channel].Frequency, Modes[Config.LoRaDevices[Channel].SpeedMode]);
 
 			if (Config.LoRaDevices[Channel].SpeedMode == 4)
@@ -666,7 +671,7 @@ void LoadConfigFile()
 				Config.LoRaDevices[Channel].ErrorCoding = ERROR_CODING_4_5;
 				Config.LoRaDevices[Channel].Bandwidth = BANDWIDTH_20K8;
 				Config.LoRaDevices[Channel].SpreadingFactor = SPREADING_6;
-				Config.LoRaDevices[Channel].LowDataRateOptimize = 0;		
+				Config.LoRaDevices[Channel].LowDataRateOptimize = 0;
 			}
 			else
 			{
@@ -1185,7 +1190,6 @@ int main(int argc, char **argv)
 								fclose(fp);
 							}
 
-							/*
 							// Upload to server
 							if (Config.EnableSSDV)
 							{
@@ -1199,15 +1203,13 @@ int main(int argc, char **argv)
 								ConvertStringToHex(HexString, Message, 256);
 								EncodedData = url_encode(HexString); 
 
-								// UploadImagePacket(EncodedCallsign, EncodedEncoding, EncodedData);
+								UploadImagePacket(EncodedCallsign, EncodedEncoding, EncodedData);
 								
 								free(EncodedCallsign);
 								free(EncodedEncoding);
 								// free(Base64Data);
 								free(EncodedData);
 							}
-							
-							*/
 
 							Config.LoRaDevices[Channel].SSDVCount++;
 						}
