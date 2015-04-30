@@ -23,6 +23,7 @@
 #include "urlencode.h"
 #include "base64.h"
 #include "ssdv.h"
+#include "kml.h"
 #include "global.h"
 
 
@@ -586,6 +587,7 @@ void LoadConfigFile()
 	Config.ftpUser[0] = '\0';
 	Config.ftpPassword[0] = '\0';
 	Config.ftpFolder[0] = '\0';
+	Config.EnableKML = 0;
 	
 	if ((fp = fopen(filename, "r")) == NULL)
 	{
@@ -603,6 +605,8 @@ void LoadConfigFile()
 	ReadString(fp, "ftpUser", Config.ftpUser, sizeof(Config.ftpUser), 0);
 	ReadString(fp, "ftpPassword", Config.ftpPassword, sizeof(Config.ftpPassword), 0);
 	ReadString(fp, "ftpFolder", Config.ftpFolder, sizeof(Config.ftpFolder), 0);	
+
+	ReadBoolean(fp, "EnableKML", 0, &Config.EnableKML);
 
 	for (Channel=0; Channel<=1; Channel++)
 	{
@@ -1070,6 +1074,12 @@ int main(int argc, char **argv)
 							DoPositionCalcs(Channel);
 							
 							Config.LoRaDevices[Channel].TelemetryCount++;
+							if (Config.EnableKML)
+								UpdatePayloadKML(Config.LoRaDevices[Channel].Payload, Config.LoRaDevices[Channel].Seconds, 
+									Config.LoRaDevices[Channel].Latitude, Config.LoRaDevices[Channel].Longitude, 
+									Config.LoRaDevices[Channel].Altitude);
+
+
 
 							Message[strlen(Message+1)] = '\0';
 							LogMessage("Ch %d: %s\n", Channel, Message+1);
@@ -1111,6 +1121,12 @@ int main(int argc, char **argv)
 							DoPositionCalcs(Channel);
 							
 							Config.LoRaDevices[Channel].TelemetryCount++;
+							if (Config.EnableKML)
+								UpdatePayloadKML(Payloads[SourceID].Payload, Config.LoRaDevices[Channel].Seconds, 
+									Config.LoRaDevices[Channel].Latitude, Config.LoRaDevices[Channel].Longitude, 
+									Config.LoRaDevices[Channel].Altitude);
+
+
 
 							LogMessage("Ch %d: Sender %d Source %d (%s) Position %8.5lf, %8.5lf, %05u\n",
 								Channel,
