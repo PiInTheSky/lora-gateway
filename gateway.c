@@ -1278,7 +1278,7 @@ int main(int argc, char **argv)
 
 							endmessage = Message;
 							
-							for (i=0; endmessage < &(Message[Bytes-8]); i++)
+							for (i=0; endmessage < &(Message[strlen(Message+1)-8]); i++)
 							{
 								startmessage = endmessage + 1;
 								endmessage = strchr(startmessage, '\n');
