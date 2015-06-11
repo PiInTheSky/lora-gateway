@@ -6,14 +6,16 @@ struct TLoRaDevice
 	int DIO0;
 	int DIO5;
 	char Frequency[16];
+	double activeFreq;
+	bool AFC;	
 	int SpeedMode;
 	int PayloadLength;
 	int ImplicitOrExplicit;
 	int ErrorCoding;
 	int Bandwidth;
-	double Reference;
 	int SpreadingFactor;
 	int LowDataRateOptimize;
+	int CurrentBandwidth;
 	
 	WINDOW *Window;
 	
@@ -28,6 +30,7 @@ struct TLoRaDevice
 	unsigned long LastPositionAt;
 	time_t LastPacketAt;
 	float AscentRate;
+	time_t ReturnToCallingModeAt;
 };
 
 struct TConfig
@@ -35,6 +38,8 @@ struct TConfig
 	char Tracker[16];
 	int EnableHabitat;
 	int EnableSSDV;
+	int EnableTelemetryLogging;
+	int CallingTimeout;
 	char ftpServer[100];
 	char ftpUser[32];
 	char ftpPassword[32];

@@ -60,18 +60,38 @@ Configuration
 The configuration is in the file gateway.txt.  Example:
 
 	tracker=M0RPI
+	EnableHabitat=N
+	EnableSSDV=Y
+	LogTelemetry=Y
+	CallingTimeout=60
 
-	frequency_0=434.451
-	mode_0=2
+	frequency_0=434.347
+	mode_0=1
+	DIO0_0=31
+	DIO5_0=26
+	AFC_0=N
 
-	#frequency_1=434.450
-	#mode_1=0
+	frequency_1=434.475
+	mode_1=5
+	DIO0_1=6
+	DIO5_1=5
+	AFC_1=Y
 
 The options are:
 	
 	tracker=<callsign>.  This is whatever callsign you want to appear as on the tracking map and/or SSDV page.
 	
+	EnableHabitat=<Y/N>.  Enables uploading of telemetry packets to Habitat.
+	
+	EnableSSDV=<Y/N>.  Enables uploading of SSDV image packets to the SSDV server.
+	
+	LogTelemetry=<Y/N>.  Enables logging of telemetry packets (ASCII only at present) to telemetry.txt.
+	
+	CallingTimeout=<seconds>.  Sets a timeout for returning to calling mode after a period with no received packets.
+	
 	frequency_<n>=<freq in MHz>.  This sets the frequency for LoRa module <n> (0 for first, 1 for second).  e.g. frequency_0=434.450
+	
+	AFC_<n>=<Y/N>.  Enables or disables automatic frequency control (retunes by the frequency error of last received packet).
 	
 	mode_<n>=<mode>.  Sets the "mode" for the selected LoRa module.  This offers a simple way of setting the various
 					LoRa parameters (SF etc.) in one go.  The modes are:
@@ -80,6 +100,8 @@ The options are:
 					1 = (normal for SSDV) 		Implicit mode, Error coding 4:5, Bandwidth 20.8kHz,  SF 6, Low data rate optimize off
 					2 = (normal for repeater)	Explicit mode, Error coding 4:8, Bandwidth 62.5kHz,  SF 8, Low data rate optimize off
 					3 = (normal for fast SSDV)	Explicit mode, Error coding 4:6, Bandwidth 250kHz,   SF 7, Low data rate optimize off
+					4 = Test mode not for normal use.
+					5 = (normal for calling mode)	Explicit mode, Error coding 4:8, Bandwidth 41.7kHz, SF 11, Low data rate optimize off
 					
 	SF_<n>=<Spreading Factor>  e.g. SF_0=7
 	
@@ -100,3 +122,19 @@ Run with:
 	sudo ./gateway
 		
 
+Interactive Features
+====================
+
+The following key presses are available. Where appropriate unshifted keys affect Channel 0 and shifted keys affect Channel 1.
+Many thanks to David Brooke for coding this feature and the AFC.
+
+	q	quit
+
+	a	increase frequency by 100kHz
+	z	decrease frequency by 100kHz
+	s	increase frequency by 10kHz
+	x	decrease frequency by 10kHz
+	d	increase frequency by 1kHz
+	c	decrease frequency by 1kHz
+
+	f	toggle AFC
