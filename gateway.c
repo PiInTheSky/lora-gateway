@@ -464,7 +464,7 @@ int receiveMessage(int Channel, unsigned char *message)
 		
 		message[Bytes] = '\0';
 	
-		if(Config.LoRaDevices[Channel].AFC && fabs(FreqError)>0.1)
+		if(Config.LoRaDevices[Channel].AFC && fabs(FreqError)>0.5)
 		{
 			ReTune(Channel, FreqError/1000);
 		}
