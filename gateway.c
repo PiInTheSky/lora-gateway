@@ -596,7 +596,7 @@ void UploadImagePacket(char *EncodedCallsign, char *EncodedEncoding, char *Encod
 		curl_easy_setopt(curl, CURLOPT_URL, "http://www.sanslogic.co.uk/ssdv/data.php");
 	
 		/* Now specify the POST data */ 
-		sprintf(PostFields, "callsign=%s&encoding=%s&packet=%s", EncodedCallsign, EncodedEncoding, EncodedData);
+		sprintf(PostFields, "callsign=%s&encoding=%s&packet=%s", Config.Tracker, EncodedEncoding, EncodedData);
 		curl_easy_setopt(curl, CURLOPT_POSTFIELDS, PostFields);
  
 		/* Perform the request, res will get the return code */ 
