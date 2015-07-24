@@ -45,6 +45,7 @@ struct TConfig
 	char ftpPassword[32];
 	char ftpFolder[64];
 	struct TLoRaDevice LoRaDevices[2];
+	int EnableKML;
 };
 
 extern struct TConfig Config;
