@@ -1,17 +1,17 @@
 tracker=M0RPI
-EnableHabitat=N
-EnableSSDV=N
-LogTelemetry=N
-CallingTimeout=0
+EnableHabitat=Y
+EnableSSDV=Y
+LogTelemetry=Y
+CallingTimeout=60
 
-frequency_0=434.347
+frequency_0=434.450
 mode_0=1
 DIO0_0=31
 DIO5_0=26
-AFC_0=N
+AFC_0=Y
 
-frequency_1=434.475
+#frequency_1=434.450
 mode_1=1
 DIO0_1=6
 DIO5_1=5
-AFC_1=N
+AFC_1=Y

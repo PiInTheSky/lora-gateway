@@ -14,11 +14,11 @@
 #include <math.h>
 #include <pthread.h>
 
-#include "ssdv.h"
+#include "habitat.h"
 #include "global.h"
 
 
-void *SSDVLoop(void *some_void_ptr)
+void *HabitatLoop(void *some_void_ptr)
 {
     while (1)
     {
