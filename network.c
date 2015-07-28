@@ -30,16 +30,23 @@ int HaveAnIPAddress(void)
 
 	FoundAddress = 0;
 	
-    getifaddrs (&ifap);
-    for (ifa = ifap; ifa; ifa = ifa->ifa_next)
+    if (getifaddrs(&ifap) == 0)
 	{
-        if (ifa->ifa_addr->sa_family==AF_INET)
+		// Success
+		for (ifa = ifap; ifa; ifa = ifa->ifa_next)
 		{
-            sa = (struct sockaddr_in *) ifa->ifa_addr;
-            addr = inet_ntoa(sa->sin_addr);
-			if (strcmp(addr, "127.0.0.1") != 0)
+			if (ifa->ifa_addr != NULL)
 			{
-				FoundAddress = 1;
+				// Family is known (which it isn't for a VPN)
+				if (ifa->ifa_addr->sa_family==AF_INET)
+				{
+					sa = (struct sockaddr_in *) ifa->ifa_addr;
+					addr = inet_ntoa(sa->sin_addr);
+					if (strcmp(addr, "127.0.0.1") != 0)
+					{
+						FoundAddress = 1;
+					}
+				}
 			}
         }
     }

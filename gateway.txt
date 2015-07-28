@@ -1,8 +1,13 @@
 tracker=M0RPI
-EnableHabitat=Y
-EnableSSDV=Y
-LogTelemetry=Y
+EnableHabitat=N
+EnableSSDV=N
+LogTelemetry=N
 CallingTimeout=60
+
+#NetworkLED=21
+#InternetLED=22
+#ActivityLED_0=23
+#ActivityLED_1=24
 
 frequency_0=434.450
 mode_0=1

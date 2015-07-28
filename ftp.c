@@ -29,11 +29,11 @@ void ConvertFile(char *FileName)
 		strcat(TargetFile, ".JPG");
 		
 		// Now convert the file
+		LogMessage("Converting %s to %s\n", FileName, TargetFile);
+
 		sprintf(CommandLine, "ssdv -d /tmp/%s %s 2> /dev/null > /dev/null", FileName, TargetFile);
 		system(CommandLine);	
-		
-		LogMessage("Converting %s to %s\n", FileName, TargetFile);
-		
+				
 		if (Config.ftpServer[0] && Config.ftpUser[0] && Config.ftpPassword[0])
 		{
 			// Upload to ftp server
