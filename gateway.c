@@ -17,6 +17,7 @@
 #include <pthread.h>
 #include <curses.h>
 #include <math.h>
+#include <dirent.h>
 
 #include <wiringPi.h>
 #include <wiringPiSPI.h>
@@ -701,14 +702,25 @@ void LoadConfigFile()
 		exit(1);
 	}
 
+	// Receiver config
 	ReadString(fp, "tracker", Config.Tracker, sizeof(Config.Tracker), 1);
 	LogMessage("Tracker = '%s'\n", Config.Tracker);
 	
+	// Enable uploads
 	ReadBoolean(fp, "EnableHabitat", 0, &Config.EnableHabitat);
 	ReadBoolean(fp, "EnableSSDV", 0, &Config.EnableSSDV);
+	
+	// Enable logging
 	ReadBoolean(fp, "LogTelemetry", 0, &Config.EnableTelemetryLogging);
 
+	// Calling mode
 	Config.CallingTimeout = ReadInteger(fp, "CallingTimeout", 0, 300);
+	
+	// LED allocations
+	Config.NetworkLED = ReadInteger(fp, "NetworkLED", 0, -1);
+	Config.InternetLED = ReadInteger(fp, "InternetLED", 0, -1);
+	Config.LoRaDevices[0].ActivityLED = ReadInteger(fp, "ActivityLED_0", 0, -1);
+	Config.LoRaDevices[1].ActivityLED = ReadInteger(fp, "ActivityLED_1", 0, -1);
 	
 	ReadString(fp, "ftpserver", Config.ftpServer, sizeof(Config.ftpServer), 0);
 	ReadString(fp, "ftpUser", Config.ftpUser, sizeof(Config.ftpUser), 0);
@@ -1268,6 +1280,55 @@ void ProcessSSDVMessage(int Channel, char *Message)
 	Config.LoRaDevices[Channel].SSDVCount++;
 }
 
+
+int prog_count(char* name)
+{
+    DIR* dir;
+    struct dirent* ent;
+    char buf[512];
+    long  pid;
+    char pname[100] = {0,};
+    char state;
+    FILE *fp=NULL; 
+	int Count=0;
+
+    if (!(dir = opendir("/proc")))
+	{
+        perror("can't open /proc");
+        return 0;
+    }
+
+    while((ent = readdir(dir)) != NULL)
+	{
+        long lpid = atol(ent->d_name);
+        if (lpid < 0)
+            continue;
+        snprintf(buf, sizeof(buf), "/proc/%ld/stat", lpid);
+        fp = fopen(buf, "r");
+
+        if (fp)
+		{
+            if ((fscanf(fp, "%ld (%[^)]) %c", &pid, pname, &state)) != 3 )
+			{
+                printf("fscanf failed \n");
+                fclose(fp);
+                closedir(dir);
+                return 0;
+            }
+			
+            if (!strcmp(pname, name))
+			{
+                Count++;
+            }
+            fclose(fp);
+        }
+    }
+
+	closedir(dir);
+	
+	return Count;
+}
+
 int main(int argc, char **argv)
 {
 	unsigned char Message[257], Command[200], Telemetry[100], *dest, *src;
@@ -1277,6 +1338,12 @@ int main(int argc, char **argv)
 	WINDOW * mainwin;
 	int LEDCounts[2];
 	
+	if (prog_count("gateway") > 1)
+	{
+		printf("\nThe gateway program is already running!\n\n");
+		exit(1);
+	}
+
 	mainwin = InitDisplay();
 	
 	// Settings for character input
@@ -1302,12 +1369,6 @@ int main(int argc, char **argv)
 	Config.LoRaDevices[1].DIO0 = 27;
 	Config.LoRaDevices[1].DIO5 = 26;
 	
-	Config.NetworkLED = 21;
-	Config.InternetLED = 22;
-	
-	Config.LoRaDevices[0].ActivityLED = 23;
-	Config.LoRaDevices[1].ActivityLED = 24;
-
 	LoadConfigFile();
 	LoadPayloadFiles();
 	
@@ -1317,10 +1378,10 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 	
-	pinMode(Config.LoRaDevices[0].ActivityLED, OUTPUT);
-	pinMode(Config.LoRaDevices[1].ActivityLED, OUTPUT);
-	pinMode(Config.InternetLED, OUTPUT);
-	pinMode(Config.NetworkLED, OUTPUT);
+	if (Config.LoRaDevices[0].ActivityLED >= 0) pinMode(Config.LoRaDevices[0].ActivityLED, OUTPUT);
+	if (Config.LoRaDevices[1].ActivityLED >= 0) pinMode(Config.LoRaDevices[1].ActivityLED, OUTPUT);
+	if (Config.InternetLED >= 0) pinMode(Config.InternetLED, OUTPUT);
+	if (Config.NetworkLED >= 0) pinMode(Config.NetworkLED, OUTPUT);
 	
 	setupRFM98(0);
 	setupRFM98(1);
@@ -1349,10 +1410,13 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
-	if (pthread_create(&NetworkThread, NULL, NetworkLoop, NULL))
+	if ((Config.NetworkLED >= 0) && (Config.InternetLED >= 0))
 	{
-		fprintf(stderr, "Error creating Network thread\n");
-		return 1;
+		if (pthread_create(&NetworkThread, NULL, NetworkLoop, NULL))
+		{
+			fprintf(stderr, "Error creating Network thread\n");
+			return 1;
+		}
 	}
 
 	while (run)
@@ -1369,8 +1433,11 @@ int main(int argc, char **argv)
 					
 					if (Bytes > 0)
 					{
-						digitalWrite(Config.LoRaDevices[Channel].ActivityLED, 1);
-						LEDCounts[Channel] = 5;
+						if (Config.LoRaDevices[Channel].ActivityLED >= 0)
+						{
+							digitalWrite(Config.LoRaDevices[Channel].ActivityLED, 1);
+							LEDCounts[Channel] = 5;
+						}
 						// LogMessage("Channel %d data available - %d bytes\n", Channel, Bytes);
 						// LogMessage("Line = '%s'\n", Message);
 
@@ -1448,7 +1515,7 @@ int main(int argc, char **argv)
 						ProcessKeyPress(ch);
 					}
 					
-					if (LEDCounts[Channel])
+					if (LEDCounts[Channel] && (Config.LoRaDevices[Channel].ActivityLED >= 0))
 					{
 						if (--LEDCounts[Channel] == 0)
 						{
@@ -1463,10 +1530,10 @@ int main(int argc, char **argv)
 
 	CloseDisplay(mainwin);
 	
-	digitalWrite(Config.NetworkLED, 0);
-	digitalWrite(Config.InternetLED, 0);
-	digitalWrite(Config.LoRaDevices[0].ActivityLED, 0);
-	digitalWrite(Config.LoRaDevices[1].ActivityLED, 0);	
+	if (Config.NetworkLED >= 0) digitalWrite(Config.NetworkLED, 0);
+	if (Config.InternetLED >= 0) digitalWrite(Config.InternetLED, 0);
+	if (Config.LoRaDevices[0].ActivityLED >= 0) digitalWrite(Config.LoRaDevices[0].ActivityLED, 0);
+	if (Config.LoRaDevices[1].ActivityLED >= 0) digitalWrite(Config.LoRaDevices[1].ActivityLED, 0);	
 	
 	return 0;
 }
