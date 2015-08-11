@@ -1,8 +1,9 @@
-tracker=M0RPI
-EnableHabitat=N
-EnableSSDV=N
-LogTelemetry=N
-CallingTimeout=60
+tracker=G8DHE
+EnableHabitat=Y
+EnableSSDV=Y
+LogTelemetry=Y
+LogMetadata=Y
+CallingTimeout=30
 
 #NetworkLED=21
 #InternetLED=22
@@ -10,13 +11,24 @@ CallingTimeout=60
 #ActivityLED_1=24
 
 frequency_0=434.450
-mode_0=1
-DIO0_0=31
-DIO5_0=26
+mode_0=0
+DIO0_0=6
+DIO5_0=5
 AFC_0=Y
+#SF_0=8
+#Bandwidth_0=20K8
+##Implicit_0=Y
+#Coding_0=6
+#lowopt_0=N
 
-#frequency_1=434.450
-mode_1=1
-DIO0_1=6
-DIO5_1=5
+frequency_1=434.475
+mode_1=5
+DIO0_1=27
+DIO5_1=26
 AFC_1=Y
+#SF_1=8
+#Bandwidth_1=41K7
+##Implicit_1=N
+#Coding_1=8
+#lowopt_1=N
+

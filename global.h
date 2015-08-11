@@ -16,6 +16,10 @@ struct TLoRaDevice
 	int SpreadingFactor;
 	int LowDataRateOptimize;
 	int CurrentBandwidth;
+	int RSSI; //added - G8DHE
+	int SNR;  //added - G8DHE
+	double FreqError; //added - G8DHE
+	
 	
 	WINDOW *Window;
 	
@@ -41,6 +45,7 @@ struct TConfig
 	int EnableHabitat;
 	int EnableSSDV;
 	int EnableTelemetryLogging;
+	int EnableMetadataLogging; //added for extra logging of Metadata - G8DHE
 	int CallingTimeout;
 	char ftpServer[100];
 	char ftpUser[32];
