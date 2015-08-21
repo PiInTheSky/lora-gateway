@@ -448,7 +448,7 @@ int receiveMessage(int Channel, unsigned char *message)
 		LogMessage("CRC Failure, Ch %d RSSI %d\n", Channel, readRegister(Channel, REG_PACKET_RSSI) - 157);
 		// reset the crc flags
 		writeRegister(Channel, REG_IRQ_FLAGS, 0x20);
-		ChannelPrintf(Channel, 4, 1, "Ch %d CRC Failure %02Xh!!\n",Channel, x);
+		ChannelPrintf(Channel, 4, 1, "CRC Failure %02Xh!!\n", x);
 		Config.LoRaDevices[Channel].BadCRCCount++;
 		ShowPacketCounts(Channel);
 	}
