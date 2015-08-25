@@ -31,6 +31,8 @@ struct TLoRaDevice
 	time_t LastPacketAt;
 	float AscentRate;
 	time_t ReturnToCallingModeAt;
+	int InCallingMode;
+	int ActivityLED;
 };
 
 struct TConfig
@@ -45,6 +47,10 @@ struct TConfig
 	char ftpPassword[32];
 	char ftpFolder[64];
 	struct TLoRaDevice LoRaDevices[2];
+	int NetworkLED;
+	int InternetLED;
 };
 
 extern struct TConfig Config;
+
+void LogMessage(const char *format, ...);
