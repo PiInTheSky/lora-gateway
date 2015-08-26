@@ -445,7 +445,7 @@ int receiveMessage(int Channel, unsigned char *message)
 	// check for payload crc issues (0x20 is the bit we are looking for
 	if((x & 0x20) == 0x20)
 	{
-		LogMessage("CRC Failure, RSSI %d\n", readRegister(Channel, REG_PACKET_RSSI) - 157);
+		LogMessage("CRC Failure, Ch %d RSSI %d\n", Channel, readRegister(Channel, REG_PACKET_RSSI) - 157);
 		// reset the crc flags
 		writeRegister(Channel, REG_IRQ_FLAGS, 0x20);
 		ChannelPrintf(Channel, 4, 1, "CRC Failure %02Xh!!\n", x);
@@ -463,7 +463,13 @@ int receiveMessage(int Channel, unsigned char *message)
 		ChannelPrintf(Channel, 10, 1, "Packet SNR = %d, RSSI = %d      ", (char)(readRegister(Channel, REG_PACKET_SNR)) / 4, readRegister(Channel, REG_PACKET_RSSI) - 157);
 		FreqError = FrequencyError(Channel) / 1000;
 		ChannelPrintf(Channel, 11, 1, "Freq. Error = %5.1lfkHz ", FreqError);		
-		
+
+		//Add extra logging data - G8DHE
+		Config.LoRaDevices[Channel].RSSI = readRegister(Channel, REG_PACKET_RSSI) - 137;
+		Config.LoRaDevices[Channel].SNR =  (char)(readRegister(Channel, REG_PACKET_SNR)) / 4;
+		Config.LoRaDevices[Channel].FreqError = FreqError;
+		//Also need time packet received as was set to late, LastPacketAt was set after processing is completed.
+		Config.LoRaDevices[Channel].LastPacketAt = time(NULL);
 
 		writeRegister(Channel, REG_FIFO_ADDR_PTR, currentAddr);   
 		
@@ -530,16 +536,55 @@ size_t write_data(void *buffer, size_t size, size_t nmemb, void *userp)
    return size * nmemb;
 }
 
-void LogTelemetryPacket(char *Telemetry)
+// Added Channel to access metadata for telemetry packet - G8DHE
+void LogTelemetryPacket( int Channel, char *Telemetry)
 {
-	if (Config.EnableTelemetryLogging)
+	struct tm tm; //G8DHE
+	char DTG[14];  // Date Time Group for file - G8DHE
+
+	tm = *gmtime(&Config.LoRaDevices[Channel].LastPacketAt);  // get time_t into correct format - G8DHE
+	if (Config.EnableMetadataLogging)
 	{
 		FILE *fp;
-		
+		//Check for logging file, if it doesn't exist then write header line
+		if (access("telemetry.txt",F_OK) != 0)
+		{
+			fp = fopen("telemetry.txt", "at");
+			fprintf(fp,"Rx DTG, Channel, Im/Ex, Bandwidth, SF, EC, LDRO, Frequency, Packet RSSI, Packet SNR, AFC, AFC Error, Packet \n");
+			fclose(fp);
+		}
+
 		if ((fp = fopen("telemetry.txt", "at")) != NULL)
 		{
-			fprintf(fp, "%s\n", Telemetry);
+			strftime(DTG,16,"%Y%m%d%H%M%S",&tm); //Convert to ASCII string and add metadata below for logging - G8DHE
+			fprintf(fp, "%s, %d, %s, %s, SF%d, EC4:%d, %s, %8.4lfMHz, %d, %d, %s, %5.1lfKHz ,\"%s\"\n",
+								DTG,
+								Channel,
+								Config.LoRaDevices[Channel].ImplicitOrExplicit == IMPLICIT_MODE ? "Implicit" : "Explicit",
+								BandwidthString(Config.LoRaDevices[Channel].Bandwidth),
+								Config.LoRaDevices[Channel].SpreadingFactor >> 4,
+								(Config.LoRaDevices[Channel].ErrorCoding >> 1) + 4,
+								Config.LoRaDevices[Channel].LowDataRateOptimize ? "LDRO on " : "LDRO off",
+								Config.LoRaDevices[Channel].activeFreq,
+								Config.LoRaDevices[Channel].RSSI,
+								Config.LoRaDevices[Channel].SNR,
+								Config.LoRaDevices[Channel].AFC ? "AFC on " : "AFC off",
+								Config.LoRaDevices[Channel].FreqError,
+								Telemetry);
 			fclose(fp);
+		}
+	}
+	else
+	{
+		if (Config.EnableTelemetryLogging);
+		{
+			FILE *fp;
+		
+			if ((fp = fopen("telemetry.txt", "at")) != NULL)
+			{
+				fprintf(fp, "%s\n", Telemetry);
+				fclose(fp);
+			}
 		}
 	}
 }
@@ -691,6 +736,7 @@ void LoadConfigFile()
 	Config.EnableHabitat = 1;
 	Config.EnableSSDV = 1;
 	Config.EnableTelemetryLogging = 0;
+	Config.EnableMetadataLogging = 0; //added extra config for Metadata logging - G8DHE
 	Config.ftpServer[0] = '\0';
 	Config.ftpUser[0] = '\0';
 	Config.ftpPassword[0] = '\0';
@@ -712,6 +758,9 @@ void LoadConfigFile()
 	
 	// Enable logging
 	ReadBoolean(fp, "LogTelemetry", 0, &Config.EnableTelemetryLogging);
+	LogMessage("Log Telemetry = '%s'\n", Config.EnableTelemetryLogging ? "Yes" : "No"); //display config setting - G8DHE
+	ReadBoolean(fp, "LogMetadata", 0, &Config.EnableMetadataLogging);  //read extra config line - G8DHE
+	LogMessage("Log Metadata & Telemetry = '%s'\n", Config.EnableMetadataLogging ? "Yes" : "No"); //display config setting - G8DHE
 
 	// Calling mode
 	Config.CallingTimeout = ReadInteger(fp, "CallingTimeout", 0, 300);
@@ -1184,12 +1233,12 @@ void ProcessTelemetryMessage(int Channel, char *Message)
 		{
 			*endmessage = '\0';
 
-			LogTelemetryPacket(startmessage);
+			LogTelemetryPacket(Channel, startmessage); //Add Channel number to call - G8DHE
 			
 			UploadTelemetryPacket(startmessage);
 
 			ProcessLine(Channel, startmessage);
-		
+			ChannelPrintf(Channel, 3, 1, "Callsign: %-26s",Config.LoRaDevices[Channel].Payload); // Callsign on line 3. left justified 26 characters - G8DHE
 			LogMessage("Ch %d: %s\n", Channel, startmessage);
 		}
 		
@@ -1425,6 +1474,8 @@ int main(int argc, char **argv)
 		
 		for (Channel=0; Channel<=1; Channel++)
 		{
+// LogTelemetryPacket(Channel,"test,string,message"); // Test logging - G8DHE
+//ChannelPrintf(Channel, 3, 1, "Callsign: %-26s","testcallsign"); // test Callsign on line 3 - G8DHE
 			if (Config.LoRaDevices[Channel].InUse)
 			{
 				if (digitalRead(Config.LoRaDevices[Channel].DIO0))
@@ -1464,7 +1515,7 @@ int main(int argc, char **argv)
 							Config.LoRaDevices[Channel].UnknownCount++;
 						}
 						
-						Config.LoRaDevices[Channel].LastPacketAt = time(NULL);
+//						Config.LoRaDevices[Channel].LastPacketAt = time(NULL); //Time posted after all processing complete - not good for logging!  Moved to receiveMessage function.
 						
 						if (Config.LoRaDevices[Channel].InCallingMode && (Config.CallingTimeout > 0))
 						{
