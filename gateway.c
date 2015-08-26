@@ -1238,7 +1238,7 @@ void ProcessTelemetryMessage(int Channel, char *Message)
 			UploadTelemetryPacket(startmessage);
 
 			ProcessLine(Channel, startmessage);
-		
+			ChannelPrintf(Channel, 3, 1, "Callsign: %-26s",Config.LoRaDevices[Channel].Payload); // Callsign on line 3. left justified 26 characters - G8DHE
 			LogMessage("Ch %d: %s\n", Channel, startmessage);
 		}
 		
@@ -1475,7 +1475,7 @@ int main(int argc, char **argv)
 		for (Channel=0; Channel<=1; Channel++)
 		{
 // LogTelemetryPacket(Channel,"test,string,message"); // Test logging - G8DHE
-
+//ChannelPrintf(Channel, 3, 1, "Callsign: %-26s","testcallsign"); // test Callsign on line 3 - G8DHE
 			if (Config.LoRaDevices[Channel].InUse)
 			{
 				if (digitalRead(Config.LoRaDevices[Channel].DIO0))
