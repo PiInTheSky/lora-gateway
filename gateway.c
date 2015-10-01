@@ -29,6 +29,7 @@
 #include "habitat.h"
 #include "network.h"
 #include "global.h"
+#include "server.h"
 
 bool run = TRUE;
 
@@ -538,7 +539,13 @@ void LogTelemetryPacket(char *Telemetry)
 		
 		if ((fp = fopen("telemetry.txt", "at")) != NULL)
 		{
-			fprintf(fp, "%s\n", Telemetry);
+			time_t now;
+			struct tm *tm;
+			
+			now = time(0);
+			tm = localtime(&now);
+		
+			fprintf(fp, "%02d:%02d:%02d - %s\n", tm->tm_hour, tm->tm_min, tm->tm_sec, Telemetry);
 			fclose(fp);
 		}
 	}
@@ -721,6 +728,9 @@ void LoadConfigFile()
 	Config.InternetLED = ReadInteger(fp, "InternetLED", 0, -1);
 	Config.LoRaDevices[0].ActivityLED = ReadInteger(fp, "ActivityLED_0", 0, -1);
 	Config.LoRaDevices[1].ActivityLED = ReadInteger(fp, "ActivityLED_1", 0, -1);
+	
+	// Server Port
+	Config.ServerPort = ReadInteger(fp, "ServerPort", 0, -1);	
 	
 	ReadString(fp, "ftpserver", Config.ftpServer, sizeof(Config.ftpServer), 0);
 	ReadString(fp, "ftpUser", Config.ftpUser, sizeof(Config.ftpUser), 0);
@@ -1182,6 +1192,9 @@ void ProcessTelemetryMessage(int Channel, char *Message)
 
 		if (endmessage != NULL)
 		{
+			time_t now;
+			struct tm *tm;
+			
 			*endmessage = '\0';
 
 			LogTelemetryPacket(startmessage);
@@ -1190,7 +1203,11 @@ void ProcessTelemetryMessage(int Channel, char *Message)
 
 			ProcessLine(Channel, startmessage);
 		
-			LogMessage("Ch %d: %s\n", Channel, startmessage);
+
+			now = time(0);
+			tm = localtime(&now);
+		
+			LogMessage("%02d:%02d:%02d Ch%d: %s\n", tm->tm_hour, tm->tm_min, tm->tm_sec, Channel, startmessage);
 		}
 		
 		// DoPositionCalcs(Channel);
@@ -1334,7 +1351,7 @@ int main(int argc, char **argv)
 	unsigned char Message[257], Command[200], Telemetry[100], *dest, *src;
 	int Bytes, ch;
 	uint32_t LoopCount[2];
-	pthread_t SSDVThread, FTPThread, NetworkThread, HabitatThread;
+	pthread_t SSDVThread, FTPThread, NetworkThread, HabitatThread, ServerThread;
 	WINDOW * mainwin;
 	int LEDCounts[2];
 	
@@ -1408,6 +1425,15 @@ int main(int argc, char **argv)
 	{
 		fprintf(stderr, "Error creating Habitat thread\n");
 		return 1;
+	}
+	
+	if (Config.ServerPort > 0)
+	{
+		if (pthread_create(&ServerThread, NULL, ServerLoop, NULL))
+		{
+			fprintf(stderr, "Error creating server thread\n");
+			return 1;
+		}
 	}
 
 	if ((Config.NetworkLED >= 0) && (Config.InternetLED >= 0))
