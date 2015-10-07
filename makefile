@@ -30,3 +30,6 @@ urlencode.o: urlencode.c
 base64.o: base64.c
 	$(CC) $(CFLAGS) -o base64.o -c base64.c
 
+clean:
+	rm -rf *.o gateway
+
