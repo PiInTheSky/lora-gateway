@@ -1,27 +1,32 @@
+
+CC=gcc
+CFLAGS=-Wall -g -O2
+LDFLAGS=-lm -lwiringPi -lwiringPiDev -lcurl -lncurses -lpthread
+
 gateway: gateway.o urlencode.o base64.o habitat.o ssdv.o ftp.o network.o server.o
-	cc -o gateway gateway.o urlencode.o base64.o habitat.o ssdv.o ftp.o network.o server.o -lm -lwiringPi -lwiringPiDev -lcurl -lncurses -lpthread
+	$(CC) $(LDFLAGS) -o gateway gateway.o urlencode.o base64.o habitat.o ssdv.o ftp.o network.o server.o
 
 gateway.o: gateway.c global.h
-	gcc -c gateway.c
+	$(CC) $(CFLAGS) -o gateway.o -c gateway.c
 
 habitat.o: habitat.c habitat.h global.h
-	gcc -c habitat.c
+	$(CC) $(CFLAGS) -o habitat.o -c habitat.c
 	
 ssdv.o: ssdv.c ssdv.h global.h
-	gcc -c ssdv.c
+	$(CC) $(CFLAGS) -o ssdv.o -c ssdv.c
 	
 ftp.o: ftp.c ftp.h global.h
-	gcc -c ftp.c
+	$(CC) $(CFLAGS) -o ftp.o -c ftp.c
 	
 server.o: server.c server.h global.h
-	gcc -c server.c
+	$(CC) $(CFLAGS) -o server.o -c server.c
 	
 network.o: network.c network.h global.h
-	gcc -c network.c
+	$(CC) $(CFLAGS) -o network.o -c network.c
 	
 urlencode.o: urlencode.c
-	gcc -c urlencode.c
+	$(CC) $(CFLAGS) -o urlencode.o -c urlencode.c
 
 base64.o: base64.c
-	gcc -c base64.c
+	$(CC) $(CFLAGS) -o base64.o -c base64.c
 
