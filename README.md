@@ -32,10 +32,7 @@ Enable SPI in raspi-config.
 
 Install WiringPi:
 
-	1. cd ~
-	2. git clone git://git.drogon.net/wiringPi
-	3. cd wiringPi
-	4. ./build
+	sudo apt-get install wiringpi
 
 Install the curl library:
 
