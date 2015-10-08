@@ -59,6 +59,9 @@ uint8_t currentMode = 0x81;
 #define REG_DETECT_OPT				0x31
 #define	REG_DETECTION_THRESHOLD		0x37
 
+#define REG_LR_VERSION             0x42
+#define REG_PREAMBLE_LENGTH        0x21
+
 // MODES
 #define RF96_MODE_RX_CONTINUOUS     0x85
 #define RF96_MODE_SLEEP             0x80
@@ -122,6 +125,9 @@ struct TPayload
 
 struct TConfig Config;
 struct TPayload Payloads[16];
+
+void myInterrupt0(void);
+void myInterrupt1(void);
 
 #pragma pack(1)
 
@@ -213,9 +219,13 @@ void setMode(int Channel, uint8_t newMode)
   if(newMode == currentMode)
     return;  
   
+  digitalWrite(Config.LoRaDevices[Channel].RXEN, 0);
+  digitalWrite(Config.LoRaDevices[Channel].TXEN, 0);
+  
   switch (newMode) 
   {
     case RF96_MODE_RX_CONTINUOUS:
+      digitalWrite(Config.LoRaDevices[Channel].RXEN, 1);
       writeRegister(Channel, REG_PA_CONFIG, PA_OFF_BOOST);  // TURN PA OFF FOR RECIEVE??
       writeRegister(Channel, REG_LNA, LNA_MAX_GAIN);  // LNA_MAX_GAIN);  // MAX GAIN FOR RECIEVE
       writeRegister(Channel, REG_OPMODE, newMode);
@@ -368,6 +378,10 @@ void setupRFM98(int Channel)
 		// initialize the pins
 		pinMode(Config.LoRaDevices[Channel].DIO0, INPUT);
 		pinMode(Config.LoRaDevices[Channel].DIO5, INPUT);
+		pinMode(Config.LoRaDevices[Channel].TXEN, OUTPUT);
+		pinMode(Config.LoRaDevices[Channel].RXEN, OUTPUT);
+
+		wiringPiISR (Config.LoRaDevices[Channel].DIO0, INT_EDGE_RISING, Channel>0 ? &myInterrupt1 : &myInterrupt0);
 
 		if (wiringPiSPISetup(Channel, 500000) < 0)
 		{
@@ -763,7 +777,13 @@ void LoadConfigFile()
 			sprintf(Keyword, "DIO5_%d", Channel);
 			Config.LoRaDevices[Channel].DIO5 = ReadInteger(fp, Keyword, 0, Config.LoRaDevices[Channel].DIO5);
 
+			sprintf(Keyword, "RXEN_%d", Channel);
+			Config.LoRaDevices[Channel].RXEN = ReadInteger(fp, Keyword, 0, Config.LoRaDevices[Channel].RXEN);
+			sprintf(Keyword, "TXEN_%d", Channel);
+			Config.LoRaDevices[Channel].TXEN = ReadInteger(fp, Keyword, 0, Config.LoRaDevices[Channel].TXEN);
+
 			LogMessage("LoRa Channel %d DIO0=%d DIO5=%d\n", Channel, Config.LoRaDevices[Channel].DIO0, Config.LoRaDevices[Channel].DIO5);
+			LogMessage("LoRa Channel %d RXEN=%d TXEN=%d\n", Channel, Config.LoRaDevices[Channel].RXEN, Config.LoRaDevices[Channel].TXEN);
 			
 			Config.LoRaDevices[Channel].SpeedMode = 0;
 			sprintf(Keyword, "mode_%d", Channel);
@@ -881,9 +901,9 @@ void LoadConfigFile()
 			sprintf(Keyword, "implicit_%d", Channel);
 			if (ReadBoolean(fp, Keyword, 0, &Temp))
 			{
-				if (Temp)
+				//if (Temp)
 				{
-					Config.LoRaDevices[Channel].ImplicitOrExplicit = IMPLICIT_MODE;
+					Config.LoRaDevices[Channel].ImplicitOrExplicit = Temp ? IMPLICIT_MODE : EXPLICIT_MODE;
 				}
 			}
 			
@@ -1346,14 +1366,65 @@ int prog_count(char* name)
 	return Count;
 }
 
-int main(int argc, char **argv)
-{
+int LEDCounts[2];
 	unsigned char Message[257], Command[200], Telemetry[100], *dest, *src;
 	int Bytes, ch;
 	uint32_t LoopCount[2];
 	pthread_t SSDVThread, FTPThread, NetworkThread, HabitatThread, ServerThread;
 	WINDOW * mainwin;
-	int LEDCounts[2];
+
+void myInterrupt(int Channel) {
+						if (Config.LoRaDevices[Channel].ActivityLED >= 0)
+						{
+							digitalWrite(Config.LoRaDevices[Channel].ActivityLED, 1);
+							LEDCounts[Channel] = 5;
+						}
+						// LogMessage("Channel %d data available - %d bytes\n", Channel, Bytes);
+						// LogMessage("Line = '%s'\n", Message);
+
+						if (Message[1] == '!')
+						{
+							ProcessUploadMessage(Channel, Message+1);
+						}
+						else if (Message[1] == '^')
+						{
+							ProcessCallingMessage(Channel, Message+1);
+						}
+						else if (Message[1] == '$')
+						{
+							ProcessTelemetryMessage(Channel, Message+1);
+						}
+						else if (Message[1] == 0x66)
+						{
+							ProcessSSDVMessage(Channel, Message);
+						}
+						else
+						{
+							LogMessage("Unknown packet type is %02Xh, RSSI %d\n", Message[1], readRegister(Channel, REG_PACKET_RSSI) - 157);
+							ChannelPrintf(Channel, 4, 1, "Unknown Packet %d, %d bytes", Message[0], Bytes);
+							Config.LoRaDevices[Channel].UnknownCount++;
+						}
+						
+						Config.LoRaDevices[Channel].LastPacketAt = time(NULL);
+						
+						if (Config.LoRaDevices[Channel].InCallingMode && (Config.CallingTimeout > 0))
+						{
+							Config.LoRaDevices[Channel].ReturnToCallingModeAt = time(NULL) + Config.CallingTimeout;
+						}
+						
+
+						ShowPacketCounts(Channel);
+}
+ 
+void myInterrupt0(void) {
+	myInterrupt(0);
+}
+void myInterrupt1(void) {
+	myInterrupt(1);
+}
+
+int main(int argc, char **argv)
+{
 	
 	if (prog_count("gateway") > 1)
 	{
@@ -1444,6 +1515,8 @@ int main(int argc, char **argv)
 			return 1;
 		}
 	}
+	
+
 
 	while (run)
 	{
@@ -1453,55 +1526,6 @@ int main(int argc, char **argv)
 		{
 			if (Config.LoRaDevices[Channel].InUse)
 			{
-				if (digitalRead(Config.LoRaDevices[Channel].DIO0))
-				{
-					Bytes = receiveMessage(Channel, Message+1);
-					
-					if (Bytes > 0)
-					{
-						if (Config.LoRaDevices[Channel].ActivityLED >= 0)
-						{
-							digitalWrite(Config.LoRaDevices[Channel].ActivityLED, 1);
-							LEDCounts[Channel] = 5;
-						}
-						// LogMessage("Channel %d data available - %d bytes\n", Channel, Bytes);
-						// LogMessage("Line = '%s'\n", Message);
-
-						if (Message[1] == '!')
-						{
-							ProcessUploadMessage(Channel, Message+1);
-						}
-						else if (Message[1] == '^')
-						{
-							ProcessCallingMessage(Channel, Message+1);
-						}
-						else if (Message[1] == '$')
-						{
-							ProcessTelemetryMessage(Channel, Message+1);
-						}
-						else if (Message[1] == 0x66)
-						{
-							ProcessSSDVMessage(Channel, Message);
-						}
-						else
-						{
-							LogMessage("Unknown packet type is %02Xh, RSSI %d\n", Message[1], readRegister(Channel, REG_PACKET_RSSI) - 157);
-							ChannelPrintf(Channel, 4, 1, "Unknown Packet %d, %d bytes", Message[0], Bytes);
-							Config.LoRaDevices[Channel].UnknownCount++;
-						}
-						
-						Config.LoRaDevices[Channel].LastPacketAt = time(NULL);
-						
-						if (Config.LoRaDevices[Channel].InCallingMode && (Config.CallingTimeout > 0))
-						{
-							Config.LoRaDevices[Channel].ReturnToCallingModeAt = time(NULL) + Config.CallingTimeout;
-						}
-						
-
-						ShowPacketCounts(Channel);
-					}
-				}
-				
 				if (++LoopCount[Channel] > 1000000)
 				{
 					LoopCount[Channel] = 0;

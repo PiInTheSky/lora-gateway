@@ -5,6 +5,8 @@ struct TLoRaDevice
 	int InUse;
 	int DIO0;
 	int DIO5;
+	int TXEN;
+	int RXEN;
 	char Frequency[16];
 	double activeFreq;
 	bool AFC;	

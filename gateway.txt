@@ -15,6 +15,8 @@ mode_0=1
 DIO0_0=31
 DIO5_0=26
 AFC_0=Y
+RXEN_0=5
+TXEN_0=6
 
 frequency_1=434.450
 mode_1=2
