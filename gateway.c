@@ -1185,6 +1185,9 @@ void ProcessTelemetryMessage(int Channel, char *Message)
 		startmessage = endmessage;
 		endmessage = strchr(startmessage, '\n');
 
+		if(endmessage == NULL)
+                	endmessage = strrchr(startmessage, '*')+5;
+
 		if (endmessage != NULL)
 		{
 			time_t now;
@@ -1473,6 +1476,10 @@ int main(int argc, char **argv)
 						else if (Message[1] == '$')
 						{
 							ProcessTelemetryMessage(Channel, (char *) Message+1);
+						}
+						else if (Message[1] == 'L')
+						{
+							ProcessTelemetryMessage(Channel, (char *) Message+7);
 						}
 						else if (Message[1] == 0x66)
 						{
