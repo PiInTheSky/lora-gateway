@@ -49,6 +49,7 @@ struct TConfig
 	struct TLoRaDevice LoRaDevices[2];
 	int NetworkLED;
 	int InternetLED;
+	int ServerPort;
 };
 
 extern struct TConfig Config;

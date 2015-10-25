@@ -1,9 +1,10 @@
-#include <stdio.h>
+
 #include <stdio.h>
 #include <curl/curl.h>
 #include <stdlib.h>
 #include <fcntl.h>
 #include <string.h>
+#include <strings.h>
 #include <sys/ioctl.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -29,6 +30,7 @@
 #include "habitat.h"
 #include "network.h"
 #include "global.h"
+#include "server.h"
 
 bool run = TRUE;
 
@@ -265,7 +267,6 @@ void setFrequency(int Channel, double Frequency)
 void setLoRaMode(int Channel)
 {
 	double Frequency;
-	unsigned long FrequencyValue;
 
 	// LogMessage("Setting LoRa Mode\n");
 	setMode(Channel, RF96_MODE_SLEEP);
@@ -408,6 +409,8 @@ double FrequencyReference(int Channel)
 		case  BANDWIDTH_250K:   return 250000; 
 		case  BANDWIDTH_500K:   return 500000; 
 	}
+	
+	return 0;
 }
 
 double FrequencyError(int Channel)
@@ -511,7 +514,7 @@ static char *decode_callsign(char *callsign, uint32_t code)
 	return(callsign);
 }
 
-void ConvertStringToHex(unsigned char *Target, unsigned char *Source, int Length)
+void ConvertStringToHex(char *Target, unsigned char *Source, int Length)
 {
 	const char Hex[16] = "0123456789ABCDEF";
 	int i;
@@ -538,7 +541,13 @@ void LogTelemetryPacket(char *Telemetry)
 		
 		if ((fp = fopen("telemetry.txt", "at")) != NULL)
 		{
-			fprintf(fp, "%s\n", Telemetry);
+			time_t now;
+			struct tm *tm;
+			
+			now = time(0);
+			tm = localtime(&now);
+		
+			fprintf(fp, "%02d:%02d:%02d - %s\n", tm->tm_hour, tm->tm_min, tm->tm_sec, Telemetry);
 			fclose(fp);
 		}
 	}
@@ -721,6 +730,9 @@ void LoadConfigFile()
 	Config.InternetLED = ReadInteger(fp, "InternetLED", 0, -1);
 	Config.LoRaDevices[0].ActivityLED = ReadInteger(fp, "ActivityLED_0", 0, -1);
 	Config.LoRaDevices[1].ActivityLED = ReadInteger(fp, "ActivityLED_1", 0, -1);
+	
+	// Server Port
+	Config.ServerPort = ReadInteger(fp, "ServerPort", 0, -1);	
 	
 	ReadString(fp, "ftpserver", Config.ftpServer, sizeof(Config.ftpServer), 0);
 	ReadString(fp, "ftpUser", Config.ftpUser, sizeof(Config.ftpUser), 0);
@@ -913,9 +925,6 @@ void LoadPayloadFile(int ID)
 {
 	FILE *fp;
 	char filename[16];
-	char Keyword[32];
-	int Channel, Temp;
-	char TempString[16];
 	
 	sprintf(filename, "payload_%d.txt", ID);
 
@@ -998,20 +1007,18 @@ void CloseDisplay(WINDOW * mainwin)
 	
 void ProcessLine(int Channel, char *Line)
 {
-	int FieldCount; 
-
-	FieldCount = sscanf(Line+2, "%15[^,],%u,%8[^,],%lf,%lf,%u",
-						&(Config.LoRaDevices[Channel].Payload),
-						&(Config.LoRaDevices[Channel].Counter),
-						&(Config.LoRaDevices[Channel].Time),
-						&(Config.LoRaDevices[Channel].Latitude),
-						&(Config.LoRaDevices[Channel].Longitude),
-						&(Config.LoRaDevices[Channel].Altitude));
-						
+	sscanf(Line+2, "%15[^,],%u,%8[^,],%lf,%lf,%u",
+				Config.LoRaDevices[Channel].Payload,
+				&Config.LoRaDevices[Channel].Counter,
+				Config.LoRaDevices[Channel].Time,
+				&Config.LoRaDevices[Channel].Latitude,
+				&Config.LoRaDevices[Channel].Longitude,
+				&Config.LoRaDevices[Channel].Altitude);
+	
 	// HAB->HAB_status = FieldCount == 6;
 }
 
-void DoPositionCalcs(Channel)
+void DoPositionCalcs(int Channel)
 {	
 	unsigned long Now;
 	struct tm tm;
@@ -1042,11 +1049,10 @@ void DoPositionCalcs(Channel)
 
 uint16_t CRC16(unsigned char *ptr)
 {
-    uint16_t CRC, xPolynomial;
+    uint16_t CRC;
 	int j;
 	
     CRC = 0xffff;           // Seed
-    xPolynomial = 0x1021;
    
     for (; *ptr; ptr++)
     {   // For speed, repeat calculation instead of looping for each bit
@@ -1130,7 +1136,7 @@ void ProcessCallingMessage(int Channel, char *Message)
 	
 	ChannelPrintf(Channel, 4, 1, "Calling message %d bytes ", strlen(Message));
 													
-	if (sscanf(Message+2, "%15[^,],%lf,%d,%d,%d,%d,%d,%d",
+	if (sscanf(Message+2, "%15[^,],%lf,%d,%d,%d,%d,%d,%*d",
 						Payload,
 						&Frequency,
 						&ImplicitOrExplicit,
@@ -1170,8 +1176,7 @@ void ProcessTelemetryMessage(int Channel, char *Message)
 {
 	if (strlen(Message+1) < 150)
 	{
-		int i;
-		unsigned char *startmessage, *endmessage;
+		char *startmessage, *endmessage;
 
 		ChannelPrintf(Channel, 4, 1, "Telemetry %d bytes       ", strlen(Message+1));
 
@@ -1182,6 +1187,9 @@ void ProcessTelemetryMessage(int Channel, char *Message)
 
 		if (endmessage != NULL)
 		{
+			time_t now;
+			struct tm *tm;
+			
 			*endmessage = '\0';
 
 			LogTelemetryPacket(startmessage);
@@ -1190,7 +1198,11 @@ void ProcessTelemetryMessage(int Channel, char *Message)
 
 			ProcessLine(Channel, startmessage);
 		
-			LogMessage("Ch %d: %s\n", Channel, startmessage);
+
+			now = time(0);
+			tm = localtime(&now);
+		
+			LogMessage("%02d:%02d:%02d Ch%d: %s\n", tm->tm_hour, tm->tm_min, tm->tm_sec, Channel, startmessage);
 		}
 		
 		// DoPositionCalcs(Channel);
@@ -1199,14 +1211,14 @@ void ProcessTelemetryMessage(int Channel, char *Message)
 	}
 }
 
-void ProcessSSDVMessage(int Channel, char *Message)
+void ProcessSSDVMessage(int Channel, unsigned char *Message)
 {
 	// SSDV packet
 	static uint32_t PreviousCallsignCode=0;
 	static int PreviousImageNumber=-1, PreviousPacketNumber=0;
 	uint32_t CallsignCode;
-	char Callsign[7], *FileMode, *EncodedCallsign, *EncodedEncoding, *Base64Data, *EncodedData, HexString[513], Command[1000];
-	int output_length, ImageNumber, PacketNumber;
+	char Callsign[7], *FileMode, *EncodedCallsign, *EncodedEncoding, *EncodedData, HexString[513];
+	int ImageNumber, PacketNumber;
 	char filename[100];
 	FILE *fp;
 	
@@ -1250,7 +1262,7 @@ void ProcessSSDVMessage(int Channel, char *Message)
 	
 	sprintf(filename, "/tmp/%s_%d.bin", Callsign, ImageNumber);
 
-	if (fp = fopen(filename, FileMode))
+	if ((fp = fopen(filename, FileMode)))
 	{
 		fwrite(Message, 1, 256, fp); 
 		fclose(fp);
@@ -1331,10 +1343,10 @@ int prog_count(char* name)
 
 int main(int argc, char **argv)
 {
-	unsigned char Message[257], Command[200], Telemetry[100], *dest, *src;
+	unsigned char Message[257];
 	int Bytes, ch;
 	uint32_t LoopCount[2];
-	pthread_t SSDVThread, FTPThread, NetworkThread, HabitatThread;
+	pthread_t SSDVThread, FTPThread, NetworkThread, HabitatThread, ServerThread;
 	WINDOW * mainwin;
 	int LEDCounts[2];
 	
@@ -1409,6 +1421,15 @@ int main(int argc, char **argv)
 		fprintf(stderr, "Error creating Habitat thread\n");
 		return 1;
 	}
+	
+	if (Config.ServerPort > 0)
+	{
+		if (pthread_create(&ServerThread, NULL, ServerLoop, NULL))
+		{
+			fprintf(stderr, "Error creating server thread\n");
+			return 1;
+		}
+	}
 
 	if ((Config.NetworkLED >= 0) && (Config.InternetLED >= 0))
 	{
@@ -1443,15 +1464,15 @@ int main(int argc, char **argv)
 
 						if (Message[1] == '!')
 						{
-							ProcessUploadMessage(Channel, Message+1);
+							ProcessUploadMessage(Channel, (char *) Message+1);
 						}
 						else if (Message[1] == '^')
 						{
-							ProcessCallingMessage(Channel, Message+1);
+							ProcessCallingMessage(Channel, (char *) Message+1);
 						}
 						else if (Message[1] == '$')
 						{
-							ProcessTelemetryMessage(Channel, Message+1);
+							ProcessTelemetryMessage(Channel, (char *) Message+1);
 						}
 						else if (Message[1] == 0x66)
 						{
