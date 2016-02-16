@@ -1,23 +1,27 @@
-tracker=M0RPI/M
+tracker=CALLSIGN
 EnableHabitat=Y
-EnableSSDV=N
+EnableSSDV=Y
+JPGFolder=ssdv
 LogTelemetry=Y
 CallingTimeout=60
-ServerPort=6004
+#ServerPort=6004
+Latitude=51.95023
+Longitude=-2.5445 
+#SMSFolder=./
 
 #NetworkLED=21
 #InternetLED=22
 #ActivityLED_0=23
 #ActivityLED_1=24
 
-#frequency_0=434.450
+frequency_0=434.300
 mode_0=1
 DIO0_0=31
 DIO5_0=26
-AFC_0=Y
+AFC_0=N
 
-frequency_1=434.450
-mode_1=2
+#frequency_1=434.400
+mode_1=1
 DIO0_1=27
 DIO5_1=26
-AFC_1=N
+AFC_1=Y
