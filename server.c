@@ -20,12 +20,16 @@
 #include "server.h"
 #include "global.h"
 
+extern bool run;
+extern bool server_closed;
+
 void *ServerLoop(void *some_void_ptr)
 {
     int listenfd = 0, connfd = 0;
     struct sockaddr_in serv_addr; 
 
     char sendBuff[1025];
+    time_t ticks; 
 
     listenfd = socket(AF_INET, SOCK_STREAM, 0);
     memset(&serv_addr, '0', sizeof(serv_addr));
@@ -37,11 +41,20 @@ void *ServerLoop(void *some_void_ptr)
 	
 	LogMessage("Listening on port %d\n", Config.ServerPort);
 
-    bind(listenfd, (struct sockaddr*)&serv_addr, sizeof(serv_addr)); 
+	if (setsockopt(listenfd, SOL_SOCKET, SO_REUSEADDR, &(int){ 1 }, sizeof(int)) < 0)
+    {
+		LogMessage("setsockopt(SO_REUSEADDR) failed");
+	}
+	
+    if (bind(listenfd, (struct sockaddr*)&serv_addr, sizeof(serv_addr)) < 0)
+	{
+		LogMessage("Server failed errno %d\n", errno);
+		return;
+	}
 
     listen(listenfd, 10); 
 
-    while (1)
+    while (run)
     {
 		int port_closed;
 		
@@ -64,8 +77,12 @@ void *ServerLoop(void *some_void_ptr)
 						Config.LoRaDevices[Channel].Altitude,
 						Config.LoRaDevices[Channel].AscentRate);
 			
-			
-			if (send(connfd, sendBuff, strlen(sendBuff), MSG_NOSIGNAL) <= 0)
+
+			if (!run)
+			{
+				port_closed = 1;
+			}
+			else if (send(connfd, sendBuff, strlen(sendBuff), MSG_NOSIGNAL) <= 0)
 			{
 				LogMessage("Disconnected from client\n");
 				port_closed = 1;

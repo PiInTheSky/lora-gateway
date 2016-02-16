@@ -6,7 +6,7 @@ Also works with other compatible HopeRF and Semtec LoRa devices.
 Connections
 ===========
 
-Connect the LoRa module to the Pi A+/B+ like so:
+If you're making your own board for the Pi, connect the LoRa module(s) like so:
 
 LORA     PI
 ====    ====
@@ -19,11 +19,6 @@ SCK		SLCK
 DIO0	Wiring Pi 31 (Pin 28) (Wiring Pi 6 (pin 22) for 2nd module)
 DIO5	Wiring Pi 26 (Pin 32) (Wiring Pi 5 (pin 18) for 2nd module)
 
-For the model A/B boards, use the following for DIO0/DIO5:
-
-DIO0	Wiring Pi 6 (Pin 22) (Wiring Pi 1 (pin 12) for 2nd module)
-DIO5	Wiring Pi 5 (Pin 18) (Wiring Pi 0 (pin 11) for 2nd module)
-
 
 Installation
 ============
@@ -32,7 +27,10 @@ Enable SPI in raspi-config.
 
 Install WiringPi:
 
-	sudo apt-get install wiringpi
+	1. cd ~
+	2. git clone git://git.drogon.net/wiringPi
+	3. cd wiringPi
+	4. ./build
 
 Install the curl library:
 
@@ -74,7 +72,7 @@ The configuration is in the file gateway.txt.  Example:
 	DIO5_1=5
 	AFC_1=Y
 
-The options are:
+The global options are:
 	
 	tracker=<callsign>.  This is whatever callsign you want to appear as on the tracking map and/or SSDV page.
 	
@@ -82,9 +80,26 @@ The options are:
 	
 	EnableSSDV=<Y/N>.  Enables uploading of SSDV image packets to the SSDV server.
 	
-	LogTelemetry=<Y/N>.  Enables logging of telemetry packets (ASCII only at present) to telemetry.txt.
+	JPEGFolder=<folder>.  Tells the gateway where to save local JPEG files built from incoming SSDV packets.
+
+	LogTelemetry=<Y/N>.  Enables logging of telemetry packets (ASCII only at present) to telemetry.txt.	
 	
+	SMSFolder=<folder>.  Tells the gateway to check for incoming SMS messages or tweets that should be sent to the tracker via the uplink.
+
 	CallingTimeout=<seconds>.  Sets a timeout for returning to calling mode after a period with no received packets.
+	
+	ServerPort=<port>.  Opens a server socket which can have 1 client connected.  Sends JSON telemetry and status information to that client.
+	
+	Latitude=<decimal position>
+	Longitude=<decimal position>.  These let you tell the gateway your position, for uploading to habitat
+	
+	NetworkLED=<wiring pi pin>
+	InternetLED=<wiring pi pin>
+	ActivityLED_0=<wiring pi pin>
+	ActivityLED_1=<wiring pi pin>.  These are used for LED status indicators. Useful for packaged gateways that don't have a monitor attached.
+	
+	
+and the channel-specific options are:
 	
 	frequency_<n>=<freq in MHz>.  This sets the frequency for LoRa module <n> (0 for first, 1 for second).  e.g. frequency_0=434.450
 	
@@ -109,15 +124,76 @@ The options are:
 	Coding_<n>=<error_coding>.  e.g. Coding_0=5 (4:5)
 	
 	lowopt_<n>=<Y/N>.  Enables or disables low data rate optimization.
-
 	
+	power_<n>=<power>.  This is the power setting used for uplinks.  Refer to the LoRa manual for details on setting this.  ** Only set values that are legal in your location (for EU see IR2030) **
+
+	UplinkTime_0=<seconds>.  When to send any uplink messages, measured as seconds into each cycle.
+	
+	UplinkCycle_0=<seconds>.  Cycle time for uplinks.  First cycle starts at 00:00:00.  So for uplink time=2 and cycle=30, any transmissions will start at 2 and 32 seconds after each minute.
+	
+Lines are commented out with "#" at the start.
+
+If the frequency_n line is commented out, then that channel is disabled.
+
+
+Uplinks
+=======
+
+The gateway can uplink messages to the tracker.  Currently this is restricted to time-based uplink slots using "UplinkTime" and "UplinkCycle".
+
+The code uses Linux system time, so the gateway should ideally be using a GPS receiver the GPSD daemon.  NTP may prove sufficient however.
+
+For uplinks to work, both UplinkTime and UplinkCycle have to be set for the appropriate channel.
+
+There are currently two types of uplink supported:
+
+	-	Uplink of messages from the "SMSFolder" folder.  For this to work, "SMSFolder" has to be defined and present.  The gateway will then check for "*.sms" files in that folder.
+	-	Uplink of SSD packet re-send requests.  The gateway looks for an "uplink.txt" file in the gateway folder.  The file is created by an external Python script (supplied) which interrogates the SSDV server.
+ 
+
+Calling Mode
+============
+
+It is possible for trackers to send out messages on a special "calling channel" as well as telemetry on their main frequency.  The calling channel messages state the main frequency and LoRa modes.
+
+This allows for gateways tp be normally left on the calling channel, so they then switch to each tracker as it comes within range.
+
+There's nothing special about "calling mode" except that after a period (CallingTimeout seconds) of time without packets, the gateway returns to its default settings.
+
+There is no current standard claling channel.
+
+
 Use
 ===
 
 Run with:
 
 	sudo ./gateway
-		
+
+
+Display
+=======
+
+The display has a title bar at the top, scrolling log at the bottom, and 2 channel panels in the middle.  Each panel shows something like:
+
+	Channel 0 869.8500MHz
+	Explicit, 250k, SF7, EC4:6
+	Telemetry 74 bytes
+	51.95028, -2.54443, 00138
+	Habitat        SSDV 0000
+	0s since last packet
+	Telem Packets = 37
+	Image Packets = 0
+	Bad CRC = 0 Bad Type = 0
+	Packet SNR = 10, RSSI = -67
+	Freq. Error =   1.0kHz
+	Current RSSI =  -64
+
+The "Habitat" text appears during uploads to habitat.  Normally it will flash up then disappear quickly; if it stays on (not flickering) then the upload is slow.
+
+The "SSDV 0000" text shows the current state of the SSDV upload buffers.  There are 4 upload threads and each can handle up to 16 (0-9-A-F) packets in its queue.
+Normally, even with fast SSDV, uplinks should happen quickly enough for there to be no more than 1 or 2 active threads each with 1 packet being uploaded.
+
 
 Interactive Features
 ====================
@@ -135,3 +211,15 @@ Many thanks to David Brooke for coding this feature and the AFC.
 	c	decrease frequency by 1kHz
 
 	f	toggle AFC
+
+Change History
+==============
+
+16/02/2016	-	JSON telemetry feed via a server port
+				JPEGFolder setting
+				Uplink of text messages	to tracker (e.g. accepted from Twitter by an external script)
+				Uplink of SSDV re-send requests.  These requests are built by an external Python script.
+				Separate thread for uploading latest telemetry to habitat
+				4 separate threads for uploading SSDV packets to the SSDV server
+				Slightly different display layout, with extra information
+				

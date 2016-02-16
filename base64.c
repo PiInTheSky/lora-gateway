@@ -74,10 +74,10 @@ unsigned char *base64_decode(const char *data,
 
     for (i = 0, j = 0; i < input_length;) {
 
-        uint32_t sextet_a = data[i] == '=' ? 0 & i++ : decoding_table[(unsigned char) data[i++]];
-        uint32_t sextet_b = data[i] == '=' ? 0 & i++ : decoding_table[(unsigned char) data[i++]];
-        uint32_t sextet_c = data[i] == '=' ? 0 & i++ : decoding_table[(unsigned char) data[i++]];
-        uint32_t sextet_d = data[i] == '=' ? 0 & i++ : decoding_table[(unsigned char) data[i++]];
+        uint32_t sextet_a = data[i] == '=' ? 0 & i++ : decoding_table[data[i++]];
+        uint32_t sextet_b = data[i] == '=' ? 0 & i++ : decoding_table[data[i++]];
+        uint32_t sextet_c = data[i] == '=' ? 0 & i++ : decoding_table[data[i++]];
+        uint32_t sextet_d = data[i] == '=' ? 0 & i++ : decoding_table[data[i++]];
 
         uint32_t triple = (sextet_a << 3 * 6)
         + (sextet_b << 2 * 6)

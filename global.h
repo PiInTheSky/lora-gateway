@@ -1,5 +1,34 @@
 #include <curses.h>
 
+struct TThreadArguments
+{
+    int Index;
+};
+
+struct TSSDVPacket
+{
+	unsigned char Packet[256];
+	char InUse;
+	char Callsign[7];
+};
+
+struct TSSDVPacketArray
+{
+	struct TSSDVPacket Packets[16];
+};
+
+struct TSSDVPacketArrays
+{
+	struct TSSDVPacketArray Packets[4];
+};
+
+struct TSSDVPackets
+{
+	int ImageNumber;
+	int HighestPacket;
+	bool Packets[1024];
+};
+
 struct TLoRaDevice
 {
 	int InUse;
@@ -9,6 +38,7 @@ struct TLoRaDevice
 	double activeFreq;
 	bool AFC;	
 	int SpeedMode;
+	int Power;
 	int PayloadLength;
 	int ImplicitOrExplicit;
 	int ErrorCoding;
@@ -19,10 +49,13 @@ struct TLoRaDevice
 	
 	WINDOW *Window;
 	
-	unsigned int TelemetryCount, SSDVCount, BadCRCCount, UnknownCount, SSDVMissing;
+	unsigned int TelemetryCount, SSDVCount, BadCRCCount, UnknownCount;
 	
+	int Sending;
+	
+	char Telemetry[256];
 	char Payload[16], Time[12];
-	unsigned int Counter;
+	unsigned int Counter, LastCounter;
 	unsigned long Seconds;
 	double Longitude, Latitude;
 	unsigned int Altitude, PreviousAltitude;
@@ -33,6 +66,13 @@ struct TLoRaDevice
 	time_t ReturnToCallingModeAt;
 	int InCallingMode;
 	int ActivityLED;
+
+	// Normal (non TDM) uplink
+	int UplinkTime;
+	int UplinkCycle;
+	
+	// SSDV Packet Log
+	struct TSSDVPackets SSDVPackets[3];
 };
 
 struct TConfig
@@ -42,6 +82,7 @@ struct TConfig
 	int EnableSSDV;
 	int EnableTelemetryLogging;
 	int CallingTimeout;
+	char SSDVJpegFolder[100];
 	char ftpServer[100];
 	char ftpUser[32];
 	char ftpPassword[32];
@@ -50,8 +91,11 @@ struct TConfig
 	int NetworkLED;
 	int InternetLED;
 	int ServerPort;
+	float latitude, longitude;
+	char SMSFolder[64];
 };
 
 extern struct TConfig Config;
+extern struct TSSDVPacketArrays SSDVPacketArrays;
 
 void LogMessage(const char *format, ...);

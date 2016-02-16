@@ -18,7 +18,6 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <netdb.h>
-#include <wiringPi.h>
 #include "network.h"
 #include "global.h"
 
@@ -59,14 +58,14 @@ int HaveAnIPAddress(void)
 
 int CanSeeTheInternet(void)
 {
-	struct addrinfo hints, *res;
-	int sockfd, FoundInternet;
+	struct addrinfo hints, *res, *p;
+	int status, sockfd, FoundInternet;
 	
 	memset(&hints, 0, sizeof hints);
 	hints.ai_family = AF_UNSPEC; // AF_INET or AF_INET6 to force version
 	hints.ai_socktype = SOCK_STREAM;
 
-	if (getaddrinfo("google.com", "80", &hints, &res) != 0)
+	if ((status = getaddrinfo("google.com", "80", &hints, &res)) != 0)
 	{
 		return 0;
 	}

@@ -23,15 +23,16 @@ void ConvertFile(char *FileName)
 	
 	strcpy(TargetFile, FileName);
 	ptr = strchr(TargetFile, '.');
-	if (ptr)
+	if (ptr && Config.SSDVJpegFolder[0])
 	{
 		*ptr = '\0';
 		strcat(TargetFile, ".JPG");
 		
 		// Now convert the file
-		LogMessage("Converting %s to %s\n", FileName, TargetFile);
+		// LogMessage("Converting %s to %s\n", FileName, TargetFile);
 
-		sprintf(CommandLine, "ssdv -d /tmp/%s %s 2> /dev/null > /dev/null", FileName, TargetFile);
+		sprintf(CommandLine, "ssdv -d /tmp/%s %s/%s 2> /dev/null > /dev/null", FileName, Config.SSDVJpegFolder, TargetFile);
+		// LogMessage("COMMAND %s\n", CommandLine);
 		system(CommandLine);	
 				
 		if (Config.ftpServer[0] && Config.ftpUser[0] && Config.ftpPassword[0])
@@ -59,7 +60,7 @@ void *FTPLoop(void *some_void_ptr)
 		dp = opendir(SSDVFolder);
 		if (dp != NULL)
 		{
-			while ((ep = readdir (dp)))
+			while (ep = readdir (dp))
 			{
 				if (strstr(ep->d_name, ".bin") != NULL)
 				{
@@ -72,7 +73,7 @@ void *FTPLoop(void *some_void_ptr)
 					}
 					else if ((time(0) - st.st_mtime) > 120)
 					{
-						sprintf(TempName, "/tmp/%s", ep->d_name);
+						sprintf(TempName, "%s/%s", SSDVFolder, ep->d_name);
 						LogMessage("Removing %s\n", TempName);
 						remove(TempName);
 					}
@@ -84,4 +85,3 @@ void *FTPLoop(void *some_void_ptr)
 		sleep(5);
 	}
 }
-
