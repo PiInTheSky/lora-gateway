@@ -8,16 +8,16 @@ Connections
 
 If you're making your own board for the Pi, connect the LoRa module(s) like so:
 
-LORA     PI
-====    ====
-3.3V	3.3V Power
-GND		Ground
-MOSI	MOSI (pin 19)
-MISO	MISO (pin 21)
-NSS		CE0 (pin 24) (CE1 (pin 26) for 2nd module)
-SCK		SLCK
-DIO0	Wiring Pi 31 (Pin 28) (Wiring Pi 6 (pin 22) for 2nd module)
-DIO5	Wiring Pi 26 (Pin 32) (Wiring Pi 5 (pin 18) for 2nd module)
+	LORA     PI
+	----     --
+	3.3V	3.3V Power
+	GND		Ground
+	MOSI	MOSI (pin 19)
+	MISO	MISO (pin 21)
+	NSS		CE0 (pin 24) (CE1 (pin 26) for 2nd module)
+	SCK		SLCK
+	DIO0	Wiring Pi 31 (Pin 28) (Wiring Pi 6 (pin 22) for 2nd module)
+	DIO5	Wiring Pi 26 (Pin 32) (Wiring Pi 5 (pin 18) for 2nd module)
 
 
 Installation
@@ -215,11 +215,14 @@ Many thanks to David Brooke for coding this feature and the AFC.
 Change History
 ==============
 
-16/02/2016	-	JSON telemetry feed via a server port
-				JPEGFolder setting
-				Uplink of text messages	to tracker (e.g. accepted from Twitter by an external script)
-				Uplink of SSDV re-send requests.  These requests are built by an external Python script.
-				Separate thread for uploading latest telemetry to habitat
-				4 separate threads for uploading SSDV packets to the SSDV server
-				Slightly different display layout, with extra information
-				
+16/02/2016
+----------
+
+	JSON telemetry feed via a server port
+	JPEGFolder setting
+	Uplink of text messages	to tracker (e.g. accepted from Twitter by an external script)
+	Uplink of SSDV re-send requests.  These requests are built by an external Python script.
+	Separate thread for uploading latest telemetry to habitat
+	4 separate threads for uploading SSDV packets to the SSDV server
+	Slightly different display layout, with extra information
+
