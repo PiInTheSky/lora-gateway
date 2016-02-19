@@ -91,7 +91,8 @@ The global options are:
 	ServerPort=<port>.  Opens a server socket which can have 1 client connected.  Sends JSON telemetry and status information to that client.
 	
 	Latitude=<decimal position>
-	Longitude=<decimal position>.  These let you tell the gateway your position, for uploading to habitat
+	Longitude=<decimal position>.  These let you tell the gateway your position, for uploading to habitat, so your listener icon appears on the map in the correct position.
+	Antenna=<antenna make/model>.  Lets you specify your antenna make/model or type.  This appears on the map if your listener icon is clicked on.
 	
 	NetworkLED=<wiring pi pin>
 	InternetLED=<wiring pi pin>
