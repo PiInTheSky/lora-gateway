@@ -515,7 +515,7 @@ size_t write_data(void *buffer, size_t size, size_t nmemb, void *userp)
    return size * nmemb;
 }
 
-void UploadListenerTelemetry(char *callsign, float gps_lat, float gps_lon)
+void UploadListenerTelemetry(char *callsign, float gps_lat, float gps_lon, char *antenna)
 {
 	int time_epoch = (int)time(NULL);
 	if (Config.EnableHabitat)
@@ -576,7 +576,7 @@ void UploadListenerTelemetry(char *callsign, float gps_lat, float gps_lon)
 			curl_easy_setopt(curl, CURLOPT_URL, "http://habitat.habhub.org/transition/listener_information");
 		
 			// Now specify the POST data
-			sprintf(JsonData,"{\"latitude\": %f, \"longitude\": %f}", gps_lat, gps_lon);
+			sprintf(JsonData, "{\"radio\": \"%s\", \"antenna\": \"%s\"}", "LoRa RFM98W", antenna);
 			sprintf(PostFields, "callsign=%s&time=%d&data=%s", Config.Tracker, time_epoch, JsonData);
 			curl_easy_setopt(curl, CURLOPT_POSTFIELDS, PostFields);
 	 
@@ -1307,6 +1307,7 @@ void LoadConfigFile()
 	Config.ftpFolder[0] = '\0';
 	Config.latitude = -999;
 	Config.longitude = -999;
+	Config.antenna[0] = '\0';
 	
 	if ((fp = fopen(filename, "r")) == NULL)
 	{
@@ -1359,7 +1360,8 @@ void LoadConfigFile()
 	// Listener
 	Config.latitude = ReadFloat(fp, "Latitude");
 	Config.longitude = ReadFloat(fp, "Longitude");
-
+	ReadString(fp, "antenna", Config.antenna, sizeof(Config.antenna), 0);
+	
 	// SMS upload to tracker
 	Config.SMSFolder[0] = '\0';
 	ReadString(fp, "SMSFolder", Config.SMSFolder, sizeof(Config.SMSFolder), 0);
@@ -2063,7 +2065,7 @@ int main(int argc, char **argv)
 
 	if ((Config.latitude > -90) && (Config.longitude > -90))
 	{
-		UploadListenerTelemetry(Config.Tracker, Config.latitude, Config.longitude);
+		UploadListenerTelemetry(Config.Tracker, Config.latitude, Config.longitude, Config.antenna);
 	}
 
 	while (run)

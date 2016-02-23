@@ -93,6 +93,7 @@ struct TConfig
 	int ServerPort;
 	float latitude, longitude;
 	char SMSFolder[64];
+	char antenna[64];
 };
 
 extern struct TConfig Config;
