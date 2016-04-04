@@ -5,5 +5,7 @@ desktop.ini
 *.JPG
 *.bin
 *.BIN
+*.ack
 gateway
 telemetry.txt
+ssdv
