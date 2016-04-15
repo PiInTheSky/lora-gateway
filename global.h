@@ -1,5 +1,7 @@
 #include <curses.h>
 
+#define BUFFERS	8
+
 struct TThreadArguments
 {
     int Index;
@@ -19,7 +21,7 @@ struct TSSDVPacketArray
 
 struct TSSDVPacketArrays
 {
-	struct TSSDVPacketArray Packets[4];
+	struct TSSDVPacketArray Packets[BUFFERS];
 };
 
 struct TSSDVPackets

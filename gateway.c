@@ -167,11 +167,30 @@ uint8_t readRegister(int Channel, uint8_t reg)
     return val;
 }
 
+void LogTelemetryPacket(char *Telemetry)
+{
+	if (Config.EnableTelemetryLogging)
+	{
+		FILE *fp;
+		
+		if ((fp = fopen("telemetry.txt", "at")) != NULL)
+		{
+			time_t now;
+			struct tm *tm;
+			
+			now = time(0);
+			tm = localtime(&now);
+		
+			fprintf(fp, "%02d:%02d:%02d - %s\n", tm->tm_hour, tm->tm_min, tm->tm_sec, Telemetry);
+			fclose(fp);
+		}
+	}
+}
 
 void LogMessage(const char *format, ...)
 {
 	static WINDOW *Window=NULL;
-	char Buffer[200];
+	char Buffer[512];
 
 	pthread_mutex_lock(&var);  // lock the critical section
 		
@@ -424,18 +443,18 @@ void ShowPacketCounts(int Channel)
 {
 	if (Config.LoRaDevices[Channel].InUse)
 	{
-		char SSDVPacketString[5];
+		char SSDVPacketString[BUFFERS+1];
 		int i;
 		
 		ChannelPrintf(Channel, 7, 1, "Telem Packets = %d", Config.LoRaDevices[Channel].TelemetryCount);
 		ChannelPrintf(Channel, 8, 1, "Image Packets = %d", Config.LoRaDevices[Channel].SSDVCount);
 		ChannelPrintf(Channel, 9, 1, "Bad CRC = %d Bad Type = %d", Config.LoRaDevices[Channel].BadCRCCount, Config.LoRaDevices[Channel].UnknownCount);
 
-		for (i=0; i<4; i++)
+		for (i=0; i<BUFFERS; i++)
 		{
 			SSDVPacketString[i] = Hex[SSDVPacketCount(Channel, i)];
 		}
-		SSDVPacketString[4] = '\0';
+		SSDVPacketString[BUFFERS] = '\0';
 		
 		ChannelPrintf(Channel, 5, 16, "SSDV %s", SSDVPacketString);
 	}
@@ -487,26 +506,6 @@ void ProcessCallingMessage(int Channel, char *Message)
 		Config.LoRaDevices[Channel].InCallingMode = 1;
 		
 		// ChannelPrintf(Channel, 1, 1, "Channel %d %7.3lfMHz              ", Channel, Frequency);
-	}
-}
-
-void LogTelemetryPacket(char *Telemetry)
-{
-	if (Config.EnableTelemetryLogging)
-	{
-		FILE *fp;
-		
-		if ((fp = fopen("telemetry.txt", "at")) != NULL)
-		{
-			time_t now;
-			struct tm *tm;
-			
-			now = time(0);
-			tm = localtime(&now);
-		
-			fprintf(fp, "%02d:%02d:%02d - %s\n", tm->tm_hour, tm->tm_min, tm->tm_sec, Telemetry);
-			fclose(fp);
-		}
 	}
 }
 
@@ -814,7 +813,7 @@ int FindBestSSDVThread(void)
 	Best = -1;
 	BestCount = 0;
 	
-	for (i=0; i<4; i++)
+	for (i=0; i<BUFFERS; i++)
 	{
 		Count = 0;
 		
@@ -1785,6 +1784,8 @@ int GetTextMessageToUpload(int Channel, char *Message)
 	int Result;
 	
 	Result = 0;
+	
+	LogMessage("Checking for SMS file ...\n");
  
 	if (Config.SMSFolder[0])
 	{
@@ -1807,8 +1808,8 @@ int GetTextMessageToUpload(int Channel, char *Message)
 						if (fscanf(fp, "%[^\r]", Line))
 						{
 							// #001,@daveake: Good Luck Tim !!\n
+							// @jonathenharty: RT @ProjectHeT: #astroPiTest The Essex Space Agency is looking forward to tweeting the real @esa! @GallarottiA: RT @ProjectHeT: #astroPiTest The Essex Space Agency is looking forward to tweeting the real @esa!
 							sprintf(Message, "#%d,%s\n", FileNumber, Line);
-							// #001,@daveake: Good Luck Tim !!\n");
 
 							LogMessage("UPLINK: %s", Message);
 							Result = 1;
@@ -1821,6 +1822,7 @@ int GetTextMessageToUpload(int Channel, char *Message)
 					}
 				}
 			}
+			closedir(dp);
 		}
 	}
 	
@@ -1939,7 +1941,7 @@ int BuildListOfMissingSSDVPackets(int Channel, char *Message)
 
 void SendUplinkMessage(int Channel)
 {
-	char Message[256];
+	char Message[512];
 	
 	// Decide what type of message we need to send
 	if (GetTextMessageToUpload(Channel, Message))
@@ -1962,11 +1964,11 @@ void SendUplinkMessage(int Channel)
 
 int main(int argc, char **argv)
 {
-	static struct TThreadArguments ThreadArguments[4];
+	static struct TThreadArguments ThreadArguments[BUFFERS];
 	unsigned char Command[200], Telemetry[100], *dest, *src;
 	int ch, i;
 	int LoopPeriod;
-	pthread_t SSDVThreads[4], FTPThread, NetworkThread, HabitatThread, ServerThread;
+	pthread_t SSDVThreads[BUFFERS], FTPThread, NetworkThread, HabitatThread, ServerThread;
 	WINDOW * mainwin;
 	
 	if (prog_count("gateway") > 1)
@@ -2022,7 +2024,7 @@ int main(int argc, char **argv)
 
 	LoopPeriod = 0;
 	
-	for (i=0; i<4; i++)
+	for (i=0; i<BUFFERS; i++)
 	{
 		ThreadArguments[i].Index = i;
 		

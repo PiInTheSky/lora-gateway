@@ -1,5 +1,5 @@
-gateway: gateway.o urlencode.o base64.o habitat.o ssdv.o ftp.o network.o server.o
-	cc -o gateway gateway.o urlencode.o base64.o habitat.o ssdv.o ftp.o network.o server.o -lm -lwiringPi -lwiringPiDev -lcurl -lncurses -lpthread
+gateway: gateway.o urlencode.o base64.o sha256.o habitat.o ssdv.o ftp.o network.o server.o
+	cc -o gateway gateway.o urlencode.o base64.o sha256.o habitat.o ssdv.o ftp.o network.o server.o -lm -lwiringPi -lwiringPiDev -lcurl -lncurses -lpthread
 
 gateway.o: gateway.c global.h
 	gcc -c gateway.c
@@ -24,4 +24,7 @@ urlencode.o: urlencode.c
 
 base64.o: base64.c
 	gcc -c base64.c
+
+sha256.o: sha256.c
+	gcc -c sha256.c
 
