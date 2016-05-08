@@ -1540,10 +1540,7 @@ void LoadConfigFile()
 			sprintf(Keyword, "lowopt_%d", Channel);
 			if (ReadBoolean(fp, Keyword, 0, &Temp))
 			{
-				if (Temp)
-				{
-					Config.LoRaDevices[Channel].LowDataRateOptimize = 0x08;
-				}
+				Config.LoRaDevices[Channel].LowDataRateOptimize = Temp ? 0x08 : 0x00;
 			}
 			
 			sprintf(Keyword, "AFC_%d", Channel);
