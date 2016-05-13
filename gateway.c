@@ -167,6 +167,27 @@ uint8_t readRegister(int Channel, uint8_t reg)
     return val;
 }
 
+void LogPacket(int Channel, int8_t SNR, int RSSI, double FreqError, int Bytes, unsigned char MessageType)
+{
+	if (Config.EnablePacketLogging)
+	{
+		FILE *fp;
+		
+		if ((fp = fopen("packets.txt", "at")) != NULL)
+		{
+			time_t now;
+			struct tm *tm;
+			
+			now = time(0);
+			tm = localtime(&now);
+		
+			fprintf(fp, "%02d:%02d:%02d - Ch %d, SNR %d, RSSI %d, FreqErr %.1lf, Bytes %d, Type %02Xh\n", tm->tm_hour, tm->tm_min, tm->tm_sec, Channel, SNR, RSSI, FreqError, Bytes, MessageType);
+			
+			fclose(fp);
+		}
+	}
+}
+
 void LogTelemetryPacket(char *Telemetry)
 {
 	if (Config.EnableTelemetryLogging)
@@ -182,6 +203,7 @@ void LogTelemetryPacket(char *Telemetry)
 			tm = localtime(&now);
 		
 			fprintf(fp, "%02d:%02d:%02d - %s\n", tm->tm_hour, tm->tm_min, tm->tm_sec, Telemetry);
+			
 			fclose(fp);
 		}
 	}
@@ -630,16 +652,49 @@ void DoPositionCalcs(Channel)
 void ProcessLine(int Channel, char *Line)
 {
 	int FieldCount; 
+	int	Speed, Heading, Satellites;
+	float TempInt, TempExt;
 
-	FieldCount = sscanf(Line+2, "%15[^,],%u,%8[^,],%lf,%lf,%u",
-						&(Config.LoRaDevices[Channel].Payload),
-						&(Config.LoRaDevices[Channel].Counter),
-						&(Config.LoRaDevices[Channel].Time),
-						&(Config.LoRaDevices[Channel].Latitude),
-						&(Config.LoRaDevices[Channel].Longitude),
-						&(Config.LoRaDevices[Channel].Altitude));
-						
-	// HAB->HAB_status = FieldCount == 6;
+	Config.LoRaDevices[Channel].FlightMode = -1;
+	
+	if (Config.EnableDev)
+	{
+		FieldCount = sscanf(Line+2, "%15[^,],%u,%8[^,],%lf,%lf,%u,%d,%d,%d,%f,%f,%lf,%lf,%lf,%lf,%d,%d,%d,%lf,%d,%d,%d,%d,%lf,%d",
+							&(Config.LoRaDevices[Channel].Payload),
+							&(Config.LoRaDevices[Channel].Counter),
+							&(Config.LoRaDevices[Channel].Time),
+							&(Config.LoRaDevices[Channel].Latitude),
+							&(Config.LoRaDevices[Channel].Longitude),
+							&(Config.LoRaDevices[Channel].Altitude),
+							&(Config.LoRaDevices[Channel].Speed),
+							&(Config.LoRaDevices[Channel].Heading),
+							&Satellites,
+							&TempInt, &TempExt,
+							&(Config.LoRaDevices[Channel].cda),
+							&(Config.LoRaDevices[Channel].PredictedLatitude),
+							&(Config.LoRaDevices[Channel].PredictedLongitude),
+							&(Config.LoRaDevices[Channel].PredictedLandingSpeed),
+							&(Config.LoRaDevices[Channel].PredictedTime),
+							&(Config.LoRaDevices[Channel].CompassActual),
+							&(Config.LoRaDevices[Channel].CompassTarget),
+							&(Config.LoRaDevices[Channel].AirSpeed),
+							&(Config.LoRaDevices[Channel].AirDirection),
+							&(Config.LoRaDevices[Channel].ServoLeft),
+							&(Config.LoRaDevices[Channel].ServoRight),
+							&(Config.LoRaDevices[Channel].ServoTime),
+							&(Config.LoRaDevices[Channel].GlideRatio),
+							&(Config.LoRaDevices[Channel].FlightMode));
+	}
+	else
+	{
+		FieldCount = sscanf(Line+2, "%15[^,],%u,%8[^,],%lf,%lf,%u",
+							&(Config.LoRaDevices[Channel].Payload),
+							&(Config.LoRaDevices[Channel].Counter),
+							&(Config.LoRaDevices[Channel].Time),
+							&(Config.LoRaDevices[Channel].Latitude),
+							&(Config.LoRaDevices[Channel].Longitude),
+							&(Config.LoRaDevices[Channel].Altitude));
+	}
 }
 
 			
@@ -1039,9 +1094,7 @@ void DIO0_Interrupt(int Channel)
 				digitalWrite(Config.LoRaDevices[Channel].ActivityLED, 1);
 				LEDCounts[Channel] = 5;
 			}
-			// LogMessage("Channel %d data available - %d bytes\n", Channel, Bytes);
-			// LogMessage("Line = '%s'\n", Message);
-
+			
 			if (Message[1] == '!')
 			{
 				ProcessUploadMessage(Channel, Message+1);
@@ -1054,6 +1107,14 @@ void DIO0_Interrupt(int Channel)
 			{
 				ProcessTelemetryMessage(Channel, Message+1);
 				TestMessageForSMSAcknowledgement(Channel, Message+1);
+			}
+			else if (Message[1] == '>')
+			{
+				LogMessage("Flight Controller message %d bytes = %s", Bytes, Message+1);
+			}
+			else if (Message[1] == '*')
+			{
+				LogMessage("Uplink Command message %d bytes = %s", Bytes, Message+1);
 			}
 			else if (Message[1] == 0x66)
 			{
@@ -1173,17 +1234,12 @@ int receiveMessage(int Channel, unsigned char *message)
 		ShowPacketCounts(Channel);
 	}
 	else
-	{
+	{		
 		int8_t SNR;
 		int RSSI;
 		
 		currentAddr = readRegister(Channel, REG_FIFO_RX_CURRENT_ADDR);
-		// LogMessage("currentAddr = %d\n", currentAddr);
 		Bytes = readRegister(Channel, REG_RX_NB_BYTES);
-		// LogMessage("%d bytes in packet\n", Bytes);
-
-		// LogMessage("RSSI = %d\n", readRegister(Channel, REG_PACKET_RSSI) - 137);
-
 		
 		SNR = readRegister(Channel, REG_PACKET_SNR);
 		SNR /= 4;
@@ -1192,6 +1248,7 @@ int receiveMessage(int Channel, unsigned char *message)
 		{
 			RSSI += SNR;
 		}
+		
 		ChannelPrintf(Channel, 10, 1, "Packet SNR = %d, RSSI = %d      ", (int)SNR, RSSI);
 
 		FreqError = FrequencyError(Channel) / 1000;
@@ -1209,6 +1266,8 @@ int receiveMessage(int Channel, unsigned char *message)
 		
 		message[Bytes] = '\0';
 	
+		LogPacket(Channel, SNR, RSSI, FreqError, Bytes, message[1]);
+		
 		if(Config.LoRaDevices[Channel].AFC && (fabs(FreqError)>0.5))
 		{
 			ReTune(Channel, FreqError/1000);
@@ -1299,6 +1358,7 @@ void LoadConfigFile()
 	Config.EnableHabitat = 1;
 	Config.EnableSSDV = 1;
 	Config.EnableTelemetryLogging = 0;
+	Config.EnablePacketLogging = 0;
 	Config.SSDVJpegFolder[0] = '\0';
 	Config.ftpServer[0] = '\0';
 	Config.ftpUser[0] = '\0';
@@ -1307,6 +1367,7 @@ void LoadConfigFile()
 	Config.latitude = -999;
 	Config.longitude = -999;
 	Config.antenna[0] = '\0';
+	Config.EnableDev = 0;
 	
 	if ((fp = fopen(filename, "r")) == NULL)
 	{
@@ -1322,8 +1383,11 @@ void LoadConfigFile()
 	ReadBoolean(fp, "EnableHabitat", 0, &Config.EnableHabitat);
 	ReadBoolean(fp, "EnableSSDV", 0, &Config.EnableSSDV);
 	
-	// Enable logging
+	// Enable telemetry logging
 	ReadBoolean(fp, "LogTelemetry", 0, &Config.EnableTelemetryLogging);
+	
+	// Enable packet logging
+	ReadBoolean(fp, "LogPackets", 0, &Config.EnablePacketLogging);
 
 	// Calling mode
 	Config.CallingTimeout = ReadInteger(fp, "CallingTimeout", 0, 300);
@@ -1360,6 +1424,9 @@ void LoadConfigFile()
 	Config.latitude = ReadFloat(fp, "Latitude");
 	Config.longitude = ReadFloat(fp, "Longitude");
 	ReadString(fp, "antenna", Config.antenna, sizeof(Config.antenna), 0);
+	
+	// Dev mode
+	ReadBoolean(fp, "EnableDev", 0, &Config.EnableDev);
 	
 	// SMS upload to tracker
 	Config.SMSFolder[0] = '\0';

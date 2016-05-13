@@ -8,4 +8,5 @@ desktop.ini
 *.ack
 gateway
 telemetry.txt
+packets.txt
 ssdv

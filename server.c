@@ -69,15 +69,45 @@ void *ServerLoop(void *some_void_ptr)
 			// sprintf(sendBuff, "{\"class\":\"POSN\",\"time\":\"12:34:56\",\"lat\":54.12345,\"lon\":-2.12345,\"alt\":169}\r\n");
 			
 			Channel = 1;
-			sprintf(sendBuff, "{\"class\":\"POSN\",\"payload\":\"%s\",\"time\":\"%s\",\"lat\":%.5lf,\"lon\":%.5lf,\"alt\":%d,\"rate\":%.1lf}\r\n",
-						Config.LoRaDevices[Channel].Payload,
-						Config.LoRaDevices[Channel].Time,
-						Config.LoRaDevices[Channel].Latitude,
-						Config.LoRaDevices[Channel].Longitude,
-						Config.LoRaDevices[Channel].Altitude,
-						Config.LoRaDevices[Channel].AscentRate);
-			
+			if (Config.EnableDev)
+			{
+				sprintf(sendBuff, "{\"class\":\"POSN\",\"payload\":\"%s\",\"time\":\"%s\",\"lat\":%.5lf,\"lon\":%.5lf,\"alt\":%d,\"predlat\":%.5lf,\"predlon\":%.5lf,\"speed\":%d,"
+								  "\"head\":%d,\"cda\":%.2lf,\"pls\":%.1lf,\"pt\":%d,\"ca\":%d,\"ct\":%d,\"as\":%.1lf,\"ad\":%d,\"sl\":%d,\"sr\":%d,\"st\":%d,\"gr\":%.2lf,\"fm\":%d}\r\n",
+							Config.LoRaDevices[Channel].Payload,
+							Config.LoRaDevices[Channel].Time,
+							Config.LoRaDevices[Channel].Latitude,
+							Config.LoRaDevices[Channel].Longitude,
+							Config.LoRaDevices[Channel].Altitude,
+							Config.LoRaDevices[Channel].PredictedLatitude,
+							Config.LoRaDevices[Channel].PredictedLongitude,
+							Config.LoRaDevices[Channel].Speed,
+							
+							Config.LoRaDevices[Channel].Heading,
+							Config.LoRaDevices[Channel].cda,
+							Config.LoRaDevices[Channel].PredictedLandingSpeed,
+							Config.LoRaDevices[Channel].PredictedTime,
+							Config.LoRaDevices[Channel].CompassActual,
+							Config.LoRaDevices[Channel].CompassTarget,
+							Config.LoRaDevices[Channel].AirSpeed,
+							Config.LoRaDevices[Channel].AirDirection,
+							Config.LoRaDevices[Channel].ServoLeft,
+							Config.LoRaDevices[Channel].ServoRight,
+							Config.LoRaDevices[Channel].ServoTime,
+							Config.LoRaDevices[Channel].GlideRatio,
+							Config.LoRaDevices[Channel].FlightMode);
+				}
+				else
+				{
+					sprintf(sendBuff, "{\"class\":\"POSN\",\"payload\":\"%s\",\"time\":\"%s\",\"lat\":%.5lf,\"lon\":%.5lf,\"alt\":%d,\"rate\":%.1lf}\r\n",
 
+								Config.LoRaDevices[Channel].Payload,
+								Config.LoRaDevices[Channel].Time,
+								Config.LoRaDevices[Channel].Latitude,
+								Config.LoRaDevices[Channel].Longitude,
+								Config.LoRaDevices[Channel].Altitude,
+								Config.LoRaDevices[Channel].AscentRate);
+				}
+			
 			if (!run)
 			{
 				port_closed = 1;
