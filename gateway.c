@@ -951,9 +951,9 @@ void ProcessSSDVMessage(int Channel, char *Message)
 	decode_callsign(Callsign, CallsignCode);
 								
 	ImageNumber = Message[6];
-	PacketNumber = Message[8];
+	PacketNumber = Message[7] * 256 + Message[8];
 	
-	LogMessage("Ch%d: SSDV Packet, Callsign %s, Image %d, Packet %d\n", Channel, Callsign, Message[6], Message[7] * 256 + Message[8]);
+	LogMessage("Ch%d: SSDV Packet, Callsign %s, Image %d, Packet %d\n", Channel, Callsign, Message[6], PacketNumber);
 	ChannelPrintf(Channel, 3, 1, "SSDV Packet            ");
 	
 	PreviousImageNumber = ImageNumber;

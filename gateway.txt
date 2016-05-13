@@ -1,6 +1,6 @@
 tracker=M0RPI/5
-EnableHabitat=Y
-EnableSSDV=Y
+EnableHabitat=N
+EnableSSDV=N
 JPGFolder=ssdv
 LogTelemetry=Y
 LogPackets=Y
