@@ -64,7 +64,7 @@ struct TLoRaDevice
 	unsigned int Altitude, PreviousAltitude;
 	unsigned int Satellites;
 	unsigned long LastPositionAt;
-	time_t LastPacketAt;
+	time_t LastPacketAt, LastSSDVPacketAt, LastTelemetryPacketAt;
 	float AscentRate;
 	time_t ReturnToCallingModeAt;
 	int InCallingMode;

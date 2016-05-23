@@ -117,7 +117,7 @@ void *SSDVLoop(void *arguments)
 		{
 			char *EncodedCallsign, *EncodedEncoding, *EncodedData;
 			
-			LogMessage("Found packet %d for thread %d from payload %s\n", PacketIndex, ThreadIndex, SSDVPacketArrays.Packets[ThreadIndex].Packets[PacketIndex].Callsign);
+			// LogMessage("Found packet %d for thread %d from payload %s\n", PacketIndex, ThreadIndex, SSDVPacketArrays.Packets[ThreadIndex].Packets[PacketIndex].Callsign);
 
 			EncodedCallsign = url_encode(SSDVPacketArrays.Packets[ThreadIndex].Packets[PacketIndex].Callsign); 
 			EncodedEncoding = url_encode("hex"); 

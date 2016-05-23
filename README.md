@@ -42,11 +42,14 @@ Install the ncurses library
 
 Install the LoRa gateway
 
-
 	1. cd ~ 
 	2. git clone https://github.com/PiInTheSky/lora-gateway.git
 	3. cd lora-gateway
 	4. make
+	5. cp gateway_sample.txt gateway.txt
+	
+** That last step is new - to prevent overwriting existing configurations, gateway.txt is supplied as a sample file that you need to copy first **
+
 
 
 Configuration
@@ -225,6 +228,32 @@ Many thanks to David Brooke for coding this feature and the AFC.
 Change History
 ==============
 
+23/05/2016
+----------
+
+	Better status screen
+	
+13/05/2016
+----------
+
+	Bug fux to local conversion of large SSDV images
+	Added packet logging
+
+
+04/04/2016
+----------
+
+	SSDV 8 buffers
+	JSON feed instead of old "transition" method
+	
+
+19/02/2016
+----------
+
+	Fixed listener_information JSON
+	Added antenna setting to gateway.txt
+	
+
 16/02/2016
 ----------
 
@@ -235,4 +264,12 @@ Change History
 	Separate thread for uploading latest telemetry to habitat
 	4 separate threads for uploading SSDV packets to the SSDV server
 	Slightly different display layout, with extra information
+
+	
+07/10/2015
+----------
+
+	fsphil: Tidied up compiler warnings, makefile, file permissions
+	
+	
 

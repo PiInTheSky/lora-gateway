@@ -31,6 +31,7 @@
 #include "global.h"
 #include "server.h"
 
+#define VERSION	"V1.5"
 bool run = TRUE;
 
 // RFM98
@@ -468,8 +469,9 @@ void ShowPacketCounts(int Channel)
 		char SSDVPacketString[BUFFERS+1];
 		int i;
 		
-		ChannelPrintf(Channel, 7, 1, "Telem Packets = %d", Config.LoRaDevices[Channel].TelemetryCount);
-		ChannelPrintf(Channel, 8, 1, "Image Packets = %d", Config.LoRaDevices[Channel].SSDVCount);
+		ChannelPrintf(Channel, 7, 1, "Telem Packets = %d (%us)     ", Config.LoRaDevices[Channel].TelemetryCount, Config.LoRaDevices[Channel].LastTelemetryPacketAt ? (unsigned int)(time(NULL) - Config.LoRaDevices[Channel].LastTelemetryPacketAt) : 0);
+		ChannelPrintf(Channel, 8, 1, "Image Packets = %d (%us)     ", Config.LoRaDevices[Channel].SSDVCount, Config.LoRaDevices[Channel].LastSSDVPacketAt ? (unsigned int)(time(NULL) - Config.LoRaDevices[Channel].LastSSDVPacketAt) : 0);
+		
 		ChannelPrintf(Channel, 9, 1, "Bad CRC = %d Bad Type = %d", Config.LoRaDevices[Channel].BadCRCCount, Config.LoRaDevices[Channel].UnknownCount);
 
 		for (i=0; i<BUFFERS; i++)
@@ -478,7 +480,7 @@ void ShowPacketCounts(int Channel)
 		}
 		SSDVPacketString[BUFFERS] = '\0';
 		
-		ChannelPrintf(Channel, 5, 16, "SSDV %s", SSDVPacketString);
+		ChannelPrintf(Channel, 6, 16, "SSDV %s", SSDVPacketString);
 	}
 }
 
@@ -736,6 +738,7 @@ void ProcessTelemetryMessage(int Channel, char *Message)
 		DoPositionCalcs(Channel);
 		
 		Config.LoRaDevices[Channel].TelemetryCount++;								
+		Config.LoRaDevices[Channel].LastTelemetryPacketAt = time(NULL);
 	}
 }
 
@@ -954,7 +957,8 @@ void ProcessSSDVMessage(int Channel, char *Message)
 	PacketNumber = Message[7] * 256 + Message[8];
 	
 	LogMessage("Ch%d: SSDV Packet, Callsign %s, Image %d, Packet %d\n", Channel, Callsign, Message[6], PacketNumber);
-	ChannelPrintf(Channel, 3, 1, "SSDV Packet            ");
+	ChannelPrintf(Channel, 3, 1, "SSDV Packet                     ");
+	ChannelPrintf(Channel, 5, 1, "SSDV %s: Image %d, Packet %d", Callsign, Message[6], PacketNumber);
 	
 	PreviousImageNumber = ImageNumber;
 	PreviousPacketNumber = PacketNumber;
@@ -1005,7 +1009,7 @@ void ProcessSSDVMessage(int Channel, char *Message)
 		{
 			PacketIndex = FindFreeSSDVPacket(ThreadIndex);
 			
-			LogMessage("Adding to thread %d packet %d\n", ThreadIndex, PacketIndex);
+			// LogMessage("Adding to thread %d packet %d\n", ThreadIndex, PacketIndex);
 
 			// Copy packet etc
 			memcpy(SSDVPacketArrays.Packets[ThreadIndex].Packets[PacketIndex].Packet, Message, 256);
@@ -1021,6 +1025,7 @@ void ProcessSSDVMessage(int Channel, char *Message)
 	}
 
 	Config.LoRaDevices[Channel].SSDVCount++;
+	Config.LoRaDevices[Channel].LastSSDVPacketAt = time(NULL);
 }
 
 void TestMessageForSMSAcknowledgement(int Channel, char *Message)
@@ -1690,7 +1695,7 @@ WINDOW * InitDisplay(void)
 	// attrset(COLOR_PAIR(1) | A_BOLD);
 
 	// Title bar
-    mvaddstr(0, 19, " LoRa Habitat and SSDV Gateway by daveake ");
+    mvaddstr(0, 17, " LoRa Habitat and SSDV Gateway " VERSION " by daveake ");
     refresh();
 
 	// Windows for LoRa live data
@@ -1852,7 +1857,7 @@ int GetTextMessageToUpload(int Channel, char *Message)
 	
 	Result = 0;
 	
-	LogMessage("Checking for SMS file ...\n");
+	// LogMessage("Checking for SMS file ...\n");
  
 	if (Config.SMSFolder[0])
 	{
@@ -1901,7 +1906,7 @@ int GetExternalListOfMissingSSDVPackets(int Channel, char *Message)
 	// First, create request file
 	FILE *fp;
 	
-	LogMessage("GetExternalListOfMissingSSDVPackets()\n");
+	// LogMessage("GetExternalListOfMissingSSDVPackets()\n");
 	
 	// if ((fp = fopen("get_list.txt", "wt")) != NULL)
 	{
@@ -1935,7 +1940,7 @@ int GetExternalListOfMissingSSDVPackets(int Channel, char *Message)
 			usleep(100000);
 		}
 		
-		LogMessage("Timed out waiting for file\n");
+		// LogMessage("Timed out waiting for file\n");
 		// remove("get_list.txt");
 	}
 
@@ -2166,10 +2171,10 @@ int main(int argc, char **argv)
 					
 					ChannelPrintf(Channel, 12, 1, "Current RSSI = %4d   ", readRegister(Channel, REG_CURRENT_RSSI) - 157);
 					
-					if (Config.LoRaDevices[Channel].LastPacketAt > 0)
-					{
-						ChannelPrintf(Channel, 6, 1, "%us since last packet   ", (unsigned int)(time(NULL) - Config.LoRaDevices[Channel].LastPacketAt));
-					}
+					// if (Config.LoRaDevices[Channel].LastPacketAt > 0)
+					// {
+						// ChannelPrintf(Channel, 6, 1, "%us since last packet   ", (unsigned int)(time(NULL) - Config.LoRaDevices[Channel].LastPacketAt));
+					// }
 					
 					if (Config.LoRaDevices[Channel].InCallingMode && (Config.CallingTimeout > 0) && (Config.LoRaDevices[Channel].ReturnToCallingModeAt > 0) && (time(NULL) > Config.LoRaDevices[Channel].ReturnToCallingModeAt))
 					{
@@ -2196,7 +2201,7 @@ int main(int argc, char **argv)
 					
 						if (CycleSeconds == Config.LoRaDevices[Channel].UplinkTime)
 						{
-							LogMessage("%02d:%02d:%02d - Time to send uplink message\n", tm->tm_hour, tm->tm_min, tm->tm_sec);
+							// LogMessage("%02d:%02d:%02d - Time to send uplink message\n", tm->tm_hour, tm->tm_min, tm->tm_sec);
 	
 							SendUplinkMessage(Channel);
 						}
