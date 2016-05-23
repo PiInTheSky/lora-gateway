@@ -59,15 +59,19 @@ struct TLoRaDevice
 	char Payload[16], Time[12];
 	unsigned int Counter, LastCounter;
 	unsigned long Seconds;
+	double PredictedLongitude, PredictedLatitude;
 	double Longitude, Latitude;
 	unsigned int Altitude, PreviousAltitude;
 	unsigned int Satellites;
 	unsigned long LastPositionAt;
-	time_t LastPacketAt;
+	time_t LastPacketAt, LastSSDVPacketAt, LastTelemetryPacketAt;
 	float AscentRate;
 	time_t ReturnToCallingModeAt;
 	int InCallingMode;
 	int ActivityLED;
+	
+	int Speed, Heading, PredictedTime, CompassActual, CompassTarget, AirDirection, ServoLeft, ServoRight, ServoTime, FlightMode;
+	double cda, PredictedLandingSpeed, AirSpeed, GlideRatio;
 
 	// Normal (non TDM) uplink
 	int UplinkTime;
@@ -83,6 +87,7 @@ struct TConfig
 	int EnableHabitat;
 	int EnableSSDV;
 	int EnableTelemetryLogging;
+	int EnablePacketLogging;
 	int CallingTimeout;
 	char SSDVJpegFolder[100];
 	char ftpServer[100];
@@ -96,6 +101,7 @@ struct TConfig
 	float latitude, longitude;
 	char SMSFolder[64];
 	char antenna[64];
+	int EnableDev;
 };
 
 extern struct TConfig Config;

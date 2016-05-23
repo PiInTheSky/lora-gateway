@@ -42,11 +42,14 @@ Install the ncurses library
 
 Install the LoRa gateway
 
-
 	1. cd ~ 
 	2. git clone https://github.com/PiInTheSky/lora-gateway.git
 	3. cd lora-gateway
 	4. make
+	5. cp gateway_sample.txt gateway.txt
+	
+** That last step is new - to prevent overwriting existing configurations, gateway.txt is supplied as a sample file that you need to copy first **
+
 
 
 Configuration
@@ -58,7 +61,14 @@ The configuration is in the file gateway.txt.  Example:
 	EnableHabitat=N
 	EnableSSDV=Y
 	LogTelemetry=Y
+	LogPackets=Y
 	CallingTimeout=60
+	JPGFolder=ssdv
+	CallingTimeout=60
+	ServerPort=6004
+	Latitude=51.95023
+	Longitude=-2.5445 
+	Antenna=868MHz Yagi
 
 	frequency_0=434.347
 	mode_0=1
@@ -80,9 +90,11 @@ The global options are:
 	
 	EnableSSDV=<Y/N>.  Enables uploading of SSDV image packets to the SSDV server.
 	
-	JPEGFolder=<folder>.  Tells the gateway where to save local JPEG files built from incoming SSDV packets.
+	JPGFolder=<folder>.  Tells the gateway where to save local JPEG files built from incoming SSDV packets.
 
 	LogTelemetry=<Y/N>.  Enables logging of telemetry packets (ASCII only at present) to telemetry.txt.	
+	
+	LogPackets=<Y/N>.  Enables logging of packet information (SNR, RSSI, length, type) to packets.txt.	
 	
 	SMSFolder=<folder>.  Tells the gateway to check for incoming SMS messages or tweets that should be sent to the tracker via the uplink.
 
@@ -216,6 +228,32 @@ Many thanks to David Brooke for coding this feature and the AFC.
 Change History
 ==============
 
+23/05/2016
+----------
+
+	Better status screen
+	
+13/05/2016
+----------
+
+	Bug fux to local conversion of large SSDV images
+	Added packet logging
+
+
+04/04/2016
+----------
+
+	SSDV 8 buffers
+	JSON feed instead of old "transition" method
+	
+
+19/02/2016
+----------
+
+	Fixed listener_information JSON
+	Added antenna setting to gateway.txt
+	
+
 16/02/2016
 ----------
 
@@ -226,4 +264,12 @@ Change History
 	Separate thread for uploading latest telemetry to habitat
 	4 separate threads for uploading SSDV packets to the SSDV server
 	Slightly different display layout, with extra information
+
+	
+07/10/2015
+----------
+
+	fsphil: Tidied up compiler warnings, makefile, file permissions
+	
+	
 

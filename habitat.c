@@ -155,7 +155,7 @@ void *HabitatLoop(void *some_void_ptr)
 			{
 				if (Config.LoRaDevices[Channel].Counter != Config.LoRaDevices[Channel].LastCounter)
 				{
-					ChannelPrintf(Channel, 5, 1, "Habitat");
+					ChannelPrintf(Channel, 6, 1, "Habitat");
 					
 					UploadTelemetryPacket(Channel);
 					
@@ -163,7 +163,7 @@ void *HabitatLoop(void *some_void_ptr)
 
 					delay(100);
 
-					ChannelPrintf(Channel, 5, 1, "       ");
+					ChannelPrintf(Channel, 6, 1, "       ");
 				}
 			}
 		}

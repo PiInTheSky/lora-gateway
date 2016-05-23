@@ -90,6 +90,7 @@ while True:
 		line = get_list_of_missing_packets(payload_id, 5)
 		if line == '':
 			print("No missing packets")
+			line = "Nothing"
 		else:
 			print("Missing Packets:", line)
 		with open(folder + 'uplink.txt', "w") as text_file:
