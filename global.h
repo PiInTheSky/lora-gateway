@@ -1,27 +1,18 @@
 #include <curses.h>
 
-#define BUFFERS	8
-
-struct TThreadArguments
-{
-    int Index;
-};
+#define SSDV_PACKETS	64
 
 struct TSSDVPacket
 {
 	unsigned char Packet[256];
-	char InUse;
 	char Callsign[7];
 };
 
 struct TSSDVPacketArray
 {
-	struct TSSDVPacket Packets[16];
-};
-
-struct TSSDVPacketArrays
-{
-	struct TSSDVPacketArray Packets[BUFFERS];
+	struct TSSDVPacket Packets[SSDV_PACKETS];
+	int Count;
+	int Sending;
 };
 
 struct TSSDVPackets
@@ -105,6 +96,8 @@ struct TConfig
 };
 
 extern struct TConfig Config;
-extern struct TSSDVPacketArrays SSDVPacketArrays;
+extern struct TSSDVPacketArray SSDVPacketArrays[];
+extern int SSDVSendArrayIndex;
+extern pthread_mutex_t ssdv_mutex;
 
 void LogMessage(const char *format, ...);

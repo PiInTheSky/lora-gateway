@@ -228,8 +228,15 @@ Many thanks to David Brooke for coding this feature and the AFC.
 Change History
 ==============
 
-23/05/2016
-----------
+27/06/2016 - V1.6
+-----------------
+
+	Single SSDV upload thread using new API to upload multiple packets at once
+	Fixed 100% CPU (SSDV thread not sleeping)
+	
+	
+23/05/2016 - V1.5
+-----------------
 
 	Better status screen
 	

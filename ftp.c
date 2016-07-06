@@ -74,7 +74,7 @@ void *FTPLoop(void *some_void_ptr)
 					else if ((time(0) - st.st_mtime) > 120)
 					{
 						sprintf(TempName, "%s/%s", SSDVFolder, ep->d_name);
-						LogMessage("Removing %s\n", TempName);
+						// LogMessage("Removing %s\n", TempName);
 						remove(TempName);
 					}
 				}

@@ -31,7 +31,7 @@
 #include "global.h"
 #include "server.h"
 
-#define VERSION	"V1.5"
+#define VERSION	"V1.6"
 bool run = TRUE;
 
 // RFM98
@@ -125,9 +125,9 @@ struct TPayload
 
 struct TConfig Config;
 struct TPayload Payloads[16];
-struct TSSDVPacketArrays SSDVPacketArrays;
-
-const char Hex[16] = "0123456789ABCDEF";
+struct TSSDVPacketArray SSDVPacketArrays[2];
+int SSDVSendArrayIndex=-1;
+pthread_mutex_t ssdv_mutex=PTHREAD_MUTEX_INITIALIZER;
 
 int LEDCounts[2];
 pthread_mutex_t var=PTHREAD_MUTEX_INITIALIZER;
@@ -445,28 +445,10 @@ void SendLoRaData(int Channel, unsigned char *buffer, int Length)
 	setMode(Channel, RF98_MODE_TX);
 }
 
-int SSDVPacketCount(int Channel, int ThreadIndex)
-{
-	int i, Count;
-	
-	Count = 0;
-	
-	for (i=0; i<16; i++)
-	{
-		if (SSDVPacketArrays.Packets[ThreadIndex].Packets[i].InUse == (Channel+1))
-		{
-			Count++;
-		}
-	}
-	
-	return Count;
-}
-
 void ShowPacketCounts(int Channel)
 {
 	if (Config.LoRaDevices[Channel].InUse)
 	{
-		char SSDVPacketString[BUFFERS+1];
 		int i;
 		
 		ChannelPrintf(Channel, 7, 1, "Telem Packets = %d (%us)     ", Config.LoRaDevices[Channel].TelemetryCount, Config.LoRaDevices[Channel].LastTelemetryPacketAt ? (unsigned int)(time(NULL) - Config.LoRaDevices[Channel].LastTelemetryPacketAt) : 0);
@@ -474,13 +456,8 @@ void ShowPacketCounts(int Channel)
 		
 		ChannelPrintf(Channel, 9, 1, "Bad CRC = %d Bad Type = %d", Config.LoRaDevices[Channel].BadCRCCount, Config.LoRaDevices[Channel].UnknownCount);
 
-		for (i=0; i<BUFFERS; i++)
-		{
-			SSDVPacketString[i] = Hex[SSDVPacketCount(Channel, i)];
-		}
-		SSDVPacketString[BUFFERS] = '\0';
-		
-		ChannelPrintf(Channel, 6, 16, "SSDV %s", SSDVPacketString);
+		ChannelPrintf(Channel, 6, 16, "SSDV %d%c %d%c  ", SSDVPacketArrays[0].Count, SSDVSendArrayIndex==0 ? '*' : ' ', 
+														  SSDVPacketArrays[1].Count, SSDVSendArrayIndex==1 ? '*' : ' ');
 	}
 }
 
@@ -765,173 +742,12 @@ static char *decode_callsign(char *callsign, uint32_t code)
 	return(callsign);
 }
 
-void ConvertStringToHex(unsigned char *Target, unsigned char *Source, int Length)
-{
-	int i;
-	
-	for (i=0; i<Length; i++)
-	{
-		*Target++ = Hex[Source[i] >> 4];
-		*Target++ = Hex[Source[i] & 0x0F];
-	}
-
-	*Target++ = '\0';
-}
-
-/*
-void AddImageNumberToLog(int Channel, int ImageNumber)
-{
-	int i;
-	struct TSSDVPackets ZeroPacket = {0};
-	
-	// Scroll down
-	for (i=2; i>0; i--)
-	{
-		Config.LoRaDevices[Channel].SSDVPackets[i] = Config.LoRaDevices[Channel].SSDVPackets[i-1];
-	}
-	
-	// Clear out any existing data
-	Config.LoRaDevices[Channel].SSDVPackets[0] = ZeroPacket;
-	
-	// Allocate to new image
-	Config.LoRaDevices[Channel].SSDVPackets[0].ImageNumber = ImageNumber;
-}
-*/
-
-/*
-void AddImagePacketToLog(int Channel, int ImageNumber, int PacketNumber)
-{
-	Config.LoRaDevices[Channel].SSDVPackets[0].Packets[PacketNumber] = 1;
-	if (PacketNumber > Config.LoRaDevices[Channel].SSDVPackets[0].HighestPacket)
-	{
-		Config.LoRaDevices[Channel].SSDVPackets[0].HighestPacket = PacketNumber;
-	}
-}
-*/
-
-/*
-void ShowMissingPackets(int Channel)
-{
-	char List[1000], Temp[10];
-	int i, FirstMissing;
-	
-	List[0] = '\0';
-	FirstMissing = -1;
-	
-	for (i=0; i<=Config.LoRaDevices[Channel].SSDVPackets[0].HighestPacket; i++)
-	{	
-		if ((Config.LoRaDevices[Channel].SSDVPackets[0].Packets[i]) || (i == Config.LoRaDevices[Channel].SSDVPackets[0].HighestPacket))
-		{
-			// This packet present
-			if (FirstMissing >= 0)
-			{
-				if (i > (FirstMissing+1))
-				{
-					// Group of adjacent missing packets
-					sprintf(Temp, "%s%d-%d", List[0] ? "," : "", FirstMissing, i-1);
-					strcat(List, Temp);
-				}
-				else
-				{
-					// Missing packet is isolated
-					sprintf(Temp, "%s%d", List[0] ? "," : "", FirstMissing);
-					strcat(List, Temp);
-				}
-			}
-			
-			FirstMissing = -1;
-		}
-		else
-		{
-			// This packet missing
-			// If previous packet also missing then extend the range
-			// Otherwise we need to start the range
-			if (FirstMissing < 0)
-			{
-				FirstMissing = i;
-			}
-		}
-	}
-	
-	// LogMessage("Missing: %s\n", List);		// SHOW MISSING PACKETS
-}
-*/
-
 int FileExists(char *filename)
 {
 	struct stat st;
 
 	return stat(filename, &st) == 0;
 }
-
-int FindBestSSDVThread(void)
-{
-	int i, j, Best, Count, BestCount;
-	
-	Best = -1;
-	BestCount = 0;
-	
-	for (i=0; i<BUFFERS; i++)
-	{
-		Count = 0;
-		
-		for (j=0; j<16; j++)
-		{
-			if (!SSDVPacketArrays.Packets[i].Packets[j].InUse)
-			{
-				Count++;
-			}
-		}
-		
-		if (Count > BestCount)
-		{
-			BestCount = Count;
-			Best = i;
-		}
-	}
-	
-	return Best;
-}
-
-int FindFreeSSDVPacket(int ThreadIndex)
-{
-	int i;
-	
-	for (i=0; i<16; i++)
-	{
-		if (!SSDVPacketArrays.Packets[ThreadIndex].Packets[i].InUse)
-		{
-			return i;
-		}
-	}
-	
-	return -1;
-}
-
-/*
-struct TSSDVPacket
-{
-	unsigned char Packets[256];
-	char InUse;
-};
-
-struct TSSDVPacketArray
-{
-	struct TSSDVPacket Packets[16];
-};
-
-struct TSSDVPacketArrays
-{
-	struct TSSDVPacketArray Packets[4];
-};
-
-struct TSSDVPackets
-{
-	int ImageNumber;
-	int HighestPacket;
-	bool Packets[1024];
-};	
-*/
 	
 void ProcessSSDVMessage(int Channel, char *Message)
 {
@@ -1000,28 +816,37 @@ void ProcessSSDVMessage(int Channel, char *Message)
 
 	if (Config.EnableSSDV)
 	{
+		int ArrayIndex, PacketIndex;
+		
+	
+		pthread_mutex_lock(&ssdv_mutex);
+
+		ArrayIndex = (SSDVSendArrayIndex == 0) ? 1 : 0;
+
 		// Place in array for upload to server
-		int ThreadIndex, PacketIndex;
+		PacketIndex = SSDVPacketArrays[ArrayIndex].Count;
 		
-		ThreadIndex = FindBestSSDVThread();
-		
-		if (ThreadIndex >= 0)
-		{
-			PacketIndex = FindFreeSSDVPacket(ThreadIndex);
-			
-			// LogMessage("Adding to thread %d packet %d\n", ThreadIndex, PacketIndex);
+		if (PacketIndex < SSDV_PACKETS)
+		{			
+			// LogMessage("Adding to array %d packet %d\n", ArrayIndex, PacketIndex);
 
 			// Copy packet etc
-			memcpy(SSDVPacketArrays.Packets[ThreadIndex].Packets[PacketIndex].Packet, Message, 256);
-			strcpy(SSDVPacketArrays.Packets[ThreadIndex].Packets[PacketIndex].Callsign, Callsign);
-			
-			// Mark packet as ready to upload to server
-			SSDVPacketArrays.Packets[ThreadIndex].Packets[PacketIndex].InUse = Channel + 1;
+			memcpy(SSDVPacketArrays[ArrayIndex].Packets[PacketIndex].Packet, Message, 256);
+			strcpy(SSDVPacketArrays[ArrayIndex].Packets[PacketIndex].Callsign, Callsign);
+
+			// Update packet count
+			SSDVPacketArrays[ArrayIndex].Count++;
 		}
 		else
 		{
-			LogMessage("No free SSDV threads\n");
+			LogMessage("No free SSDV packets\n");
 		}
+		
+		if (SSDVSendArrayIndex < 0)
+		{
+			SSDVSendArrayIndex = ArrayIndex;
+		}
+		pthread_mutex_unlock(&ssdv_mutex);
 	}
 
 	Config.LoRaDevices[Channel].SSDVCount++;
@@ -2026,21 +1851,14 @@ void SendUplinkMessage(int Channel)
 		SetLoRaParameters(Channel, EXPLICIT_MODE, ERROR_CODING_4_8, BANDWIDTH_125K, SPREADING_8, 0);
 		SendLoRaData(Channel, Message, 255);
 	}
-	/*
-	else if (BuildListOfMissingSSDVPackets(Channel, Message))
-	{
-		SendLoRaData(Channel, Message, 255);
-	}
-	*/
 }
 
 int main(int argc, char **argv)
 {
-	static struct TThreadArguments ThreadArguments[BUFFERS];
 	unsigned char Command[200], Telemetry[100], *dest, *src;
 	int ch, i;
 	int LoopPeriod;
-	pthread_t SSDVThreads[BUFFERS], FTPThread, NetworkThread, HabitatThread, ServerThread;
+	pthread_t SSDVThread, FTPThread, NetworkThread, HabitatThread, ServerThread;
 	WINDOW * mainwin;
 	
 	if (prog_count("gateway") > 1)
@@ -2095,16 +1913,11 @@ int main(int argc, char **argv)
 	ShowPacketCounts(1);
 
 	LoopPeriod = 0;
-	
-	for (i=0; i<BUFFERS; i++)
+
+	if (pthread_create(&SSDVThread, NULL, SSDVLoop, NULL))
 	{
-		ThreadArguments[i].Index = i;
-		
-		if (pthread_create(&SSDVThreads[i], NULL, SSDVLoop, (void *)(&ThreadArguments[i])))
-		{
-			fprintf(stderr, "Error creating SSDV thread %d\n", i);
-			return 1;
-		}
+		fprintf(stderr, "Error creating SSDV thread %d\n", i);
+		return 1;
 	}
 
 	if (pthread_create(&FTPThread, NULL, FTPLoop, NULL))
