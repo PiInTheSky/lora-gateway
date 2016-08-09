@@ -316,7 +316,7 @@ void setFrequency(int Channel, double Frequency)
 	unsigned long FrequencyValue;
 	char FrequencyString [10];
 
-	// Format frequency nicely
+	// Format frequency as xxx.xxx.x Mhz
 	sprintf (FrequencyString,"%8.4lf ", Frequency);
 	FrequencyString[8] = FrequencyString[7];
 	FrequencyString[7] = '.'; 
