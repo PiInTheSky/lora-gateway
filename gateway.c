@@ -314,6 +314,12 @@ void setMode(int Channel, uint8_t newMode)
 void setFrequency(int Channel, double Frequency)
 {
 	unsigned long FrequencyValue;
+	char FrequencyString [10];
+
+	// Format frequency nicely
+	sprintf (FrequencyString,"%8.4lf ", Frequency);
+	FrequencyString[8] = FrequencyString[7];
+	FrequencyString[7] = '.'; 
 
 	FrequencyValue = (unsigned long)(Frequency * 7110656 / 434);
 
@@ -325,7 +331,7 @@ void setFrequency(int Channel, double Frequency)
 
 	// LogMessage("Set Frequency to %lf\n", Frequency);
 	
-	ChannelPrintf(Channel, 1, 1, "Channel %d %8.4lfMHz ", Channel, Frequency);
+	ChannelPrintf(Channel, 1, 1, "Channel %d %s MHz ", Channel, FrequencyString);
 }
 
 void setLoRaMode(int Channel)
