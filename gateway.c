@@ -1866,7 +1866,13 @@ int main(int argc, char **argv)
 		printf("\nThe gateway program is already running!\n\n");
 		exit(1);
 	}
-
+	
+	if (wiringPiSetup() < 0)
+	{
+		fprintf(stderr, "Failed to open wiringPi\n");
+		exit(1);
+	}
+	
 	mainwin = InitDisplay();
 	
 	// Settings for character input
@@ -1894,12 +1900,6 @@ int main(int argc, char **argv)
 	
 	LoadConfigFile();
 	LoadPayloadFiles();
-	
-	if (wiringPiSetup() < 0)
-	{
-		fprintf(stderr, "Failed to open wiringPi\n");
-		exit(1);
-	}
 	
 	if (Config.LoRaDevices[0].ActivityLED >= 0) pinMode(Config.LoRaDevices[0].ActivityLED, OUTPUT);
 	if (Config.LoRaDevices[1].ActivityLED >= 0) pinMode(Config.LoRaDevices[1].ActivityLED, OUTPUT);
