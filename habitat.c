@@ -50,7 +50,7 @@ void UploadTelemetryPacket(int Channel)
 	CURLcode res;
  
 	/* In windows, this will init the winsock stuff */ 
-	curl_global_init(CURL_GLOBAL_ALL);
+	// curl_global_init(CURL_GLOBAL_ALL); // RJH moved to main in gateway.c not thread safe
  
 	/* get a curl handle */ 
 	curl = curl_easy_init();
@@ -139,7 +139,7 @@ void UploadTelemetryPacket(int Channel)
 		// free(base64_data);
 	}
   
-	curl_global_cleanup();
+	// curl_global_cleanup(); // RJH moved to main in gateway.c not thread safe
 }
 
 

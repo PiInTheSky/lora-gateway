@@ -532,7 +532,7 @@ void UploadListenerTelemetry(char *callsign, float gps_lat, float gps_lon, char 
 		char JsonData[200];
 	 
 		/* In windows, this will init the winsock stuff */ 
-		curl_global_init(CURL_GLOBAL_ALL);
+		// curl_global_init(CURL_GLOBAL_ALL); // RJH moved to main in gateway.c not thread safe
 	 
 		/* get a curl handle */ 
 		curl = curl_easy_init();
@@ -566,10 +566,10 @@ void UploadListenerTelemetry(char *callsign, float gps_lat, float gps_lon, char 
 			curl_easy_cleanup(curl);
 		}
 	  
-		curl_global_cleanup();
+		// curl_global_cleanup(); // RJH moved to main in gateway.c not thread safe
 
 		/* In windows, this will init the winsock stuff */ 
-		curl_global_init(CURL_GLOBAL_ALL);
+		// curl_global_init(CURL_GLOBAL_ALL); // RJH moved to main in gateway.c not thread safe
 	 
 		/* get a curl handle */ 
 		curl = curl_easy_init();
@@ -599,7 +599,7 @@ void UploadListenerTelemetry(char *callsign, float gps_lat, float gps_lon, char 
 			curl_easy_cleanup(curl);
 		}
 	  
-		curl_global_cleanup();
+		// curl_global_cleanup(); // RJH moved to main in gateway.c not thread safe
 	}
 }
 			
@@ -1873,6 +1873,8 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 
+	curl_global_init(CURL_GLOBAL_ALL); // RJH thread safe
+
 	mainwin = InitDisplay();
 	
 	// Settings for character input
@@ -2042,6 +2044,7 @@ int main(int argc, char **argv)
  	}
 	
 	CloseDisplay(mainwin);
+	curl_global_cleanup(); // RJH thread safe
 	
 	if (Config.NetworkLED >= 0) digitalWrite(Config.NetworkLED, 0);
 	if (Config.InternetLED >= 0) digitalWrite(Config.InternetLED, 0);
