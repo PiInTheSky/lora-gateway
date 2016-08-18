@@ -69,6 +69,9 @@ int UploadImagePackets(void)
 		// Set the timeout
 		curl_easy_setopt(curl, CURLOPT_TIMEOUT, 5);
 		
+                // RJH capture http errors and report
+                curl_easy_setopt(curl, CURLOPT_FAILONERROR, 1);
+
 		// Avoid curl library bug that happens if above timeout occurs (sigh)
 		curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1);
 	
@@ -115,6 +118,7 @@ int UploadImagePackets(void)
 		}
 		
 		/* always cleanup */ 
+                curl_slist_free_all(headers); // RJH Added this from habitat.c as was missing
 		curl_easy_cleanup(curl);
 	}
 	  
