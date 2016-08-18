@@ -55,7 +55,7 @@ int UploadImagePackets(void)
 	UploadedOK = 0;
 	
 	/* In windows, this will init the winsock stuff */ 
-	curl_global_init(CURL_GLOBAL_ALL);
+	// curl_global_init(CURL_GLOBAL_ALL); // RJH moved to main in gateway.c not thread safe
  
 	/* get a curl handle */ 
 	curl = curl_easy_init();
@@ -118,7 +118,7 @@ int UploadImagePackets(void)
 		curl_easy_cleanup(curl);
 	}
 	  
-	curl_global_cleanup();
+	// curl_global_cleanup();  // RJH moved to main in gateway.c not thread safe
 	
 	return UploadedOK;
 }
