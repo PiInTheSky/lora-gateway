@@ -88,9 +88,9 @@ void sha256_init(SHA256_CTX *ctx)
    ctx->state[7] = 0x5be0cd19;
 }
 
-void sha256_update(SHA256_CTX *ctx, uint8_t data[], uint32_t len)
+void sha256_update(SHA256_CTX *ctx, char data[], uint32_t len)
 {  
-   uint32_t t,i;
+   uint32_t i;
    
    for (i=0; i < len; ++i) { 
       ctx->data[ctx->datalen] = data[i]; 

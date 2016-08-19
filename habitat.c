@@ -13,9 +13,9 @@
 #include <stddef.h>
 #include <dirent.h>
 #include <math.h>
-#include <time.h>
 #include <pthread.h>
 #include <curl/curl.h>
+#include <time.h>
 
 #include "base64.h"
 #include "habitat.h"
@@ -63,7 +63,7 @@ void UploadTelemetryPacket(int Channel)
 		unsigned char hash[32];
 		char doc_id[100];
 		char json[1000], now[32];
-		char PostFields[400], Sentence[512];
+		char Sentence[512];
 		struct curl_slist *headers = NULL;
 		time_t rawtime;
 		struct tm *tm;

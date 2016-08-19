@@ -4,7 +4,7 @@
 
 struct TSSDVPacket
 {
-	unsigned char Packet[256];
+	char Packet[256];
 	char Callsign[7];
 };
 

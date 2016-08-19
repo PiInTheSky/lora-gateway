@@ -14,6 +14,7 @@
 #include <math.h>
 #include <pthread.h>
 #include <curl/curl.h>
+#include <wiringPi.h>
 
 #include "urlencode.h"
 #include "base64.h"
@@ -45,9 +46,10 @@ int UploadImagePackets(void)
 {
 	CURL *curl;
 	CURLcode res;
-	char PostFields[1000], base64_data[512], json[32768], packet_json[1000];
+	char base64_data[512], json[32768], packet_json[1000];
 	struct curl_slist *headers = NULL;
-	int UploadedOK, base64_length;
+	int UploadedOK; 
+	size_t base64_length;
 	char now[32];
 	time_t rawtime;
 	struct tm *tm;
@@ -129,12 +131,9 @@ int UploadImagePackets(void)
 
 void *SSDVLoop(void *arguments)
 {
-	char HexString[513];
 
     while (1)
     {
-		int ArrayIndex;
-		
 		pthread_mutex_lock(&ssdv_mutex);
 
 		if (SSDVPacketArrays[0].Count > 0)

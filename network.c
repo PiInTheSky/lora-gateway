@@ -18,6 +18,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <netdb.h>
+#include <wiringPi.h> // Include WiringPi library!
 #include "network.h"
 #include "global.h"
 
@@ -58,7 +59,7 @@ int HaveAnIPAddress(void)
 
 int CanSeeTheInternet(void)
 {
-	struct addrinfo hints, *res, *p;
+	struct addrinfo hints, *res;
 	int status, sockfd, FoundInternet;
 	
 	memset(&hints, 0, sizeof hints);

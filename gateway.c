@@ -12,15 +12,14 @@
 #include <sys/shm.h>
 #include <errno.h>
 #include <stdint.h>
-#include <time.h>
 #include <stdarg.h>
 #include <pthread.h>
 #include <curses.h>
 #include <math.h>
 #include <dirent.h>
-
 #include <wiringPi.h>
 #include <wiringPiSPI.h>
+#include <time.h>
 
 #include "urlencode.h"
 #include "base64.h"
@@ -30,6 +29,7 @@
 #include "network.h"
 #include "global.h"
 #include "server.h"
+#include "gateway.h"
 
 #define VERSION	"V1.6"
 bool run = TRUE;
@@ -337,7 +337,6 @@ void setFrequency(int Channel, double Frequency)
 void setLoRaMode(int Channel)
 {
 	double Frequency;
-	unsigned long FrequencyValue;
 
 	// LogMessage("Setting LoRa Mode\n");
 	setMode(Channel, RF98_MODE_SLEEP);
@@ -422,7 +421,7 @@ void ReTune(int Channel, double FreqShift)
 	startReceiving(Channel);
 }
 
-void SendLoRaData(int Channel, unsigned char *buffer, int Length)
+void SendLoRaData(int Channel, char *buffer, int Length)
 {
 	unsigned char data[257];
 	int i;
@@ -455,8 +454,6 @@ void ShowPacketCounts(int Channel)
 {
 	if (Config.LoRaDevices[Channel].InUse)
 	{
-		int i;
-		
 		ChannelPrintf(Channel, 7, 1, "Telem Packets = %d (%us)     ", Config.LoRaDevices[Channel].TelemetryCount, Config.LoRaDevices[Channel].LastTelemetryPacketAt ? (unsigned int)(time(NULL) - Config.LoRaDevices[Channel].LastTelemetryPacketAt) : 0);
 		ChannelPrintf(Channel, 8, 1, "Image Packets = %d (%us)     ", Config.LoRaDevices[Channel].SSDVCount, Config.LoRaDevices[Channel].LastSSDVPacketAt ? (unsigned int)(time(NULL) - Config.LoRaDevices[Channel].LastSSDVPacketAt) : 0);
 		
@@ -636,18 +633,17 @@ void DoPositionCalcs(Channel)
 
 void ProcessLine(int Channel, char *Line)
 {
-	int FieldCount; 
-	int	Speed, Heading, Satellites;
+	int Satellites;
 	float TempInt, TempExt;
 
 	Config.LoRaDevices[Channel].FlightMode = -1;
 	
 	if (Config.EnableDev)
 	{
-		FieldCount = sscanf(Line+2, "%15[^,],%u,%8[^,],%lf,%lf,%u,%d,%d,%d,%f,%f,%lf,%lf,%lf,%lf,%d,%d,%d,%lf,%d,%d,%d,%d,%lf,%d",
-							&(Config.LoRaDevices[Channel].Payload),
+		sscanf(Line+2, "%15[^,],%u,%8[^,],%lf,%lf,%u,%d,%d,%d,%f,%f,%lf,%lf,%lf,%lf,%d,%d,%d,%lf,%d,%d,%d,%d,%lf,%d",
+							(Config.LoRaDevices[Channel].Payload),
 							&(Config.LoRaDevices[Channel].Counter),
-							&(Config.LoRaDevices[Channel].Time),
+							(Config.LoRaDevices[Channel].Time),
 							&(Config.LoRaDevices[Channel].Latitude),
 							&(Config.LoRaDevices[Channel].Longitude),
 							&(Config.LoRaDevices[Channel].Altitude),
@@ -672,10 +668,10 @@ void ProcessLine(int Channel, char *Line)
 	}
 	else
 	{
-		FieldCount = sscanf(Line+2, "%15[^,],%u,%8[^,],%lf,%lf,%u",
-							&(Config.LoRaDevices[Channel].Payload),
+		sscanf(Line+2, "%15[^,],%u,%8[^,],%lf,%lf,%u",
+							(Config.LoRaDevices[Channel].Payload),
 							&(Config.LoRaDevices[Channel].Counter),
-							&(Config.LoRaDevices[Channel].Time),
+							(Config.LoRaDevices[Channel].Time),
 							&(Config.LoRaDevices[Channel].Latitude),
 							&(Config.LoRaDevices[Channel].Longitude),
 							&(Config.LoRaDevices[Channel].Altitude));
@@ -687,8 +683,7 @@ void ProcessTelemetryMessage(int Channel, char *Message)
 {
 	if (strlen(Message+1) < 250)
 	{
-		int i;
-		unsigned char *startmessage, *endmessage;
+		char *startmessage, *endmessage;
 
 		ChannelPrintf(Channel, 3, 1, "Telemetry %d bytes       ", strlen(Message+1));
 
@@ -758,11 +753,11 @@ int FileExists(char *filename)
 void ProcessSSDVMessage(int Channel, char *Message)
 {
 	// SSDV packet
-	static uint32_t PreviousCallsignCode=0;
-	static int PreviousImageNumber=-1, PreviousPacketNumber=0;
+	// RJH NOT USED static uint32_t PreviousCallsignCode=0;
+	// RJH NOT USED static int PreviousImageNumber=-1, PreviousPacketNumber=0;
 	uint32_t CallsignCode;
-	char Callsign[7], *FileMode, *EncodedEncoding, *Base64Data, *EncodedData, HexString[513], Command[1000];
-	int output_length, ImageNumber, PacketNumber;
+	char Callsign[7], *FileMode;
+	int ImageNumber, PacketNumber;
 	char filename[100];
 	FILE *fp;
 	
@@ -782,9 +777,9 @@ void ProcessSSDVMessage(int Channel, char *Message)
 	ChannelPrintf(Channel, 3, 1, "SSDV Packet                     ");
 	ChannelPrintf(Channel, 5, 1, "SSDV %s: Image %d, Packet %d", Callsign, Message[6], PacketNumber);
 	
-	PreviousImageNumber = ImageNumber;
-	PreviousPacketNumber = PacketNumber;
-	PreviousCallsignCode = CallsignCode;
+	// RJH NOT USED PreviousImageNumber = ImageNumber;
+	// RJH NOT USED PreviousPacketNumber = PacketNumber;
+	// RJH NOT USED PreviousCallsignCode = CallsignCode;
 
 	// Create new file ?
 	sprintf(filename, "/tmp/%s_%d.bin", Callsign, ImageNumber);
@@ -803,7 +798,7 @@ void ProcessSSDVMessage(int Channel, char *Message)
 	}
 	
 	// Save to file
-	if (fp = fopen(filename, FileMode))
+	if ((fp = fopen(filename, FileMode)))
 	{
 		fseek(fp, PacketNumber*256, SEEK_SET);
 		if (fwrite(Message, 1, 256, fp) == 256)
@@ -919,7 +914,7 @@ void DIO0_Interrupt(int Channel)
 	else
 	{
 		int Bytes;
-		unsigned char Message[257];
+		char Message[257];
 		
 		Bytes = receiveMessage(Channel, Message+1);
 		
@@ -1025,6 +1020,8 @@ double FrequencyReference(int Channel)
 		case  BANDWIDTH_250K:   return 250000; 
 		case  BANDWIDTH_500K:   return 500000; 
 	}
+
+	return 0;
 }
 
 double FrequencyError(int Channel)
@@ -1045,7 +1042,7 @@ double FrequencyError(int Channel)
 	return - ((double)Temp * (1<<24) / 32000000.0) * (FrequencyReference(Channel) / 500000.0);
 }	
 
-int receiveMessage(int Channel, unsigned char *message)
+int receiveMessage(int Channel, char *message)
 {
 	int i, Bytes, currentAddr, x;
 	unsigned char data[257];
@@ -1471,9 +1468,6 @@ void LoadPayloadFile(int ID)
 {
 	FILE *fp;
 	char filename[16];
-	char Keyword[32];
-	int Channel, Temp;
-	char TempString[16];
 	
 	sprintf(filename, "payload_%d.txt", ID);
 
@@ -1557,11 +1551,10 @@ void CloseDisplay(WINDOW * mainwin)
 
 uint16_t CRC16(unsigned char *ptr)
 {
-    uint16_t CRC, xPolynomial;
+    uint16_t CRC;
 	int j;
 	
     CRC = 0xffff;           // Seed
-    xPolynomial = 0x1021;
    
     for (; *ptr; ptr++)
     {   // For speed, repeat calculation instead of looping for each bit
@@ -1753,7 +1746,7 @@ int GetExternalListOfMissingSSDVPackets(int Channel, char *Message)
 		
 		for (i=0; i<20; i++)
 		{
-			if (fp = fopen("uplink.txt", "r"))
+			if ((fp = fopen("uplink.txt", "r")))
 			{
 				Message[0] = '\0';
 				fgets(Message, 256, fp);
@@ -1861,8 +1854,8 @@ void SendUplinkMessage(int Channel)
 
 int main(int argc, char **argv)
 {
-	unsigned char Command[200], Telemetry[100], *dest, *src;
-	int ch, i;
+	// RJH NOT USED unsigned char Command[200], Telemetry[100], *dest, *src;
+	int ch;
 	int LoopPeriod;
 	pthread_t SSDVThread, FTPThread, NetworkThread, HabitatThread, ServerThread;
 	WINDOW * mainwin;
@@ -1924,7 +1917,7 @@ int main(int argc, char **argv)
 
 	if (pthread_create(&SSDVThread, NULL, SSDVLoop, NULL))
 	{
-		fprintf(stderr, "Error creating SSDV thread %d\n", i);
+		fprintf(stderr, "Error creating SSDV thread\n");
 		return 1;
 	}
 
@@ -1986,7 +1979,7 @@ int main(int argc, char **argv)
 			{
 				if (Config.LoRaDevices[Channel].InUse)
 				{			
-					int8_t SNR;
+					// RJH NOT USED int8_t SNR;
 		
 					ShowPacketCounts(Channel);
 					

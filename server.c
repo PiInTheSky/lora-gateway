@@ -29,7 +29,6 @@ void *ServerLoop(void *some_void_ptr)
     struct sockaddr_in serv_addr; 
 
     char sendBuff[1025];
-    time_t ticks; 
 
     listenfd = socket(AF_INET, SOCK_STREAM, 0);
     memset(&serv_addr, '0', sizeof(serv_addr));
@@ -49,8 +48,9 @@ void *ServerLoop(void *some_void_ptr)
     if (bind(listenfd, (struct sockaddr*)&serv_addr, sizeof(serv_addr)) < 0)
 	{
 		LogMessage("Server failed errno %d\n", errno);
-		return;
 	}
+	else
+	{
 
     listen(listenfd, 10); 
 
@@ -125,5 +125,6 @@ void *ServerLoop(void *some_void_ptr)
 
 		
         close(connfd);
+     }
      }
 }
