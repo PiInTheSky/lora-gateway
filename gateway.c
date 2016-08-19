@@ -314,6 +314,12 @@ void setMode(int Channel, uint8_t newMode)
 void setFrequency(int Channel, double Frequency)
 {
 	unsigned long FrequencyValue;
+	char FrequencyString [10];
+
+	// Format frequency as xxx.xxx.x Mhz
+	sprintf (FrequencyString,"%8.4lf ", Frequency);
+	FrequencyString[8] = FrequencyString[7];
+	FrequencyString[7] = '.'; 
 
 	FrequencyValue = (unsigned long)(Frequency * 7110656 / 434);
 
@@ -325,7 +331,7 @@ void setFrequency(int Channel, double Frequency)
 
 	// LogMessage("Set Frequency to %lf\n", Frequency);
 	
-	ChannelPrintf(Channel, 1, 1, "Channel %d %8.4lfMHz ", Channel, Frequency);
+	ChannelPrintf(Channel, 1, 1, "Channel %d %s MHz ", Channel, FrequencyString);
 }
 
 void setLoRaMode(int Channel)
@@ -526,7 +532,7 @@ void UploadListenerTelemetry(char *callsign, float gps_lat, float gps_lon, char 
 		char JsonData[200];
 	 
 		/* In windows, this will init the winsock stuff */ 
-		curl_global_init(CURL_GLOBAL_ALL);
+		// curl_global_init(CURL_GLOBAL_ALL); // RJH moved to main in gateway.c not thread safe
 	 
 		/* get a curl handle */ 
 		curl = curl_easy_init();
@@ -560,10 +566,10 @@ void UploadListenerTelemetry(char *callsign, float gps_lat, float gps_lon, char 
 			curl_easy_cleanup(curl);
 		}
 	  
-		curl_global_cleanup();
+		// curl_global_cleanup(); // RJH moved to main in gateway.c not thread safe
 
 		/* In windows, this will init the winsock stuff */ 
-		curl_global_init(CURL_GLOBAL_ALL);
+		// curl_global_init(CURL_GLOBAL_ALL); // RJH moved to main in gateway.c not thread safe
 	 
 		/* get a curl handle */ 
 		curl = curl_easy_init();
@@ -593,7 +599,7 @@ void UploadListenerTelemetry(char *callsign, float gps_lat, float gps_lon, char 
 			curl_easy_cleanup(curl);
 		}
 	  
-		curl_global_cleanup();
+		// curl_global_cleanup(); // RJH moved to main in gateway.c not thread safe
 	}
 }
 			
@@ -1867,6 +1873,8 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 
+	curl_global_init(CURL_GLOBAL_ALL); // RJH thread safe
+
 	mainwin = InitDisplay();
 	
 	// Settings for character input
@@ -2036,6 +2044,7 @@ int main(int argc, char **argv)
  	}
 	
 	CloseDisplay(mainwin);
+	curl_global_cleanup(); // RJH thread safe
 	
 	if (Config.NetworkLED >= 0) digitalWrite(Config.NetworkLED, 0);
 	if (Config.InternetLED >= 0) digitalWrite(Config.InternetLED, 0);
