@@ -1,3 +1,5 @@
+#include <features.h>
+#define __USE_XOPEN
 #include <stdio.h>
 #include <stdio.h>
 #include <curl/curl.h>

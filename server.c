@@ -48,9 +48,8 @@ void *ServerLoop(void *some_void_ptr)
     if (bind(listenfd, (struct sockaddr*)&serv_addr, sizeof(serv_addr)) < 0)
 	{
 		LogMessage("Server failed errno %d\n", errno);
+		exit(-1);
 	}
-	else
-	{
 
     listen(listenfd, 10); 
 
@@ -123,8 +122,6 @@ void *ServerLoop(void *some_void_ptr)
 			}
 		}
 
-		
         close(connfd);
-     }
      }
 }

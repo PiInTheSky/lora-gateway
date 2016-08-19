@@ -15,12 +15,13 @@
 #include <math.h>
 #include <pthread.h>
 #include <curl/curl.h>
-#include <time.h>
+#include <wiringPi.h>
 
 #include "base64.h"
 #include "habitat.h"
 #include "global.h"
 #include "sha256.h"
+#include "wiringPi.h"
 
 
 extern void ChannelPrintf(int Channel, int row, int column, const char *format, ...);
