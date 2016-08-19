@@ -50,7 +50,7 @@ void UploadTelemetryPacket(int Channel)
 	CURLcode res;
  
 	/* In windows, this will init the winsock stuff */ 
-	curl_global_init(CURL_GLOBAL_ALL);
+	// curl_global_init(CURL_GLOBAL_ALL); // RJH moved to main in gateway.c not thread safe
  
 	/* get a curl handle */ 
 	curl = curl_easy_init();
@@ -78,6 +78,9 @@ void UploadTelemetryPacket(int Channel)
 		
 		// Set the timeout
 		curl_easy_setopt(curl, CURLOPT_TIMEOUT, 5);
+
+                // RJH capture http errors and report
+                curl_easy_setopt(curl, CURLOPT_FAILONERROR, 1);
 		
 		// Avoid curl library bug that happens if above timeout occurs (sigh)
 		curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1);
@@ -139,7 +142,7 @@ void UploadTelemetryPacket(int Channel)
 		// free(base64_data);
 	}
   
-	curl_global_cleanup();
+	// curl_global_cleanup(); // RJH moved to main in gateway.c not thread safe
 }
 
 
