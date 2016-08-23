@@ -1,18 +1,12 @@
 #include <curses.h>
 
-#define SSDV_PACKETS	64
+#define RUNNING 1  // The main program is running
+#define STOPPED 0  // The main program has stopped 
 
 struct TSSDVPacket
 {
 	char Packet[256];
 	char Callsign[7];
-};
-
-struct TSSDVPacketArray
-{
-	struct TSSDVPacket Packets[SSDV_PACKETS];
-	int Count;
-	int Sending;
 };
 
 struct TSSDVPackets
@@ -95,9 +89,27 @@ struct TConfig
 	int EnableDev;
 };
 
+
+typedef struct {
+    int parent_status;
+    int telem_count;
+} thread_shared_vars_t;
+
+typedef struct {
+    short int  Channel;
+    char Telemetry [257];
+    int Packet_Number;
+} telemetry_t;
+
+typedef struct {
+    short int  Channel;
+    char SSDV_Packet [257];
+    int Packet_Number;
+} ssdv_t;
+
 extern struct TConfig Config;
-extern struct TSSDVPacketArray SSDVPacketArrays[];
 extern int SSDVSendArrayIndex;
 extern pthread_mutex_t ssdv_mutex;
 
 void LogMessage(const char *format, ...);
+

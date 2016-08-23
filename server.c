@@ -124,4 +124,6 @@ void *ServerLoop(void *some_void_ptr)
 
         close(connfd);
      }
+
+	return NULL;
 }

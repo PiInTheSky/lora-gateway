@@ -19,7 +19,10 @@
 #include "urlencode.h"
 #include "base64.h"
 #include "ssdv.h"
+#include "gateway.h"
 #include "global.h"
+
+extern int ssdv_pipe_fd[2];
 
 size_t write_ssdv_data(void *buffer, size_t size, size_t nmemb, void *userp)
 {
@@ -42,20 +45,18 @@ void ConvertStringToHex(unsigned char *Target, unsigned char *Source, int Length
 }
 
 
-int UploadImagePackets(void)
+void UploadImagePacket(ssdv_t * s, unsigned int packets)
 {
 	CURL *curl;
 	CURLcode res;
+	char curl_error [CURL_ERROR_SIZE]; 
 	char base64_data[512], json[32768], packet_json[1000];
 	struct curl_slist *headers = NULL;
-	int UploadedOK; 
 	size_t base64_length;
 	char now[32];
 	time_t rawtime;
 	struct tm *tm;
 
-	UploadedOK = 0;
-	
 	/* In windows, this will init the winsock stuff */ 
 	// curl_global_init(CURL_GLOBAL_ALL); // RJH moved to main in gateway.c not thread safe
  
@@ -63,16 +64,16 @@ int UploadImagePackets(void)
 	curl = curl_easy_init();
 	if (curl)
 	{
-		int PacketIndex;
 		
 		// So that the response to the curl POST doesn;'t mess up my finely crafted display!
 		curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_ssdv_data);
 		
 		// Set the timeout
-		curl_easy_setopt(curl, CURLOPT_TIMEOUT, 5);
+		curl_easy_setopt(curl, CURLOPT_TIMEOUT, 15);
 		
-                // RJH capture http errors and report
-                curl_easy_setopt(curl, CURLOPT_FAILONERROR, 1);
+        // RJH capture http errors and report
+        curl_easy_setopt(curl, CURLOPT_FAILONERROR, 1);
+		curl_easy_setopt(curl, CURLOPT_ERRORBUFFER, curl_error);
 
 		// Avoid curl library bug that happens if above timeout occurs (sigh)
 		curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1);
@@ -81,19 +82,24 @@ int UploadImagePackets(void)
 		time(&rawtime);
 		tm = gmtime(&rawtime);
 		strftime(now, sizeof(now), "%Y-%0m-%0dT%H:%M:%SZ", tm);
+    
+        int PacketIndex;
 
-		// Create json with the base64 data in hex, the tracker callsign and the current timestamp
-		strcpy(json, "{\"type\": \"packets\",\"packets\":[");
-		for (PacketIndex = 0; PacketIndex < SSDVPacketArrays[SSDVSendArrayIndex].Count; PacketIndex++)
-		{
-			base64_encode(SSDVPacketArrays[SSDVSendArrayIndex].Packets[PacketIndex].Packet, 256, &base64_length, base64_data);
-			base64_data[base64_length] = '\0';	
+        // Create json with the base64 data in hex, the tracker callsign and the current timestamp
+        strcpy(json, "{\"type\": \"packets\",\"packets\":[");
 
-			sprintf(packet_json, "{\"type\": \"packet\", \"packet\": \"%s\", \"encoding\": \"base64\", \"received\": \"%s\", \"receiver\": \"%s\"}%s",
-					base64_data, now, Config.Tracker, PacketIndex == (SSDVPacketArrays[SSDVSendArrayIndex].Count-1) ? "" : ",");
-			strcat(json, packet_json);
-		}
-		strcat(json, "]}");
+        for (PacketIndex = 0; PacketIndex < packets; PacketIndex++)
+        {
+            base64_encode(s[PacketIndex].SSDV_Packet, 256, &base64_length, base64_data);
+            base64_data[base64_length] = '\0';  
+
+//            sprintf(packet_json, "{\"type\": \"packet\", \"packet\": \"%s\", \"encoding\": \"base64\", \"received\": \"%s\", \"receiver\": \"%s\"}%s",
+ //                   base64_data, now, Config.Tracker, PacketIndex == (packets -1) ? "" : ",");
+            sprintf(packet_json, "{\"type\": \"packet\", \"packet\": \"%s\", \"encoding\": \"base64\", \"received\": \"%s\", \"receiver\": \"%d\"}%s",
+                    base64_data, now, s[PacketIndex].Packet_Number, PacketIndex == (packets -1) ? "" : ",");
+            strcat(json, packet_json);
+        }
+        strcat(json, "]}");
 
 		// Set the headers
 		headers = NULL;
@@ -102,7 +108,9 @@ int UploadImagePackets(void)
 		headers = curl_slist_append(headers, "charsets: utf-8");
 
 		curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers); 
-		curl_easy_setopt(curl, CURLOPT_URL, "http://ssdv.habhub.org/api/v0/packets");  
+//		curl_easy_setopt(curl, CURLOPT_URL, "http://ssdv.habhub.org/api/v0/packets");  
+//		curl_easy_setopt(curl, CURLOPT_URL, "http://ext.hgf.com/ssdv/rjh.php");  
+		curl_easy_setopt(curl, CURLOPT_URL, "http://ext.hgf.com/ssdv/apiv0.php?q=packets");  
 		curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, "POST");
 		curl_easy_setopt(curl, CURLOPT_POSTFIELDS, json);
 
@@ -112,56 +120,64 @@ int UploadImagePackets(void)
 		/* Check for errors */ 
 		if(res == CURLE_OK)
 		{
-			UploadedOK = 1;
 		}
 		else
 		{
 			LogMessage("curl_easy_perform() failed: %s\n", curl_easy_strerror(res));
+                        LogMessage("error: %s\n", curl_error);
 		}
 		
 		/* always cleanup */ 
-                curl_slist_free_all(headers); // RJH Added this from habitat.c as was missing
+        curl_slist_free_all(headers); // RJH Added this from habitat.c as was missing
 		curl_easy_cleanup(curl);
 	}
-	  
-	// curl_global_cleanup();  // RJH moved to main in gateway.c not thread safe
-	
-	return UploadedOK;
 }
 
-void *SSDVLoop(void *arguments)
+void *SSDVLoop(void *vars)
 {
 
-    while (1)
+    if (Config.EnableSSDV)
     {
-		pthread_mutex_lock(&ssdv_mutex);
+        const int max_packets = 51;
+        thread_shared_vars_t *stsv;
+        stsv = vars;
+        ssdv_t s[max_packets];
+        unsigned int packets = 0;
+        unsigned int j=0;
 
-		if (SSDVPacketArrays[0].Count > 0)
-		{
-			SSDVSendArrayIndex = 0;
-		}
-		else if (SSDVPacketArrays[1].Count > 0)
-		{
-			SSDVSendArrayIndex = 1;
-		}
-		else
-		{
-			SSDVSendArrayIndex = -1;
-		}
+        // Keep looping until the parent quits and there are no more packets to
+        // send to habitat.
+        while (stsv->parent_status == RUNNING || packets > 0)
+        {
 
-		pthread_mutex_unlock(&ssdv_mutex);
-		
-		if (SSDVSendArrayIndex >= 0)
-		{
-			if (UploadImagePackets())
-			{
-				// Mark packets as sent
-				SSDVPacketArrays[SSDVSendArrayIndex].Count = 0;						
-			}
-			
-			SSDVSendArrayIndex = -1;
-		}
-		
-		delay(100);
-	}
+             packets = read(ssdv_pipe_fd[0],&s[j],sizeof(ssdv_t));
+
+             if (packets)
+             {
+                 j++;
+             }
+
+            if (j == 50 || packets == 0) 
+            {
+
+                 ChannelPrintf(s[0].Channel, 6, 1, "Habitat");
+
+			     UploadImagePacket(s,j);
+
+                 ChannelPrintf(s[0].Channel, 6, 1, "       ");
+
+                 j=0;
+            }
+
+            // sleep(1);
+
+        }
+
+    }
+
+    close (ssdv_pipe_fd[0]);
+    close (ssdv_pipe_fd[1]);
+
+    return NULL;
+
 }

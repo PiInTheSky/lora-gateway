@@ -127,7 +127,7 @@ struct TPayload
 
 struct TConfig Config;
 struct TPayload Payloads[16];
-struct TSSDVPacketArray SSDVPacketArrays[2];
+
 int SSDVSendArrayIndex=-1;
 pthread_mutex_t ssdv_mutex=PTHREAD_MUTEX_INITIALIZER;
 
@@ -147,6 +147,38 @@ struct TBinaryPacket
 };
 
 const char *Modes[6] = {"Slow", "SSDV", "Repeater", "Turbo", "TurboX", "Calling"};
+
+
+int telem_pipe_fd[2];
+int ssdv_pipe_fd[2];
+
+int habitate_telem_packets = 0;
+
+void hexdump_buffer (const char * title, const char * buffer, const int len_buffer)
+{
+	int i, j = 0;
+	char message [200];
+	FILE * fp;
+
+	fp = fopen("pkt.txt","a");
+
+      	fprintf(fp, "Title = %s\n",title);
+
+	for (i=0; i<len_buffer ;i++)
+	{
+		sprintf (&message[3*j],"%02x ", buffer[i]);
+		j++;
+		if (i%16 == 15) 
+		{
+			j=0;
+      			fprintf(fp, "%s\n",message);
+			message[0]='\0';
+		}
+	}
+      	fprintf(fp, "%s\n",message);
+	fclose(fp);
+
+}
 
 void writeRegister(int Channel, uint8_t reg, uint8_t val)
 {
@@ -193,7 +225,7 @@ void LogPacket(int Channel, int8_t SNR, int RSSI, double FreqError, int Bytes, u
 
 void LogTelemetryPacket(char *Telemetry)
 {
-	if (Config.EnableTelemetryLogging)
+	// if (Config.EnableTelemetryLogging)
 	{
 		FILE *fp;
 		
@@ -461,8 +493,7 @@ void ShowPacketCounts(int Channel)
 		
 		ChannelPrintf(Channel, 9, 1, "Bad CRC = %d Bad Type = %d", Config.LoRaDevices[Channel].BadCRCCount, Config.LoRaDevices[Channel].UnknownCount);
 
-		ChannelPrintf(Channel, 6, 16, "SSDV %d%c %d%c  ", SSDVPacketArrays[0].Count, SSDVSendArrayIndex==0 ? '*' : ' ', 
-														  SSDVPacketArrays[1].Count, SSDVSendArrayIndex==1 ? '*' : ' ');
+		ChannelPrintf(Channel, 6, 16, "SSDV %d ", Config.LoRaDevices[Channel].SSDVCount);
 	}
 }
 
@@ -479,7 +510,7 @@ void ProcessCallingMessage(int Channel, char *Message)
 	
 	ChannelPrintf(Channel, 3, 1, "Calling message %d bytes ", strlen(Message));
 													
-	if (sscanf(Message+2, "%15[^,],%lf,%d,%d,%d,%d,%d,%d",
+	if (sscanf(Message+2, "%15[^,],%lf,%d,%d,%d,%d,%d",
 						Payload,
 						&Frequency,
 						&ImplicitOrExplicit,
@@ -531,7 +562,6 @@ void UploadListenerTelemetry(char *callsign, float gps_lat, float gps_lon, char 
 		char JsonData[200];
 	 
 		/* In windows, this will init the winsock stuff */ 
-		// curl_global_init(CURL_GLOBAL_ALL); // RJH moved to main in gateway.c not thread safe
 	 
 		/* get a curl handle */ 
 		curl = curl_easy_init();
@@ -565,10 +595,7 @@ void UploadListenerTelemetry(char *callsign, float gps_lat, float gps_lon, char 
 			curl_easy_cleanup(curl);
 		}
 	  
-		// curl_global_cleanup(); // RJH moved to main in gateway.c not thread safe
-
 		/* In windows, this will init the winsock stuff */ 
-		// curl_global_init(CURL_GLOBAL_ALL); // RJH moved to main in gateway.c not thread safe
 	 
 		/* get a curl handle */ 
 		curl = curl_easy_init();
@@ -598,7 +625,6 @@ void UploadListenerTelemetry(char *callsign, float gps_lat, float gps_lon, char 
 			curl_easy_cleanup(curl);
 		}
 	  
-		// curl_global_cleanup(); // RJH moved to main in gateway.c not thread safe
 	}
 }
 			
@@ -689,34 +715,53 @@ void ProcessTelemetryMessage(int Channel, char *Message)
 
 		ChannelPrintf(Channel, 3, 1, "Telemetry %d bytes       ", strlen(Message+1));
 
-		endmessage = Message;
-								
-		startmessage = endmessage;
+		startmessage = Message;
 		endmessage = strchr(startmessage, '\n');
 
 		if (endmessage != NULL)
 		{
+            habitate_telem_packets ++;
+
 			time_t now;
 			struct tm *tm;
 			
 			*endmessage = '\0';
 
-			LogTelemetryPacket(startmessage);
 			
 			strcpy(Config.LoRaDevices[Channel].Telemetry, startmessage);
 			// UploadTelemetryPacket(startmessage);
 
 			ProcessLine(Channel, startmessage);
-		
 
 			now = time(0);
 			tm = localtime(&now);
 		
-			LogMessage("%02d:%02d:%02d Ch%d: %s\n", tm->tm_hour, tm->tm_min, tm->tm_sec, Channel, startmessage);
+
+            // Create a telemetry packet
+            telemetry_t t;
+            t.Channel = Channel;
+            t.Packet_Number = habitate_telem_packets;
+			memcpy(t.Telemetry, startmessage, strlen(startmessage)+1);
+
+            // Add the telemetry packet to the pipe
+            int result = write(telem_pipe_fd[1],&t,sizeof(t));
+            if (result == -1){
+                printf ("Error writing to the telmetry pipe\n");
+                exit (1);
+            }
+            if (result == 0 ){
+		        LogMessage("Nothing written to telemetry pipe \n");
+            }
+            if (result > 1) {
+                // RJH htsv.telem_count ++;
+            }
+
+
 		}
 		
 		DoPositionCalcs(Channel);
-		
+	
+        // RJH I think this should be moved up to the bottom of the loop above	
 		Config.LoRaDevices[Channel].TelemetryCount++;								
 		Config.LoRaDevices[Channel].LastTelemetryPacketAt = time(NULL);
 	}
@@ -755,8 +800,6 @@ int FileExists(char *filename)
 void ProcessSSDVMessage(int Channel, char *Message)
 {
 	// SSDV packet
-	// RJH NOT USED static uint32_t PreviousCallsignCode=0;
-	// RJH NOT USED static int PreviousImageNumber=-1, PreviousPacketNumber=0;
 	uint32_t CallsignCode;
 	char Callsign[7], *FileMode;
 	int ImageNumber, PacketNumber;
@@ -764,6 +807,8 @@ void ProcessSSDVMessage(int Channel, char *Message)
 	FILE *fp;
 	
 	Message[0] = 0x55;
+	
+	hexdump_buffer ("C", Message,256);
 	
 	CallsignCode = Message[2]; CallsignCode <<= 8;
 	CallsignCode |= Message[3]; CallsignCode <<= 8;
@@ -779,10 +824,6 @@ void ProcessSSDVMessage(int Channel, char *Message)
 	ChannelPrintf(Channel, 3, 1, "SSDV Packet                     ");
 	ChannelPrintf(Channel, 5, 1, "SSDV %s: Image %d, Packet %d", Callsign, Message[6], PacketNumber);
 	
-	// RJH NOT USED PreviousImageNumber = ImageNumber;
-	// RJH NOT USED PreviousPacketNumber = PacketNumber;
-	// RJH NOT USED PreviousCallsignCode = CallsignCode;
-
 	// Create new file ?
 	sprintf(filename, "/tmp/%s_%d.bin", Callsign, ImageNumber);
 	if (!FileExists(filename))
@@ -819,37 +860,25 @@ void ProcessSSDVMessage(int Channel, char *Message)
 
 	if (Config.EnableSSDV)
 	{
-		int ArrayIndex, PacketIndex;
-		
-	
-		pthread_mutex_lock(&ssdv_mutex);
+         // Create a SSDV packet
+         ssdv_t s;
+         s.Channel = Channel;
+         s.Packet_Number = Config.LoRaDevices[Channel].SSDVCount;
+         memcpy(s.SSDV_Packet, Message, 256);
 
-		ArrayIndex = (SSDVSendArrayIndex == 0) ? 1 : 0;
+         // Add the SSDV packet to the pipe
+         int result = write(ssdv_pipe_fd[1],&s,sizeof(s));
+         if (result == -1){
+             printf ("Error writing to the sdv pipe\n");
+             exit (1);
+         }
+         if (result == 0 ){
+             LogMessage("Nothing written to sdv pipe \n");
+         }
+         if (result > 1) {
+         // RJH stsv.ssdv_count ++;
+         }
 
-		// Place in array for upload to server
-		PacketIndex = SSDVPacketArrays[ArrayIndex].Count;
-		
-		if (PacketIndex < SSDV_PACKETS)
-		{			
-			// LogMessage("Adding to array %d packet %d\n", ArrayIndex, PacketIndex);
-
-			// Copy packet etc
-			memcpy(SSDVPacketArrays[ArrayIndex].Packets[PacketIndex].Packet, Message, 256);
-			strcpy(SSDVPacketArrays[ArrayIndex].Packets[PacketIndex].Callsign, Callsign);
-
-			// Update packet count
-			SSDVPacketArrays[ArrayIndex].Count++;
-		}
-		else
-		{
-			LogMessage("No free SSDV packets\n");
-		}
-		
-		if (SSDVSendArrayIndex < 0)
-		{
-			SSDVSendArrayIndex = ArrayIndex;
-		}
-		pthread_mutex_unlock(&ssdv_mutex);
 	}
 
 	Config.LoRaDevices[Channel].SSDVCount++;
@@ -1854,9 +1883,83 @@ void SendUplinkMessage(int Channel)
 	}
 }
 
+void rjh_post_message(int Channel, char * buffer)
+{
+	if (Config.LoRaDevices[Channel].Sending)
+	{
+		Config.LoRaDevices[Channel].Sending = 0;
+		// LogMessage("Ch%d: End of Tx\n", Channel);
+
+		setLoRaMode(Channel);
+		SetDefaultLoRaParameters(Channel);
+		startReceiving(Channel);
+	}
+	else
+	{
+		int Bytes;
+		char Message[257];
+		
+		memcpy (Message+1,buffer,256);
+
+		//hexdump_buffer ("B",Message,257);
+		
+		Bytes = strlen(buffer);
+		
+		if (Bytes > 0)
+		{
+			if (Config.LoRaDevices[Channel].ActivityLED >= 0)
+			{
+				digitalWrite(Config.LoRaDevices[Channel].ActivityLED, 1);
+				LEDCounts[Channel] = 5;
+			}
+			
+			if (Message[1] == '!')
+			{
+				ProcessUploadMessage(Channel, Message+1);
+			}
+			else if (Message[1] == '^')
+			{
+				ProcessCallingMessage(Channel, Message+1);
+			}
+			else if (Message[1] == '$')
+			{
+				//LogMessage("Ch %d: Uploaded message %s\n", Channel, Message+1);
+				ProcessTelemetryMessage(Channel, Message+1);
+				TestMessageForSMSAcknowledgement(Channel, Message+1);
+			}
+			else if (Message[1] == '>')
+			{
+				LogMessage("Flight Controller message %d bytes = %s", Bytes, Message+1);
+			}
+			else if (Message[1] == '*')
+			{
+				LogMessage("Uplink Command message %d bytes = %s", Bytes, Message+1);
+			}
+			else if (Message[1] == 0x66)
+			{
+				ProcessSSDVMessage(Channel, Message);
+			}
+			else
+			{
+				LogMessage("Unknown packet type is %02Xh, RSSI %d\n", Message[1], readRegister(Channel, REG_PACKET_RSSI) - 157);
+				ChannelPrintf(Channel, 3, 1, "Unknown Packet %d, %d bytes", Message[0], Bytes);
+				Config.LoRaDevices[Channel].UnknownCount++;
+			}
+			
+			Config.LoRaDevices[Channel].LastPacketAt = time(NULL);
+			
+			if (Config.LoRaDevices[Channel].InCallingMode && (Config.CallingTimeout > 0))
+			{
+				Config.LoRaDevices[Channel].ReturnToCallingModeAt = time(NULL) + Config.CallingTimeout;
+			}
+			
+			ShowPacketCounts(Channel);
+		}
+	}
+}
+
 int main(int argc, char **argv)
 {
-	// RJH NOT USED unsigned char Command[200], Telemetry[100], *dest, *src;
 	int ch;
 	int LoopPeriod;
 	pthread_t SSDVThread, FTPThread, NetworkThread, HabitatThread, ServerThread;
@@ -1897,7 +2000,21 @@ int main(int argc, char **argv)
 	
 	LoadConfigFile();
 	LoadPayloadFiles();
+
+    int result;
 	
+    result = pipe (telem_pipe_fd);
+    if (result < 0){
+	    fprintf(stderr, "Error creating telemetry pipe\n");
+	    return 1;
+    }
+
+    result = pipe (ssdv_pipe_fd);
+    if (result < 0){
+	    fprintf(stderr, "Error creating ssdv pipe\n");
+	    return 1;
+    }
+
 	if (wiringPiSetup() < 0)
 	{
 		fprintf(stderr, "Failed to open wiringPi\n");
@@ -1915,9 +2032,17 @@ int main(int argc, char **argv)
 	ShowPacketCounts(0);
 	ShowPacketCounts(1);
 
+
 	LoopPeriod = 0;
 
-	if (pthread_create(&SSDVThread, NULL, SSDVLoop, NULL))
+    // Create a context to share some variables with the habitat child process
+    thread_shared_vars_t stsv;
+
+    // Initialise the vars
+    stsv.parent_status = RUNNING;
+    stsv.telem_count = 0;
+
+	if (pthread_create(&SSDVThread, NULL, SSDVLoop, (void *) &stsv))
 	{
 		fprintf(stderr, "Error creating SSDV thread\n");
 		return 1;
@@ -1929,12 +2054,22 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
-	if (pthread_create(&HabitatThread, NULL, HabitatLoop, NULL))
+    // Create a context to share some variables with the habitat child process
+    thread_shared_vars_t htsv;
+
+    // Initialise the vars
+    htsv.parent_status = RUNNING;
+    htsv.telem_count = 0;
+
+
+	if (pthread_create(&HabitatThread, NULL, HabitatLoop, (void *) &htsv))
 	{
 		fprintf(stderr, "Error creating Habitat thread\n");
 		return 1;
 	}
-	
+
+    // RJH close (telem_pipe_fd[0]); // Close the read side of the pipe as we are writing here
+ 
 	if (Config.ServerPort > 0)
 	{
 		if (pthread_create(&ServerThread, NULL, ServerLoop, NULL))
@@ -1958,30 +2093,61 @@ int main(int argc, char **argv)
 		UploadListenerTelemetry(Config.Tracker, Config.latitude, Config.longitude, Config.antenna);
 	}
 
-	while (run)
-	{
-		if ((ch = getch()) != ERR)
-		{
-			ProcessKeyPress(ch);
-		}
-		
-		if (LoopPeriod > 1000)
-		{
-			// Every 1 second
-			int Channel;
-			time_t now;
-			struct tm *tm;	
+        char buffer [300];
+        char ssdv_buff [257];
+	int message_count =0;
 
-			now = time(0);
-			tm = localtime(&now);
-		
-			LoopPeriod = 0;
-			
-			for (Channel=0; Channel<=1; Channel++)
+        char fileName [20] = "test.txt";
+        FILE* file = fopen(fileName, "r");
+
+        char fileName_ssdv [20] = "ssdv.bin";
+        FILE* file_ssdv = fopen(fileName_ssdv, "rb");
+
+      	LogMessage("Starting now ...\n");
+
+        while (run) // && message_count< 100)
+        {
+                if ((ch = getch()) != ERR)
+                {
+                        ProcessKeyPress(ch);
+                }
+
+                if (LoopPeriod > 1000)
+                {
+			message_count ++;
+
+                        // Every 1 second
+                        int Channel;
+                        time_t now;
+                        struct tm *tm;
+
+                        now = time(0);
+                        tm = localtime(&now);
+
+                        LoopPeriod = 0;
+
+                        /* RJH TEST */
+			if (message_count%10<-1) {
+                        	if (fgets(buffer, sizeof(buffer), file)){
+                                	rjh_post_message(1, buffer);
+                        	}
+			}
+			else
+			{
+                        	if (fread(ssdv_buff,256,1,file_ssdv)){
+					ssdv_buff[256]='\0';
+					hexdump_buffer ("A",ssdv_buff,256);
+                                	rjh_post_message(1, &ssdv_buff[1]);
+                        	}
+			}
+
+
+                        /* RJH TEST */
+
+                        for (Channel=0; Channel<=1; Channel++)
 			{
 				if (Config.LoRaDevices[Channel].InUse)
 				{			
-					// RJH NOT USED int8_t SNR;
 		
 					ShowPacketCounts(Channel);
 					
@@ -2034,10 +2200,19 @@ int main(int argc, char **argv)
 			}
 		}
 		
-		delay(100);
+		delay(1);
 		LoopPeriod += 100;
  	}
 	
+    htsv.parent_status = STOPPED;
+    stsv.parent_status = STOPPED;
+
+    close(telem_pipe_fd[1]);
+    close(ssdv_pipe_fd[1]);
+
+    pthread_join(HabitatThread, NULL);
+    pthread_join(SSDVThread, NULL);
+    
 	CloseDisplay(mainwin);
 	curl_global_cleanup(); // RJH thread safe
 	

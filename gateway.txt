@@ -1,16 +1,16 @@
-tracker=M0RPI/5
+tracker=RJH-TEST10
 EnableHabitat=Y
 EnableSSDV=Y
 JPGFolder=ssdv
-LogTelemetry=Y
-LogPackets=Y
+#LogTelemetry=Y
+#LogPackets=Y
 CallingTimeout=60
 ServerPort=6004
 Latitude=51.95023
 Longitude=-2.5445 
 Antenna=868MHz Yagi
 #SMSFolder=./
-EnableDev=Y
+#EnableDev=Y
 
 #NetworkLED=21
 #InternetLED=22
@@ -37,10 +37,10 @@ AFC_0=N
 UplinkTime_0=2
 UplinkCycle_0=60
 
-frequency_1=434.455
-mode_1=2
-DIO0_1=6
-DIO5_1=5
-#AFC_1=Y
+frequency_1=434.546
+mode_1=1
+#DIO0_1=6
+#DIO5_1=5
+AFC_1=Y
 #UplinkTime_1=5
 #UplinkCycle_1=60

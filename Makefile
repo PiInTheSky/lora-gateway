@@ -5,7 +5,7 @@ OBJ=$(SRC:.c=.o) # replaces the .c from SRC with .o
 EXE=gateway
 
 CC=gcc
-CFLAGS=-Wall -O3 
+CFLAGS=-Wall -O3 #-std=c99 
 LDFLAGS= -lm -lwiringPi -lwiringPiDev -lcurl -lncurses -lpthread
 RM=rm
 
