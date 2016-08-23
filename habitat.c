@@ -106,14 +106,13 @@ void UploadTelemetryPacket(telemetry_t * t)
         sprintf(json,
                 "{\"data\": {\"_raw\": \"%s\"},\"receivers\": {\"%s\": {\"time_created\": \"%s\",\"time_uploaded\": \"%s\"}}}",
                 base64_data,
-//                Config.Tracker,
-                counter,
+                Config.Tracker,
                 now,
                 now);
         
         // Set the URL that is about to receive our PUT
-//        sprintf(url, "http://habitat.habhub.org/habitat/_design/payload_telemetry/_update/add_listener/%s", doc_id);
-        sprintf(url, "http://ext.hgf.com/ssdv/rjh.php");
+        sprintf(url, "http://habitat.habhub.org/habitat/_design/payload_telemetry/_update/add_listener/%s", doc_id);
+//        sprintf(url, "http://ext.hgf.com/ssdv/rjh.php");
         
         // Set the headers
         headers = NULL;

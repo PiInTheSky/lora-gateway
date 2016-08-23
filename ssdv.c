@@ -93,10 +93,8 @@ void UploadImagePacket(ssdv_t * s, unsigned int packets)
             base64_encode(s[PacketIndex].SSDV_Packet, 256, &base64_length, base64_data);
             base64_data[base64_length] = '\0';  
 
-//            sprintf(packet_json, "{\"type\": \"packet\", \"packet\": \"%s\", \"encoding\": \"base64\", \"received\": \"%s\", \"receiver\": \"%s\"}%s",
- //                   base64_data, now, Config.Tracker, PacketIndex == (packets -1) ? "" : ",");
-            sprintf(packet_json, "{\"type\": \"packet\", \"packet\": \"%s\", \"encoding\": \"base64\", \"received\": \"%s\", \"receiver\": \"%d\"}%s",
-                    base64_data, now, s[PacketIndex].Packet_Number, PacketIndex == (packets -1) ? "" : ",");
+            sprintf(packet_json, "{\"type\": \"packet\", \"packet\": \"%s\", \"encoding\": \"base64\", \"received\": \"%s\", \"receiver\": \"%s\"}%s",
+                    base64_data, now, Config.Tracker, PacketIndex == (packets -1) ? "" : ",");
             strcat(json, packet_json);
         }
         strcat(json, "]}");
@@ -108,9 +106,9 @@ void UploadImagePacket(ssdv_t * s, unsigned int packets)
 		headers = curl_slist_append(headers, "charsets: utf-8");
 
 		curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers); 
-//		curl_easy_setopt(curl, CURLOPT_URL, "http://ssdv.habhub.org/api/v0/packets");  
+		curl_easy_setopt(curl, CURLOPT_URL, "http://ssdv.habhub.org/api/v0/packets");  
 //		curl_easy_setopt(curl, CURLOPT_URL, "http://ext.hgf.com/ssdv/rjh.php");  
-		curl_easy_setopt(curl, CURLOPT_URL, "http://ext.hgf.com/ssdv/apiv0.php?q=packets");  
+//		curl_easy_setopt(curl, CURLOPT_URL, "http://ext.hgf.com/ssdv/apiv0.php?q=packets");  
 		curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, "POST");
 		curl_easy_setopt(curl, CURLOPT_POSTFIELDS, json);
 
