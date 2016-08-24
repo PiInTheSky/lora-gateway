@@ -2326,6 +2326,34 @@ main (int argc, char **argv)
             ProcessKeyPress (ch);
         }
 
+        /* RJH TEST */
+        if (message_count % 10 == 9)
+        {
+            if (file_telem)
+            {
+                if (fgets (buffer, sizeof (buffer), file_telem))
+                {
+                    rjh_post_message (1, buffer);
+                }
+            }
+            message_count++; // We need to increment this here or we will lock
+        }
+        else
+        {
+            if (file_ssdv)
+            {
+                if (fread (ssdv_buff, 256, 1, file_ssdv))
+                {
+                    ssdv_buff[256] = '\0';
+                    // hexdump_buffer ("A",ssdv_buff,256);
+                    rjh_post_message (1, &ssdv_buff[1]);
+                }
+            }
+            message_count++; // We need to increment this here or we will lock
+        }
+
+
+        /* RJH TEST */
         if (LoopPeriod > 1000)
         {
 
@@ -2339,34 +2367,6 @@ main (int argc, char **argv)
 
             LoopPeriod = 0;
 
-            /* RJH TEST */
-            if (message_count % 10 == 9)
-            {
-                if (file_telem)
-                {
-                    if (fgets (buffer, sizeof (buffer), file_telem))
-                    {
-                        rjh_post_message (1, buffer);
-                    }
-                }
-                message_count++; // We need to increment this here or we will lock
-            }
-            else
-            {
-                if (file_ssdv)
-                {
-                    if (fread (ssdv_buff, 256, 1, file_ssdv))
-                    {
-                        ssdv_buff[256] = '\0';
-                        // hexdump_buffer ("A",ssdv_buff,256);
-                        rjh_post_message (1, &ssdv_buff[1]);
-                    }
-                }
-                message_count++; // We need to increment this here or we will lock
-            }
-
-
-            /* RJH TEST */
 
             for (Channel = 0; Channel <= 1; Channel++)
             {
@@ -2444,8 +2444,8 @@ main (int argc, char **argv)
             }
         }
 
-        delay (1);
-        LoopPeriod += 100;
+        delay (10);
+        LoopPeriod += 10;
     }
 
     LogMessage ("Closing SSDV pipe\n");
