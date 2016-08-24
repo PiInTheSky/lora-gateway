@@ -7,11 +7,6 @@ desktop.ini
 *.BIN
 *.ack
 *.rjh
+*.txt
 gateway
-telemetry.txt
-packets.txt
-gateway.txt
-ssdv
-gateway-mode0.txt
-test.txt
-telemetry.tgz
+test-data/

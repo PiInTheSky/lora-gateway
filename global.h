@@ -92,7 +92,7 @@ struct TConfig
 
 typedef struct {
     int parent_status;
-    int telem_count;
+    unsigned long packet_count;
 } thread_shared_vars_t;
 
 typedef struct {
