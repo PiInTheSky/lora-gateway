@@ -1368,7 +1368,7 @@ void
 LoadConfigFile ()
 {
     FILE *fp;
-    char *filename = "gateway.txt";
+    char *filename = "gateway.cfg";
     char Keyword[32];
     int Channel, Temp;
     char TempString[16];
@@ -2311,7 +2311,7 @@ main (int argc, char **argv)
     char ssdv_buff[257];
     int message_count = 0;
 
-    char fileName[20] = "test.txt";
+    char fileName[20] = "telem.txt";
     FILE *file_telem = fopen (fileName, "r");
 
     char fileName_ssdv[20] = "ssdv.bin";
