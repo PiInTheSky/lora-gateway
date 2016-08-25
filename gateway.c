@@ -1072,6 +1072,9 @@ DIO0_Interrupt (int Channel)
 
         Bytes = receiveMessage (Channel, Message + 1);
 
+        hexdump_buffer ("Raw Data", Message, 257);
+
+
         if (Bytes > 0)
         {
             if (Config.LoRaDevices[Channel].ActivityLED >= 0)
