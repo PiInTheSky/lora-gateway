@@ -113,7 +113,7 @@ UploadTelemetryPacket (telemetry_t * t)
                  "{\"data\": {\"_raw\": \"%s\"},\"receivers\": {\"%s\": {\"time_created\": \"%s\",\"time_uploaded\": \"%s\"}}}",
                  base64_data, Config.Tracker, now, now);
 
-        LogTelemetryPacket(json);
+        // LogTelemetryPacket(json);
 
 
         // Set the URL that is about to receive our PUT
