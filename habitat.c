@@ -142,6 +142,7 @@ UploadTelemetryPacket (telemetry_t * t)
         }
         else
         {
+            LogMessage("Failed for URL '%s'\n",url);
             LogMessage("curl_easy_perform() failed: %s\n", curl_easy_strerror(res));
             LogMessage("error: %s\n", curl_error);
         }

@@ -1070,7 +1070,7 @@ DIO0_Interrupt (int Channel)
 
         Bytes = receiveMessage (Channel, Message + 1);
 
-        hexdump_buffer ("Raw Data", Message, 257);
+        // hexdump_buffer ("Raw Data", Message, 257);
 
 
         if (Bytes > 0)
@@ -2109,8 +2109,7 @@ rjh_post_message (int Channel, char *buffer)
 
         memcpy (Message + 1, buffer, 256);
 
-        //hexdump_buffer ("B",Message,257);
-        hexdump_buffer ("RJH Raw Data", Message, 257);
+        // hexdump_buffer ("RJH Raw Data", Message, 257);
 
         Bytes = strlen (buffer);
 
@@ -2351,7 +2350,6 @@ main (int argc, char **argv)
                 if (fread (ssdv_buff, 256, 1, file_ssdv))
                 {
                     ssdv_buff[256] = '\0';
-                    // hexdump_buffer ("A",ssdv_buff,256);
                     rjh_post_message (1, &ssdv_buff[1]);
                 }
             }
