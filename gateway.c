@@ -831,26 +831,30 @@ ProcessTelemetryMessage (int Channel, char *Message)
             tm = localtime (&now);
 
 
-            // Create a telemetry packet
-            telemetry_t t;
-            t.Channel = Channel;
-            t.Packet_Number = habitate_telem_packets;
-            memcpy (t.Telemetry, startmessage, strlen (startmessage) + 1);
-
-            // Add the telemetry packet to the pipe
-            int result = write (telem_pipe_fd[1], &t, sizeof (t));
-            if (result == -1)
+            if (Config.EnableHabitat)
             {
-                printf ("Error writing to the telmetry pipe\n");
-                exit (1);
-            }
-            if (result == 0)
-            {
-                LogMessage ("Nothing written to telemetry pipe \n");
-            }
-            if (result > 1)
-            {
-                htsv.packet_count++;
+	
+	            // Create a telemetry packet
+	            telemetry_t t;
+	            t.Channel = Channel;
+	            t.Packet_Number = habitate_telem_packets;
+	            memcpy (t.Telemetry, startmessage, strlen (startmessage) + 1);
+	
+	            // Add the telemetry packet to the pipe
+	            int result = write (telem_pipe_fd[1], &t, sizeof (t));
+	            if (result == -1)
+	            {
+	                printf ("Error writing to the telemetry pipe\n");
+	                exit (1);
+	            }
+	            if (result == 0)
+	            {
+	                LogMessage ("Nothing written to telemetry pipe \n");
+	            }
+	            if (result > 1)
+	            {
+	                htsv.packet_count++;
+	            }
             }
 
             LogMessage("%02d:%02d:%02d Ch%d: %s\n", tm->tm_hour, tm->tm_min, tm->tm_sec, Channel, startmessage);
