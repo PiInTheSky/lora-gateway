@@ -236,9 +236,10 @@ Change History
 
     Highlights include :-
 
-	Change makefile to include -Wall and fixed all warnings
+	Changed makefile to include -Wall and fixed all warnings generated
     Added pipes for Inter-Process Communication 
-    Moved none thread safe curl funtions out of threads and into main()
+    Moved none thread safe curl funtions from threads and into main()
+    Added reporting of curl errors to habitat and ssdv threads
 	
 
 27/06/2016 - V1.6
