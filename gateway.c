@@ -918,8 +918,6 @@ ProcessSSDVMessage (int Channel, char *Message)
 
     Message[0] = 0x55;
 
-    // hexdump_buffer ("C", Message,256);
-
     CallsignCode = Message[2];
     CallsignCode <<= 8;
     CallsignCode |= Message[3];
@@ -1069,6 +1067,8 @@ DIO0_Interrupt (int Channel)
     {
         int Bytes;
         char Message[257];
+
+        Message[0] = 0x00;
 
         Bytes = receiveMessage (Channel, Message + 1);
 
@@ -2112,6 +2112,7 @@ rjh_post_message (int Channel, char *buffer)
         memcpy (Message + 1, buffer, 256);
 
         //hexdump_buffer ("B",Message,257);
+        hexdump_buffer ("RJH Raw Data", Message, 257);
 
         Bytes = strlen (buffer);
 
