@@ -272,7 +272,7 @@ LogMessage (const char *format, ...)
     if (Window == NULL)
     {
         // Window = newwin(25, 30, 0, 50);
-        Window = newwin (LINES -16, 80, 16, 0);
+        Window = newwin (LINES -16, COLS, 16, 0);
         scrollok (Window, TRUE);
     }
 
@@ -283,12 +283,12 @@ LogMessage (const char *format, ...)
 
     va_end (args);
 
-    if (strlen (Buffer) > 79)
+    if (strlen (Buffer) > COLS - 1)
     {
-        Buffer[77] = '.';
-        Buffer[78] = '.';
-        Buffer[79] = '\n';
-        Buffer[80] = 0;
+        Buffer[COLS - 3] = '.';
+        Buffer[COLS - 2] = '.';
+        Buffer[COLS - 1] = '\n';
+        Buffer[COLS] = 0;
     }
 
     waddstr (Window, Buffer);
