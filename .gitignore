@@ -7,6 +7,9 @@ desktop.ini
 *.BIN
 *.ack
 *.rjh
-*.txt
+telemetry.txt
+packets.txt
+pkt.txt
+gateway.txt
 gateway
 test-data/

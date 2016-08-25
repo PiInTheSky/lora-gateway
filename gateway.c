@@ -1368,7 +1368,7 @@ void
 LoadConfigFile ()
 {
     FILE *fp;
-    char *filename = "gateway.cfg";
+    char *filename = "gateway.txt";
     char Keyword[32];
     int Channel, Temp;
     char TempString[16];

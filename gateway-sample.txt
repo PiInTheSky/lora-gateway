@@ -1,4 +1,14 @@
+
+##### Your details #####
+
 tracker=YOUR_CALLSIGN
+Latitude=0.0
+Longitude=0.0
+Antenna=Watso W-50
+
+
+##### Config Options #####
+
 EnableHabitat=Y
 EnableSSDV=Y
 JPGFolder=ssdv
@@ -6,9 +16,6 @@ LogTelemetry=Y
 LogPackets=Y
 CallingTimeout=60
 ServerPort=6004
-Latitude=0.0
-Longitude=0.0
-Antenna=Watso W-50
 #SMSFolder=./
 EnableDev=N
 
@@ -17,24 +24,36 @@ EnableDev=N
 #ActivityLED_0=23
 #ActivityLED_1=24
 
+
+##### Config CE0 #####
+
 frequency_0=434.250
 mode_0=1
+AFC_0=Y
 #bandwidth_0=125K
 #implicit_0=0
 #coding_0=5
 #sf_0=8
 #lowopt_0=0
 #power_0=255
-DIO0_0=31
-DIO5_0=26
-AFC_0=Y
+#DIO0_0=31
+#DIO5_0=26
 #UplinkTime_0=2
 #UplinkCycle_0=60
 
+
+##### Config CE0 #####
+
 frequency_1=434.500
 mode_1=1
-DIO0_1=6
-DIO5_1=5
 AFC_1=Y
+#bandwidth_1=125K
+#implicit_1=0
+#coding_1=5
+#sf_1=8
+#lowopt_1=0
+#power_1=255
+#DIO0_1=6
+#DIO5_1=5
 #UplinkTime_1=5
 #UplinkCycle_1=60
