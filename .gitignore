@@ -8,6 +8,7 @@ desktop.ini
 *.ack
 *.rjh
 telemetry.txt
+telem.txt
 packets.txt
 pkt.txt
 gateway.txt

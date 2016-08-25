@@ -33,7 +33,7 @@
 #include "server.h"
 #include "gateway.h"
 
-#define VERSION	"V1.6"
+#define VERSION	"V1.7"
 bool run = TRUE;
 
 // RFM98
