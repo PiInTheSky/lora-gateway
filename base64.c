@@ -14,10 +14,10 @@ static char *decoding_table = NULL;
 static int mod_table[] = {0, 2, 1};
 
 
-void *base64_encode(const unsigned char *data,
+char *base64_encode(const char *data,
                     size_t input_length,
                     size_t *output_length,
-					char *encoded_data)
+			char *encoded_data)
 {
 
 	int i, j;
@@ -44,7 +44,7 @@ void *base64_encode(const unsigned char *data,
     for (i = 0; i < mod_table[input_length % 3]; i++)
         encoded_data[*output_length - 1 - i] = '=';
 
-    // return encoded_data;
+    return encoded_data;
 }
 
 
@@ -58,7 +58,7 @@ void build_decoding_table() {
         decoding_table[(unsigned char) encoding_table[i]] = i;
 }
 
-unsigned char *base64_decode(const char *data,
+char *base64_decode(const char *data,
                              size_t input_length,
                              size_t *output_length) {
 	int i, j;
@@ -71,15 +71,15 @@ unsigned char *base64_decode(const char *data,
     if (data[input_length - 1] == '=') (*output_length)--;
     if (data[input_length - 2] == '=') (*output_length)--;
 
-    unsigned char *decoded_data = malloc(*output_length);
+    char *decoded_data = malloc(*output_length);
     if (decoded_data == NULL) return NULL;
 
     for (i = 0, j = 0; i < input_length;) {
 
-        uint32_t sextet_a = data[i] == '=' ? 0 & i++ : decoding_table[data[i++]];
-        uint32_t sextet_b = data[i] == '=' ? 0 & i++ : decoding_table[data[i++]];
-        uint32_t sextet_c = data[i] == '=' ? 0 & i++ : decoding_table[data[i++]];
-        uint32_t sextet_d = data[i] == '=' ? 0 & i++ : decoding_table[data[i++]];
+        uint32_t sextet_a = data[i] == '=' ? 0 & i++ : decoding_table[(int)data[i++]];
+        uint32_t sextet_b = data[i] == '=' ? 0 & i++ : decoding_table[(int)data[i++]];
+        uint32_t sextet_c = data[i] == '=' ? 0 & i++ : decoding_table[(int)data[i++]];
+        uint32_t sextet_d = data[i] == '=' ? 0 & i++ : decoding_table[(int)data[i++]];
 
         uint32_t triple = (sextet_a << 3 * 6)
         + (sextet_b << 2 * 6)

@@ -60,7 +60,7 @@ void *FTPLoop(void *some_void_ptr)
 		dp = opendir(SSDVFolder);
 		if (dp != NULL)
 		{
-			while (ep = readdir (dp))
+			while ((ep = readdir (dp)))
 			{
 				if (strstr(ep->d_name, ".bin") != NULL)
 				{

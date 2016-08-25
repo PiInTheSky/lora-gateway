@@ -228,6 +228,20 @@ Many thanks to David Brooke for coding this feature and the AFC.
 Change History
 ==============
 
+
+25/08/2016 - V1.7
+-----------------
+
+	Robert Harrison has made numerous changes. 
+
+    Highlights include :-
+
+	Changed makefile to include -Wall and fixed all warnings generated
+    Added pipes for Inter-Process Communication 
+    Moved none thread safe curl funtions from threads and into main()
+    Added reporting of curl errors to habitat and ssdv threads
+	
+
 27/06/2016 - V1.6
 -----------------
 
