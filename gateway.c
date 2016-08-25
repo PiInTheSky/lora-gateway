@@ -272,7 +272,7 @@ LogMessage (const char *format, ...)
     if (Window == NULL)
     {
         // Window = newwin(25, 30, 0, 50);
-        Window = newwin (9, 80, 16, 0);
+        Window = newwin (LINES -16, 80, 16, 0);
         scrollok (Window, TRUE);
     }
 
