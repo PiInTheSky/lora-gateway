@@ -60,6 +60,7 @@ UploadImagePacket (ssdv_t * s, unsigned int packets)
     char now[32];
     time_t rawtime;
     struct tm *tm;
+    char url [250];
 
     /* get a curl handle */
     curl = curl_easy_init ();
@@ -103,6 +104,11 @@ UploadImagePacket (ssdv_t * s, unsigned int packets)
         }
         strcat (json, "]}");
 
+
+        strcpy(url,"http://ssdv.habhub.org/api/v0/packets");
+        strcpy(url,"http://ext.hgf.com/ssdv/rjh.php");
+        strcpy(url,"http://ext.hgf.com/ssdv/apiv0.php?q=packets");
+
         // Set the headers
         headers = NULL;
         headers = curl_slist_append (headers, "Accept: application/json");
@@ -110,11 +116,7 @@ UploadImagePacket (ssdv_t * s, unsigned int packets)
         headers = curl_slist_append (headers, "charsets: utf-8");
 
         curl_easy_setopt (curl, CURLOPT_HTTPHEADER, headers);
-        curl_easy_setopt(curl, CURLOPT_URL, "http://ssdv.habhub.org/api/v0/packets");  
-
-//        curl_easy_setopt (curl, CURLOPT_URL,
-//                          "http://ext.hgf.com/ssdv/rjh.php");
-//      curl_easy_setopt(curl, CURLOPT_URL, "http://ext.hgf.com/ssdv/apiv0.php?q=packets");  
+        curl_easy_setopt(curl, CURLOPT_URL, url );  
 
         curl_easy_setopt (curl, CURLOPT_CUSTOMREQUEST, "POST");
         curl_easy_setopt (curl, CURLOPT_POSTFIELDS, json);
@@ -128,6 +130,7 @@ UploadImagePacket (ssdv_t * s, unsigned int packets)
         }
         else
         {
+            LogMessage("Failed for URL '%s'\n",url); 
             LogMessage("curl_easy_perform() failed: %s\n", curl_easy_strerror(res));
                         LogMessage("error: %s\n", curl_error);
         }

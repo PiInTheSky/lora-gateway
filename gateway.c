@@ -1068,8 +1068,6 @@ DIO0_Interrupt (int Channel)
         int Bytes;
         char Message[257];
 
-        Message[0] = 0x00;
-
         Bytes = receiveMessage (Channel, Message + 1);
 
         hexdump_buffer ("Raw Data", Message, 257);
