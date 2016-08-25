@@ -128,8 +128,8 @@ UploadImagePacket (ssdv_t * s, unsigned int packets)
         }
         else
         {
-            //LogMessage("curl_easy_perform() failed: %s\n", curl_easy_strerror(res));
-            //            LogMessage("error: %s\n", curl_error);
+            LogMessage("curl_easy_perform() failed: %s\n", curl_easy_strerror(res));
+                        LogMessage("error: %s\n", curl_error);
         }
 
         /* always cleanup */

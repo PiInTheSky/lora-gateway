@@ -132,8 +132,6 @@ UploadTelemetryPacket (telemetry_t * t)
         curl_easy_setopt (curl, CURLOPT_CUSTOMREQUEST, "PUT");
         curl_easy_setopt (curl, CURLOPT_POSTFIELDS, json);
 
-        // LogMessage("%s\n", t->Telemetry);
-
         // Perform the request, res will get the return code
         res = curl_easy_perform (curl);
 
@@ -144,8 +142,8 @@ UploadTelemetryPacket (telemetry_t * t)
         }
         else
         {
-            // LogMessage("curl_easy_perform() failed: %s\n", curl_easy_strerror(res));
-            // LogMessage("error: %s\n", curl_error);
+            LogMessage("curl_easy_perform() failed: %s\n", curl_easy_strerror(res));
+            LogMessage("error: %s\n", curl_error);
         }
 
         // always cleanup
