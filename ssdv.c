@@ -107,8 +107,8 @@ UploadImagePacket (ssdv_t * s, unsigned int packets)
         // LogTelemetryPacket(json);
 
         strcpy(url,"http://ssdv.habhub.org/api/v0/packets");
-        strcpy(url,"http://ext.hgf.com/ssdv/rjh.php");
-        strcpy(url,"http://ext.hgf.com/ssdv/apiv0.php?q=packets");
+        // strcpy(url,"http://ext.hgf.com/ssdv/rjh.php");
+        // strcpy(url,"http://ext.hgf.com/ssdv/apiv0.php?q=packets");
 
         // Set the headers
         headers = NULL;
