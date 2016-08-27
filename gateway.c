@@ -33,7 +33,7 @@
 #include "server.h"
 #include "gateway.h"
 
-#define VERSION	"V1.7"
+#define VERSION	"V1.7.18 Alpha"
 bool run = TRUE;
 
 // RFM98
@@ -1746,9 +1746,12 @@ InitDisplay (void)
     // bkgd(COLOR_PAIR(1));
     // attrset(COLOR_PAIR(1) | A_BOLD);
 
+    char title [80];
+
+    sprintf (title,"MORJX - LoRa Habitat and SSDV Gateway " VERSION " forked from daveache");
+
     // Title bar
-    mvaddstr (0, 17,
-              " LoRa Habitat and SSDV Gateway " VERSION " by daveake ");
+    mvaddstr (0, (80-strlen(title))/2,title);
     refresh ();
 
     // Windows for LoRa live data
