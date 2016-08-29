@@ -93,8 +93,6 @@ NetworkLoop( void *some_void_ptr )
 {
     while ( 1 )
     {
-        digitalWrite( Config.NetworkLED, 0 );
-        digitalWrite( Config.InternetLED, 0 );
         if ( HaveAnIPAddress(  ) )
         {
             digitalWrite( Config.NetworkLED, 1 );
@@ -107,11 +105,13 @@ NetworkLoop( void *some_void_ptr )
             }
             else
             {
+                digitalWrite( Config.InternetLED, 0 );
 //              LogMessage("Not on internet :-(\n");
             }
         }
         else
         {
+            digitalWrite( Config.NetworkLED, 0 );
 //          LogMessage("No network :-(\n");
         }
 
