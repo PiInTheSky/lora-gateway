@@ -1739,8 +1739,8 @@ InitDisplay (void)
 
     start_color ();             /*  Initialize colours  */
 
-    init_pair (1, COLOR_WHITE, COLOR_BLUE);
-    init_pair (2, COLOR_YELLOW, COLOR_BLUE);
+    init_pair (1, COLOR_WHITE, 22);
+    init_pair (2, COLOR_YELLOW, 22);
 
     color_set (1, NULL);
     // bkgd(COLOR_PAIR(1));

@@ -6,7 +6,7 @@ EXE=gateway
 
 CC=gcc
 CFLAGS=-Wall -O3 #-std=c99 
-LDFLAGS= -lm -lwiringPi -lwiringPiDev -lcurl -lncurses -lpthread
+LDFLAGS= -lm -lwiringPi -lwiringPiDev -lcurl -lncurses -lpthread -ltinfo
 RM=rm
 
 %.o: %.c         # combined w/ next line will compile recently changed .c files
