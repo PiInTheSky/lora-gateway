@@ -232,7 +232,7 @@ Change History
 25/08/2016 - V1.7
 -----------------
 
-	Robert Harrison has made numerous changes. 
+    Robert Harrison has made numerous changes. 
 
     Highlights include :-
 
@@ -244,7 +244,7 @@ Change History
     
     For putty users please set your terminal as shown
     
-    ![Alt text](http://i.imgur.com/B81bvEQ.png "Putty config")
+![Alt text](http://i.imgur.com/B81bvEQ.png "Putty config")
     
     when you are connected to your pi
     
