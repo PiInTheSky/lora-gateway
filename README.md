@@ -232,14 +232,27 @@ Change History
 25/08/2016 - V1.7
 -----------------
 
-	Robert Harrison has made numerous changes. 
+    Robert Harrison has made numerous changes. 
 
     Highlights include :-
 
-	Changed makefile to include -Wall and fixed all warnings generated
+    Changed makefile to include -Wall and fixed all warnings generated
     Added pipes for Inter-Process Communication 
     Moved none thread safe curl funtions from threads and into main()
     Added reporting of curl errors to habitat and ssdv threads
+    Changed color to green but requires 256 color support in your terminal
+    
+    For putty users please set your terminal as shown
+    
+![Alt text](http://i.imgur.com/B81bvEQ.png "Putty config")
+    
+    when you are connected to your pi
+    
+    # echo $TERM            # should show something with 256 in
+    
+    or
+    
+    # tpu colors            # Should show 256
 	
 
 27/06/2016 - V1.6
