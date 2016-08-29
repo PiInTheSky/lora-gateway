@@ -1755,7 +1755,7 @@ InitDisplay (void)
 
     char title [80];
 
-    sprintf (title,"MORJX - LoRa Habitat and SSDV Gateway " VERSION " forked from daveache");
+    sprintf (title,"MORJX - LoRa Habitat and SSDV Gateway " VERSION " forked from daveake");
 
     // Title bar
     mvaddstr (0, (80-strlen(title))/2,title);
