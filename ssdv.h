@@ -1,1 +1,2 @@
-void *SSDVLoop(void *some_void_ptr);
+void *SSDVLoop( void *some_void_ptr );
+
