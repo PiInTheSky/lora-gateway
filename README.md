@@ -244,7 +244,7 @@ Change History
     
     For putty users please set your terminal as shown
     
-    http://i.imgur.com/B81bvEQ.png
+    ![Alt text](http://i.imgur.com/B81bvEQ.png "Putty config")
     
     when you are connected to your pi
     
