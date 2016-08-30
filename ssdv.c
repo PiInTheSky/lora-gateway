@@ -47,7 +47,8 @@ int UploadImagePackets(void)
 	CURLcode res;
 	char PostFields[1000], base64_data[512], json[32768], packet_json[1000];
 	struct curl_slist *headers = NULL;
-	int UploadedOK, base64_length;
+	int UploadedOK;
+	size_t base64_length;
 	char now[32];
 	time_t rawtime;
 	struct tm *tm;
