@@ -986,7 +986,7 @@ ProcessSSDVMessage( int Channel, char *Message )
         int result = write( ssdv_pipe_fd[1], &s, sizeof( s ) );
         if ( result == -1 )
         {
-            printf( "Error writing to the issdv pipe\n" );
+            printf( "Error writing to the ssdv pipe\n" );
             exit( 1 );
         }
         if ( result == 0 )
