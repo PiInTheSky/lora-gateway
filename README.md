@@ -1,3 +1,10 @@
+TODO
+
+add 32bit crc on ssdv packets but ont richardolins ones
+
+
+
+
 Part of the LoRa Balloon Tracking System
 
 Runs on a Raspberry Pi with 1 or 2 RFM98HW modules attached to the SPI port.
