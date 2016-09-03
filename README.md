@@ -46,10 +46,8 @@ Install the LoRa gateway
 	2. git clone https://github.com/PiInTheSky/lora-gateway.git
 	3. cd lora-gateway
 	4. make
-	5. cp gateway_sample.txt gateway.txt
+	5. cp gateway-sample.txt gateway.txt
 	
-** That last step is new - to prevent overwriting existing configurations, gateway.txt is supplied as a sample file that you need to copy first **
-
 
 
 Configuration
@@ -227,6 +225,47 @@ Many thanks to David Brooke for coding this feature and the AFC.
 
 Change History
 ==============
+
+03/09/2016 - V1.8
+-----------------
+
+	Add configuration of uplink frequency, mode and power
+	LoRa modes now in array so easier to add new ones
+	Added LoRa mode for uplink
+	Re-instated logging to telemetry.txt
+	Fixed pipe errors which happened if packets arrived during program exit
+	Merged in changes to JSON format
+	Sends data both LoRa channels in JSON
+	Config disables CE0 by default (most cards have CE1 only)
+	Fixed typos in gateway-sample.txt
+	Accept new SSDV types
+	
+
+25/08/2016 - V1.7
+-----------------
+
+    Robert Harrison (RJH) has made numerous changes. 
+
+    Highlights include :-
+
+    Changed makefile to include -Wall and fixed all warnings generated
+    Added pipes for Inter-Process Communication 
+    Moved none thread safe curl funtions from threads and into main()
+    Added reporting of curl errors to habitat and ssdv threads
+    Changed color to green but requires 256 color support in your terminal
+    
+    For putty users please set your terminal as shown
+    
+![Alt text](http://i.imgur.com/B81bvEQ.png "Putty config")
+    
+    when you are connected to your pi
+    
+    # echo $TERM            # should show something with 256 in
+    
+    or
+    
+    # tpu colors            # Should show 256
+	
 
 27/06/2016 - V1.6
 -----------------

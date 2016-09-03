@@ -1,1 +1,1 @@
-void *FTPLoop(void *some_void_ptr);
+void *FTPLoop( void *some_void_ptr );

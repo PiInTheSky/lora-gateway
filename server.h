@@ -1,1 +1,2 @@
-void *ServerLoop(void *some_void_ptr);
+void *ServerLoop( void *some_void_ptr );
+
