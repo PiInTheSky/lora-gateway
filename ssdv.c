@@ -169,6 +169,7 @@ SSDVLoop( void *vars )
             }
             else
             {
+                sleep( 1 );
                 packets = 0;
 
                 // If we have have a rollover after processing 4294967295 packets

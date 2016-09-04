@@ -193,6 +193,7 @@ HabitatLoop( void *vars )
             }
             else
             {
+                sleep( 1 );
                 packets = 0;
                 // pthread_mutex_unlock(&var);
 
