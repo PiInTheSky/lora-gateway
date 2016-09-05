@@ -33,7 +33,7 @@
 #include "server.h"
 #include "gateway.h"
 
-#define VERSION	"V1.8.0"
+#define VERSION	"V1.8.1"
 bool run = TRUE;
 
 // RFM98
@@ -1072,12 +1072,10 @@ TestMessageForSMSAcknowledgement( int Channel, char *Message )
                 FileNumber = atoi( value1 );
                 if ( FileNumber > 0 )
                 {
-                    sprintf( OldFileName, "%s%d.sms", Config.SMSFolder,
-                             FileNumber );
+                    sprintf( OldFileName, "%s/%d.sms", Config.SMSFolder, FileNumber );
                     if ( FileExists( OldFileName ) )
                     {
-                        sprintf( NewFileName, "%s%d.ack", Config.SMSFolder,
-                                 FileNumber );
+                        sprintf( NewFileName, "%s/%d.ack", Config.SMSFolder, FileNumber );
                         if ( FileExists( NewFileName ) )
                         {
                             remove( NewFileName );
@@ -1344,9 +1342,7 @@ receiveMessage( int Channel, char *message )
     return Bytes;
 }
 
-void
-ReadString( FILE * fp, char *keyword, char *Result, int Length,
-            int NeedValue )
+void ReadString( FILE * fp, char *keyword, char *Result, int Length, int NeedValue )
 {
     char line[100], *token, *value;
 
@@ -1355,6 +1351,8 @@ ReadString( FILE * fp, char *keyword, char *Result, int Length,
 
     while ( fgets( line, sizeof( line ), fp ) != NULL )
     {
+		line[strcspn(line, "\r")] = '\0';		// Get rid of CR if there is one
+		
         token = strtok( line, "=" );
         if ( strcasecmp( keyword, token ) == 0 )
         {
@@ -1366,8 +1364,7 @@ ReadString( FILE * fp, char *keyword, char *Result, int Length,
 
     if ( NeedValue )
     {
-        LogMessage( "Missing value for '%s' in configuration file\n",
-                    keyword );
+        LogMessage( "Missing value for '%s' in configuration file\n", keyword );
         exit( 1 );
     }
 }
@@ -1416,6 +1413,19 @@ ReadBoolean( FILE * fp, char *keyword, int NeedValue, int *Result )
     }
 
     return *Temp;
+}
+
+void RemoveTrailingSlash(char *Value)
+{
+	int Len;
+	
+	if ((Len = strlen(Value)) > 0)
+	{
+		if ((Value[Len-1] == '/') || (Value[Len-1] == '\\'))
+		{
+			Value[Len-1] = '\0';
+		}
+	}
 }
 
 void LoadConfigFile(void)
@@ -1486,8 +1496,7 @@ void LoadConfigFile(void)
     Config.ServerPort = ReadInteger( fp, "ServerPort", 0, -1 );
 
     // SSDV Settings
-    ReadString( fp, "jpgFolder", Config.SSDVJpegFolder,
-                sizeof( Config.SSDVJpegFolder ), 0 );
+    ReadString( fp, "jpgFolder", Config.SSDVJpegFolder, sizeof( Config.SSDVJpegFolder ), 0 );
     if ( Config.SSDVJpegFolder[0] )
     {
         // Create SSDV Folders
@@ -1521,8 +1530,8 @@ void LoadConfigFile(void)
     ReadString(fp, "SMSFolder", Config.SMSFolder, sizeof( Config.SMSFolder ), 0);
     if ( Config.SMSFolder[0] )
     {
-        LogMessage( "Folder %s will be scanned for messages to upload\n",
-                    Config.SMSFolder );
+		RemoveTrailingSlash(Config.SMSFolder);
+        LogMessage( "Folder %s will be scanned for messages to upload\n", Config.SMSFolder );
     }
 
     for ( Channel = 0; Channel <= 1; Channel++ )
@@ -1769,7 +1778,7 @@ InitDisplay( void )
 
     char title[80];
 
-    sprintf( title, "LoRa Habitat and SSDV Gateway by M0RPI - " VERSION);
+    sprintf( title, "LoRa Habitat and SSDV Gateway by M0RPI, M0RJX - " VERSION);
 
     // Title bar
     mvaddstr( 0, ( 80 - strlen( title ) ) / 2, title );
