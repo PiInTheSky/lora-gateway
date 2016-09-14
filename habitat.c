@@ -217,6 +217,7 @@ HabitatLoop( void *vars )
                 total_packets++;
 
             }
+			delay(100);			// Don't eat too much CPU
         }
     }
 
