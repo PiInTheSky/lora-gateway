@@ -34,7 +34,7 @@
 #include "gateway.h"
 #include "config.h"
 
-#define VERSION	"V1.8.3"
+#define VERSION	"V1.8.4"
 bool run = TRUE;
 
 // RFM98
@@ -1452,6 +1452,9 @@ void LoadConfigFile(void)
     Config.LoRaDevices[0].DIO5 = 5;
     Config.LoRaDevices[1].DIO0 = 27;
     Config.LoRaDevices[1].DIO5 = 26;
+	
+	Config.LoRaDevices[0].Frequency = -1;
+	Config.LoRaDevices[1].Frequency = -1;
 
     if ( ( fp = fopen( filename, "r" ) ) == NULL )
     {
@@ -1527,7 +1530,7 @@ void LoadConfigFile(void)
     for (Channel = 0; Channel <= 1; Channel++)
     {
 		RegisterConfigDouble(MainSection, Channel, "frequency", &Config.LoRaDevices[Channel].Frequency, NULL);
-        if (Config.LoRaDevices[Channel].Frequency >= 0.0)
+        if (Config.LoRaDevices[Channel].Frequency > 100)
         {
 			// Defaults
             Config.LoRaDevices[Channel].ImplicitOrExplicit = EXPLICIT_MODE;
