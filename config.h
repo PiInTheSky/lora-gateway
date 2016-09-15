@@ -21,7 +21,7 @@ int RegisterConfigDouble(int SectionIndex, int Index, char *Name, double *Double
 int RegisterConfigBoolean(int SectionIndex, int Index, char *Name, int *BoolValuePtr, void (Callback)(int));
 int ReadConfigValue(int SettingIndex);
 void SetConfigValue(char *Setting, char *Value);
-int SettingAsString(int Index, char *SettingName, int SettingNameSize, char *SettingValue, int SettingValueSize);
+int SettingAsString(int SettingIndex, char *SettingName, int SettingNameSize, char *SettingValue, int SettingValueSize);
 void SaveConfigFile(void);
 
 

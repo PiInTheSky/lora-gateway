@@ -34,7 +34,7 @@
 #include "gateway.h"
 #include "config.h"
 
-#define VERSION	"V1.8.2"
+#define VERSION	"V1.8.3"
 bool run = TRUE;
 
 // RFM98
@@ -174,8 +174,7 @@ struct TBinaryPacket {
     uint16_t Altitude;
 };
 
-const char *Modes[6] =
-    { "Slow", "SSDV", "Repeater", "Turbo", "TurboX", "Calling" };
+const char *Modes[6] = { "Slow", "SSDV", "Repeater", "Turbo", "TurboX", "Calling" };
 
 // Create pipes for inter proces communication 
 // GLOBAL AS CALLED FROM INTERRRUPT
@@ -191,6 +190,35 @@ thread_shared_vars_t htsv;
 thread_shared_vars_t stsv;
 
 int habitate_telem_packets = 0;
+
+WINDOW *mainwin=NULL;		// Curses window
+
+void CloseDisplay( WINDOW * mainwin )
+{
+    /*  Clean up after ourselves  */
+    delwin( mainwin );
+    endwin(  );
+    refresh(  );
+}
+
+
+void bye(void)
+{
+	if (mainwin != NULL)
+	{
+		CloseDisplay( mainwin);
+		mainwin = NULL;
+	}
+}
+
+void exit_error(char *msg)
+{
+	bye();		// Close ncurses window, plus any future tidy-ups
+	
+	fprintf(stderr, msg);
+    exit(1);	
+}
+
 
 void
 hexdump_buffer( const char *title, const char *buffer, const int len_buffer )
@@ -415,8 +443,7 @@ void setFrequency( int Channel, double Frequency )
 
     // LogMessage("Set Frequency to %lf\n", Frequency);
 
-    ChannelPrintf( Channel, 1, 1, "Channel %d %s MHz ", Channel,
-                   FrequencyString );
+    ChannelPrintf( Channel, 1, 1, "Channel %d %s MHz ", Channel, FrequencyString );
 }
 
 void setLoRaMode( int Channel )
@@ -929,8 +956,7 @@ void ProcessTelemetryMessage( int Channel, char *Message)
                 int result = write( telem_pipe_fd[1], &t, sizeof( t ) );
                 if ( result == -1 )
                 {
-                    printf( "Error writing to the telemetry pipe\n" );
-                    exit( 1 );
+                    exit_error("Error writing to the telemetry pipe\n");
                 }
                 if ( result == 0 )
                 {
@@ -1073,8 +1099,7 @@ void ProcessSSDVMessage( int Channel, char *Message, int Repeated)
         int result = write( ssdv_pipe_fd[1], &s, sizeof( s ) );
         if ( result == -1 )
         {
-            printf( "Error writing to the issdv pipe\n" );
-            exit( 1 );
+            exit_error("Error writing to the issdv pipe\n");
         }
         if ( result == 0 )
         {
@@ -1139,8 +1164,54 @@ TestMessageForSMSAcknowledgement( int Channel, char *Message )
     }
 }
 
-void
-DIO0_Interrupt( int Channel )
+int FixRSSI(int Channel, int RawRSSI, int SNR)
+{
+	int RSSI;
+	
+	if (Config.LoRaDevices[Channel].Frequency > 525)
+	{
+		// HF port (band 1)
+		RSSI = RawRSSI - 157;
+	}
+	else
+	{
+		// LF port (Bands 2/3)
+		RSSI = RawRSSI - 164;
+	}
+	
+	if (SNR < 0)
+	{
+		RSSI += SNR/4;
+	}
+	
+	return RSSI;
+}
+
+int CurrentRSSI(int Channel)
+{
+	return FixRSSI(Channel, readRegister(Channel, REG_CURRENT_RSSI), 0);
+}
+		
+int PacketSNR(int Channel)
+{
+	int8_t SNR;
+
+	SNR = readRegister(Channel, REG_PACKET_SNR);
+	SNR /= 4;
+	
+	return (int)SNR;
+}
+
+int PacketRSSI(int Channel)
+{
+	int SNR;
+	
+	SNR = PacketSNR(Channel);
+	
+	return FixRSSI(Channel, readRegister(Channel, REG_PACKET_RSSI), SNR);
+}
+		
+void DIO0_Interrupt( int Channel )
 {
     if ( Config.LoRaDevices[Channel].Sending )
     {
@@ -1206,12 +1277,8 @@ DIO0_Interrupt( int Channel )
             }
             else
             {
-                LogMessage( "Unknown packet type is %02Xh, RSSI %d\n",
-                            Message[1], readRegister( Channel,
-                                                      REG_PACKET_RSSI ) -
-                            157 );
-                ChannelPrintf( Channel, 3, 1, "Unknown Packet %d, %d bytes",
-                               Message[0], Bytes );
+                LogMessage("Unknown packet type is %02Xh, RSSI %d\n", Message[1], PacketRSSI(Channel));
+                ChannelPrintf( Channel, 3, 1, "Unknown Packet %d, %d bytes", Message[0], Bytes);
                 Config.LoRaDevices[Channel].UnknownCount++;
             }
 
@@ -1260,9 +1327,7 @@ setupRFM98( int Channel )
 
         if ( wiringPiSPISetup( Channel, 500000 ) < 0 )
         {
-            fprintf( stderr,
-                     "Failed to open SPI port.  Try loading spi library with 'gpio load spi'" );
-            exit( 1 );
+            exit_error("Failed to open SPI port.  Try loading spi library with 'gpio load spi'" );
         }
 
         // LoRa mode 
@@ -1311,8 +1376,8 @@ receiveMessage( int Channel, char *message )
     // check for payload crc issues (0x20 is the bit we are looking for
     if ( ( x & 0x20 ) == 0x20 )
     {
-        LogMessage( "Ch%d: CRC Failure, RSSI %d\n", Channel,
-                    readRegister( Channel, REG_PACKET_RSSI ) - 157 );
+        LogMessage( "Ch%d: CRC Failure, RSSI %d\n", Channel, PacketRSSI(Channel));
+		
         // reset the crc flags
         writeRegister( Channel, REG_IRQ_FLAGS, 0x20 );
         ChannelPrintf( Channel, 3, 1, "CRC Failure %02Xh!!\n", x );
@@ -1321,27 +1386,13 @@ receiveMessage( int Channel, char *message )
     }
     else
     {
-        int8_t SNR;
-        int RSSI;
-
         currentAddr = readRegister( Channel, REG_FIFO_RX_CURRENT_ADDR );
         Bytes = readRegister( Channel, REG_RX_NB_BYTES );
 
-        SNR = readRegister( Channel, REG_PACKET_SNR );
-        SNR /= 4;
-        RSSI = readRegister( Channel, REG_PACKET_RSSI ) - 157;
-        if ( SNR < 0 )
-        {
-            RSSI += SNR;
-        }
-
-        ChannelPrintf( Channel, 10, 1, "Packet SNR = %d, RSSI = %d      ",
-                       ( int ) SNR, RSSI );
+        ChannelPrintf( Channel, 10, 1, "Packet SNR = %d, RSSI = %d      ", PacketSNR(Channel), PacketRSSI(Channel));
 
         FreqError = FrequencyError( Channel ) / 1000;
-        ChannelPrintf( Channel, 11, 1, "Freq. Error = %5.1lfkHz ",
-                       FreqError );
-
+        ChannelPrintf( Channel, 11, 1, "Freq. Error = %5.1lfkHz ", FreqError);
 
         writeRegister( Channel, REG_FIFO_ADDR_PTR, currentAddr );
 
@@ -1354,7 +1405,7 @@ receiveMessage( int Channel, char *message )
 
         message[Bytes] = '\0';
 
-        LogPacket( Channel, SNR, RSSI, FreqError, Bytes, message[1] );
+        LogPacket(Channel, PacketSNR(Channel), PacketRSSI(Channel), FreqError, Bytes, message[1]);
 
         if ( Config.LoRaDevices[Channel].AFC && ( fabs( FreqError ) > 0.5 ) )
         {
@@ -1404,10 +1455,7 @@ void LoadConfigFile(void)
 
     if ( ( fp = fopen( filename, "r" ) ) == NULL )
     {
-        printf
-            ( "\nFailed to open config file %s (error %d - %s).\nPlease check that it exists and has read permission.\n",
-              filename, errno, strerror( errno ) );
-        exit( 1 );
+        exit_error("Failed to open config file\n");
     }
 	
 	RegisterConfigFile(filename);
@@ -1442,7 +1490,7 @@ void LoadConfigFile(void)
     RegisterConfigInteger(MainSection, -1, "ServerPort", &Config.ServerPort, NULL);
 
     // SSDV Settings
-	RegisterConfigString(MainSection, -1, "jpgFolder", Config.SSDVJpegFolder, sizeof(Config.SSDVJpegFolder), NULL);
+	RegisterConfigString(MainSection, -1, "JPGFolder", Config.SSDVJpegFolder, sizeof(Config.SSDVJpegFolder), NULL);
     if ( Config.SSDVJpegFolder[0] )
     {
         // Create SSDV Folder
@@ -1613,15 +1661,6 @@ WINDOW *InitDisplay( void )
     curs_set( 0 );
 
     return mainwin;
-}
-
-void
-CloseDisplay( WINDOW * mainwin )
-{
-    /*  Clean up after ourselves  */
-    delwin( mainwin );
-    endwin(  );
-    refresh(  );
 }
 
 
@@ -1933,12 +1972,8 @@ rjh_post_message( int Channel, char *buffer )
             }
             else
             {
-                LogMessage( "Unknown packet type is %02Xh, RSSI %d\n",
-                            Message[1], readRegister( Channel,
-                                                      REG_PACKET_RSSI ) -
-                            157 );
-                ChannelPrintf( Channel, 3, 1, "Unknown Packet %d, %d bytes",
-                               Message[0], Bytes );
+                LogMessage( "Unknown packet type is %02Xh, RSSI %d\n", Message[1], PacketRSSI(Channel));
+                ChannelPrintf( Channel, 3, 1, "Unknown Packet %d, %d bytes", Message[0], Bytes);
                 Config.LoRaDevices[Channel].UnknownCount++;
             }
 
@@ -1956,15 +1991,20 @@ rjh_post_message( int Channel, char *buffer )
     }
 }
 
-int
-main( int argc, char **argv )
+
+int main( int argc, char **argv )
 {
     int ch;
     int LoopPeriod;
 	int Channel;
-    pthread_t SSDVThread, FTPThread, NetworkThread, HabitatThread,
-        ServerThread;
-    WINDOW *mainwin;
+    pthread_t SSDVThread, FTPThread, NetworkThread, HabitatThread, ServerThread;
+
+	atexit(bye);
+	
+    if ( wiringPiSetup(  ) < 0 )
+    {
+		exit_error("Failed to open wiringPi\n");
+    }
 
 	// Clear config to zeroes so we only have to set non-zero defaults
 	memset((void *)&Config, 0, sizeof(Config));
@@ -1977,7 +2017,7 @@ main( int argc, char **argv )
 	
     curl_global_init( CURL_GLOBAL_ALL );    // RJH thread safe
 
-    mainwin = InitDisplay(  );
+    mainwin = InitDisplay();
 
     // Settings for character input
     noecho(  );
@@ -1988,9 +2028,6 @@ main( int argc, char **argv )
     LEDCounts[0] = 0;
     LEDCounts[1] = 0;
 
-    // Remove any old SSDV files
-    // system("rm -f /tmp/*.bin");  
-
     LoadConfigFile();
 
     int result;
@@ -1998,21 +2035,13 @@ main( int argc, char **argv )
     result = pipe( telem_pipe_fd );
     if ( result < 0 )
     {
-        fprintf( stderr, "Error creating telemetry pipe\n" );
-        return 1;
+        exit_error("Error creating telemetry pipe\n");
     }
 
     result = pipe( ssdv_pipe_fd );
     if ( result < 0 )
     {
-        fprintf( stderr, "Error creating ssdv pipe\n" );
-        return 1;
-    }
-
-    if ( wiringPiSetup(  ) < 0 )
-    {
-        fprintf( stderr, "Failed to open wiringPi\n" );
-        exit( 1 );
+        exit_error("Error creating ssdv pipe\n" );
     }
 
     if ( Config.LoRaDevices[0].ActivityLED >= 0 )
@@ -2036,7 +2065,7 @@ main( int argc, char **argv )
     // Initialise the vars
     stsv.parent_status = RUNNING;
     stsv.packet_count = 0;
-
+	
     if (Config.EnableSSDV)
 	{
 		if ( pthread_create( &SSDVThread, NULL, SSDVLoop, ( void * ) &stsv ) )
@@ -2157,9 +2186,7 @@ main( int argc, char **argv )
                 {
                     ShowPacketCounts( Channel );
 
-                    ChannelPrintf( Channel, 12, 1, "Current RSSI = %4d   ",
-                                   readRegister( Channel,
-                                                 REG_CURRENT_RSSI ) - 157 );
+                    ChannelPrintf( Channel, 12, 1, "Current RSSI = %4d   ", CurrentRSSI(Channel));
 
                     // if (Config.LoRaDevices[Channel].LastPacketAt > 0)
                     // {
@@ -2168,11 +2195,8 @@ main( int argc, char **argv )
 
                     if ( Config.LoRaDevices[Channel].InCallingMode
                          && ( Config.CallingTimeout > 0 )
-                         && ( Config.
-                              LoRaDevices[Channel].ReturnToCallingModeAt > 0 )
-                         && ( time( NULL ) >
-                              Config.
-                              LoRaDevices[Channel].ReturnToCallingModeAt ) )
+                         && ( Config.LoRaDevices[Channel].ReturnToCallingModeAt > 0 )
+                         && ( time( NULL ) > Config.LoRaDevices[Channel].ReturnToCallingModeAt ) )
                     {
                         Config.LoRaDevices[Channel].InCallingMode = 0;
                         Config.LoRaDevices[Channel].ReturnToCallingModeAt = 0;
@@ -2243,22 +2267,29 @@ main( int argc, char **argv )
     LogMessage( "Stopping SSDV thread\n" );
     stsv.parent_status = STOPPED;
 
-    LogMessage( "Stopping Habitat thread\n" );
-    htsv.parent_status = STOPPED;
+	LogMessage( "Stopping Habitat thread\n" );
+	htsv.parent_status = STOPPED;
 
-    LogMessage( "Waiting for SSDV thread to close ...\n" );
-    pthread_join( SSDVThread, NULL );
-    LogMessage( "SSDV thread closed\n" );
-
-    LogMessage( "Waiting for Habitat thread to close ...\n" );
-    pthread_join( HabitatThread, NULL );
-    LogMessage( "Habitat thread closed\n" );
+    if (Config.EnableSSDV)
+	{
+		LogMessage( "Waiting for SSDV thread to close ...\n" );
+		pthread_join( SSDVThread, NULL );
+		LogMessage( "SSDV thread closed\n" );
+	}
+	
+    if (Config.EnableHabitat)
+	{
+		LogMessage( "Waiting for Habitat thread to close ...\n" );
+		pthread_join( HabitatThread, NULL );
+		LogMessage( "Habitat thread closed\n" );
+	}
+	
+    // CloseDisplay( mainwin );
 
     pthread_mutex_destroy( &var );
 
     // sleep (3);
 
-    CloseDisplay( mainwin );
     curl_global_cleanup(  );    // RJH thread safe
 
     if ( Config.NetworkLED >= 0 )

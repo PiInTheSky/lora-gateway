@@ -1,3 +1,4 @@
+//// Generalised configuration manager
 // Generalised configuration manager
 
 #include <stdio.h>
@@ -341,9 +342,11 @@ void SetConfigValue(char *Setting, char *Value)
 			break;
 			
 			case stDouble:
+				*Settings[SettingIndex].DoubleValuePtr = atof(Value);
 			break;
 			
 			case stBoolean:
+				*Settings[SettingIndex].IntValuePtr = Value[strcspn(Value, "1YyTt")];
 			break;
 			
 			case stNone:
@@ -353,28 +356,30 @@ void SetConfigValue(char *Setting, char *Value)
 }
 
 
-int SettingAsString(int Index, char *SettingName, int SettingNameSize, char *SettingValue, int SettingValueSize)
+int SettingAsString(int SettingIndex, char *SettingName, int SettingNameSize, char *SettingValue, int SettingValueSize)
 {
-	if ((Index >= 0) && (Index < SettingsCount))
+	if ((SettingIndex >= 0) && (SettingIndex < SettingsCount))
 	{
-		strncpy(SettingName, Settings[Index].ValueName, SettingNameSize);
+		// strncpy(SettingName, Settings[Index].ValueName, SettingNameSize);
+	
+		GetLongName(SettingIndex, SettingName, sizeof(SettingNameSize));
 		
-		switch (Settings[Index].SettingType)
+		switch (Settings[SettingIndex].SettingType)
 		{
 			case stString:
-				snprintf(SettingValue, SettingValueSize-1, "\"%s\"", Settings[Index].StringValuePtr);
+				snprintf(SettingValue, SettingValueSize-1, "\"%s\"", Settings[SettingIndex].StringValuePtr);
 			break;
 			
 			case stInteger:
-				snprintf(SettingValue, SettingValueSize-1, "%d", *Settings[Index].IntValuePtr);
+				snprintf(SettingValue, SettingValueSize-1, "%d", *Settings[SettingIndex].IntValuePtr);
 			break;
 			
 			case stDouble:
-				snprintf(SettingValue, SettingValueSize-1, "%lf", *Settings[Index].DoubleValuePtr);
+				snprintf(SettingValue, SettingValueSize-1, "%lf", *Settings[SettingIndex].DoubleValuePtr);
 			break;
 			
 			case stBoolean:
-				snprintf(SettingValue, SettingValueSize-1, "%d", *Settings[Index].IntValuePtr ? 1 : 0);
+				snprintf(SettingValue, SettingValueSize-1, "%d", *Settings[SettingIndex].IntValuePtr ? 1 : 0);
 			break;
 			
 			case stNone:
