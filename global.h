@@ -11,23 +11,23 @@
      int HighestPacket;
      bool Packets[1024];
  };
- struct TLoRaDevice  {
-    int InUse;
+ struct TLoRaDevice {
+	double Frequency;
+	double Bandwidth;
+	double CurrentBandwidth;
+		int InUse;
      int DIO0;
      int DIO5;
-     char Frequency[16];
      double activeFreq;
-     bool AFC;
+     int AFC;
      int SpeedMode;
      int Power;
      int PayloadLength;
      int ImplicitOrExplicit;
      int ErrorCoding;
-     int Bandwidth;
      int SpreadingFactor;
      int LowDataRateOptimize;
-     int CurrentBandwidth;
-    WINDOW * Window;
+     WINDOW * Window;
     unsigned int TelemetryCount, SSDVCount, BadCRCCount, UnknownCount;
     int Sending;
     char Telemetry[256];
@@ -59,8 +59,8 @@ int UplinkMode;
         // SSDV Packet Log
     struct TSSDVPackets SSDVPackets[3];
  };
- struct TConfig  {
-    char Tracker[16];
+ struct TConfig  {   	char Tracker[16];				// Callsign or name of receiver
+	double latitude, longitude;		// Receiver's location
      int EnableHabitat;
      int EnableSSDV;
      int EnableTelemetryLogging;
@@ -75,8 +75,7 @@ int UplinkMode;
      int NetworkLED;
      int InternetLED;
      int ServerPort;
-     float latitude, longitude;
-     char SMSFolder[64];
+          char SMSFolder[64];
      char antenna[64];
      int EnableDev;
  };

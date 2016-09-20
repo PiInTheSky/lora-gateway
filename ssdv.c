@@ -195,7 +195,7 @@ SSDVLoop( void *vars )
 
                 packets = 0;
             }
-
+			delay(100);			// Don't eat too much CPU
         }
     }
 

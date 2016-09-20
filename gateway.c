@@ -32,8 +32,9 @@
 #include "global.h"
 #include "server.h"
 #include "gateway.h"
+#include "config.h"
 
-#define VERSION	"V1.8.1"
+#define VERSION	"V1.8.4"
 bool run = TRUE;
 
 // RFM98
@@ -118,11 +119,6 @@ uint8_t currentMode = 0x81;
 #define LNA_OFF_GAIN                0x00
 #define LNA_LOW_GAIN                0xC0    // 1100 0000
 
-struct TPayload {
-    int InUse;
-    char Payload[32];
-};
-
 struct TLoRaMode 
 {
 	int	ImplicitOrExplicit;
@@ -134,7 +130,7 @@ struct TLoRaMode
 	char *Description;
 } LoRaModes[] =
 {
-	{EXPLICIT_MODE, ERROR_CODING_4_8, BANDWIDTH_20K8, SPREADING_11, 8,    60, "Telemetry"},			// 0: Normal mode for telemetry
+	{EXPLICIT_MODE, ERROR_CODING_4_8, BANDWIDTH_20K8, SPREADING_11, 1,    60, "Telemetry"},			// 0: Normal mode for telemetry
 	{IMPLICIT_MODE, ERROR_CODING_4_5, BANDWIDTH_20K8, SPREADING_6,  0,  1400, "SSDV"},				// 1: Normal mode for SSDV
 	{EXPLICIT_MODE, ERROR_CODING_4_8, BANDWIDTH_62K5, SPREADING_8,  0,  2000, "Repeater"},			// 2: Normal mode for repeater network	
 	{EXPLICIT_MODE, ERROR_CODING_4_6, BANDWIDTH_250K, SPREADING_7,  0,  8000, "Turbo"},				// 3: Normal mode for high speed images in 868MHz band
@@ -144,7 +140,25 @@ struct TLoRaMode
 };
 
 struct TConfig Config;
-struct TPayload Payloads[16];
+
+struct TBandwidth
+{
+	int LoRaValue;
+	double Bandwidth;
+	char *ConfigString;
+} Bandwidths[] =
+{
+	{BANDWIDTH_7K8,     7.8,	"7K8"},
+	{BANDWIDTH_10K4,   10.4,	"10K4"},
+	{BANDWIDTH_15K6,   15.6,	"15K6"},
+	{BANDWIDTH_20K8,   20.8,	"20K8"},
+	{BANDWIDTH_31K25,  31.25,	"31K25"},
+	{BANDWIDTH_41K7,   41.7,	"41K7"},
+	{BANDWIDTH_62K5,   62.5,	"62K5"},
+	{BANDWIDTH_125K,  125.0,	"125K"},
+	{BANDWIDTH_250K,  250.0,	"250K"},
+	{BANDWIDTH_500K,  500.0,	"500K"}
+};
 
 int LEDCounts[2];
 pthread_mutex_t var = PTHREAD_MUTEX_INITIALIZER;
@@ -160,8 +174,7 @@ struct TBinaryPacket {
     uint16_t Altitude;
 };
 
-const char *Modes[6] =
-    { "Slow", "SSDV", "Repeater", "Turbo", "TurboX", "Calling" };
+const char *Modes[6] = { "Slow", "SSDV", "Repeater", "Turbo", "TurboX", "Calling" };
 
 // Create pipes for inter proces communication 
 // GLOBAL AS CALLED FROM INTERRRUPT
@@ -177,6 +190,35 @@ thread_shared_vars_t htsv;
 thread_shared_vars_t stsv;
 
 int habitate_telem_packets = 0;
+
+WINDOW *mainwin=NULL;		// Curses window
+
+void CloseDisplay( WINDOW * mainwin )
+{
+    /*  Clean up after ourselves  */
+    delwin( mainwin );
+    endwin(  );
+    refresh(  );
+}
+
+
+void bye(void)
+{
+	if (mainwin != NULL)
+	{
+		CloseDisplay( mainwin);
+		mainwin = NULL;
+	}
+}
+
+void exit_error(char *msg)
+{
+	bye();		// Close ncurses window, plus any future tidy-ups
+	
+	fprintf(stderr, msg);
+    exit(1);	
+}
+
 
 void
 hexdump_buffer( const char *title, const char *buffer, const int len_buffer )
@@ -229,9 +271,7 @@ readRegister( int Channel, uint8_t reg )
     return val;
 }
 
-void
-LogPacket( int Channel, int8_t SNR, int RSSI, double FreqError, int Bytes,
-           unsigned char MessageType )
+void LogPacket( int Channel, int8_t SNR, int RSSI, double FreqError, int Bytes, unsigned char MessageType )
 {
     if ( Config.EnablePacketLogging )
     {
@@ -278,8 +318,7 @@ LogTelemetryPacket( char *Telemetry )
     }
 }
 
-void
-LogMessage( const char *format, ... )
+void LogMessage( const char *format, ... )
 {
     static WINDOW *Window = NULL;
     char Buffer[512];
@@ -316,8 +355,7 @@ LogMessage( const char *format, ... )
 
 }
 
-void
-ChannelPrintf( int Channel, int row, int column, const char *format, ... )
+void ChannelPrintf(int Channel, int row, int column, const char *format, ... )
 {
     char Buffer[80];
     va_list args;
@@ -385,8 +423,7 @@ setMode( int Channel, uint8_t newMode )
     return;
 }
 
-void
-setFrequency( int Channel, double Frequency )
+void setFrequency( int Channel, double Frequency )
 {
     unsigned long FrequencyValue;
     char FrequencyString[10];
@@ -406,30 +443,22 @@ setFrequency( int Channel, double Frequency )
 
     // LogMessage("Set Frequency to %lf\n", Frequency);
 
-    ChannelPrintf( Channel, 1, 1, "Channel %d %s MHz ", Channel,
-                   FrequencyString );
+    ChannelPrintf( Channel, 1, 1, "Channel %d %s MHz ", Channel, FrequencyString );
 }
 
-void
-setLoRaMode( int Channel )
+void setLoRaMode( int Channel )
 {
-    double Frequency;
-
     // LogMessage("Setting LoRa Mode\n");
     setMode( Channel, RF98_MODE_SLEEP );
     writeRegister( Channel, REG_OPMODE, 0x80 );
 
     setMode( Channel, RF98_MODE_SLEEP );
 
-    if ( sscanf( Config.LoRaDevices[Channel].Frequency, "%lf", &Frequency ) )
-    {
-        // LogMessage("Set Default Frequency\n");
-        setFrequency( Channel, Frequency );
-    }
+    // LogMessage("Set Default Frequency\n");
+    setFrequency( Channel, Config.LoRaDevices[Channel].Frequency);
 }
 
-char *
-BandwidthString( int Bandwidth )
+char *BandwidthString( int Bandwidth )
 {
     if ( Bandwidth == BANDWIDTH_7K8 )
         return "7.8k";
@@ -454,30 +483,86 @@ BandwidthString( int Bandwidth )
     return "??k";
 }
 
-void
-SetLoRaParameters( int Channel, int ImplicitOrExplicit, int ErrorCoding,
-                   int Bandwidth, int SpreadingFactor,
-                   int LowDataRateOptimize )
+
+int IntToSF(int Value)
 {
-    writeRegister( Channel, REG_MODEM_CONFIG,
-                   ImplicitOrExplicit | ErrorCoding | Bandwidth );
-    writeRegister( Channel, REG_MODEM_CONFIG2, SpreadingFactor | CRC_ON );
-    writeRegister( Channel, REG_MODEM_CONFIG3, 0x04 | LowDataRateOptimize );    // 0x04: AGC sets LNA gain
-    writeRegister( Channel, REG_DETECT_OPT, ( readRegister( Channel, REG_DETECT_OPT ) & 0xF8 ) | ( ( SpreadingFactor == SPREADING_6 ) ? 0x05 : 0x03 ) );    // 0x05 For SF6; 0x03 otherwise
-    writeRegister( Channel, REG_DETECTION_THRESHOLD, ( SpreadingFactor == SPREADING_6 ) ? 0x0C : 0x0A );    // 0x0C for SF6, 0x0A otherwise
+	return Value << 4;
+}
 
-    Config.LoRaDevices[Channel].CurrentBandwidth = Bandwidth;
+int SFToInt(int SpreadingFactor)
+{
+	return SpreadingFactor >> 4;
+}
 
-    ChannelPrintf( Channel, 2, 1, "%s, %s, SF%d, EC4:%d %s",
-                   ImplicitOrExplicit ==
-                   IMPLICIT_MODE ? "Implicit" : "Explicit",
-                   BandwidthString( Bandwidth ), SpreadingFactor >> 4,
-                   ( ErrorCoding >> 1 ) + 4,
+int IntToEC(int Value)
+{
+	return (Value - 4) << 1;
+}
+
+int ECToInt(int ErrorCoding)
+{
+	return (ErrorCoding >> 1) + 4;
+}
+
+int DoubleToBandwidth(double Bandwidth)
+{
+	int i;
+	
+	for (i=0; i<10; i++)
+	{
+		if (abs(Bandwidth - Bandwidths[i].Bandwidth) < (Bandwidths[i].Bandwidth/10))
+		{
+			return Bandwidths[i].LoRaValue;
+		}
+	}
+
+	return BANDWIDTH_20K8;
+}
+
+double BandwidthToDouble(int LoRaValue)
+{
+	int i;
+	
+	for (i=0; i<10; i++)
+	{
+		if (LoRaValue == Bandwidths[i].LoRaValue)
+		{
+			return Bandwidths[i].Bandwidth;
+		}
+	}
+
+	return 20.8;
+}
+
+int IntToLowOpt(int Value)
+{
+	return Value ? 0x08 : 0;
+}
+
+int LowOptToInt(int LowOpt)
+{
+	return LowOpt ? 1 : 0;
+}
+
+void SetLoRaParameters( int Channel, int ImplicitOrExplicit, int ErrorCoding, double Bandwidth, int SpreadingFactor, int LowDataRateOptimize )
+{
+    writeRegister( Channel, REG_MODEM_CONFIG, ImplicitOrExplicit | IntToEC(ErrorCoding) | DoubleToBandwidth(Bandwidth));
+    writeRegister( Channel, REG_MODEM_CONFIG2, IntToSF(SpreadingFactor) | CRC_ON );
+    writeRegister( Channel, REG_MODEM_CONFIG3, 0x04 | IntToLowOpt(LowDataRateOptimize));    // 0x04: AGC sets LNA gain
+    writeRegister( Channel, REG_DETECT_OPT, ( readRegister( Channel, REG_DETECT_OPT ) & 0xF8 ) | ( ( SpreadingFactor == 6 ) ? 0x05 : 0x03 ) );    // 0x05 For SF6; 0x03 otherwise
+    writeRegister( Channel, REG_DETECTION_THRESHOLD, ( SpreadingFactor == 6 ) ? 0x0C : 0x0A );    // 0x0C for SF6, 0x0A otherwise
+
+    Config.LoRaDevices[Channel].CurrentBandwidth = Bandwidth;			// Used for AFC - current bandwidth may be different to that configured (i.e. because we're using calling mode)
+
+    ChannelPrintf( Channel, 2, 1, "%s, %.2lf, SF%d, EC4:%d %s",
+                   ImplicitOrExplicit ? "Implicit" : "Explicit",
+                   Bandwidth,
+				   SpreadingFactor,
+                   ErrorCoding,
                    LowDataRateOptimize ? "LDRO" : "" );
 }
 
-void
-SetDefaultLoRaParameters( int Channel )
+void SetDefaultLoRaParameters( int Channel )
 {
     // LogMessage("Set Default Parameters\n");
 
@@ -538,9 +623,9 @@ void SendLoRaData(int Channel, char *buffer, int Length)
 		
         SetLoRaParameters(Channel,
 						  LoRaModes[UplinkMode].ImplicitOrExplicit,
-						  LoRaModes[UplinkMode].ErrorCoding,
-						  LoRaModes[UplinkMode].Bandwidth,
-						  LoRaModes[UplinkMode].SpreadingFactor,
+						  ECToInt(LoRaModes[UplinkMode].ErrorCoding),
+						  BandwidthToDouble(LoRaModes[UplinkMode].Bandwidth),
+						  SFToInt(LoRaModes[UplinkMode].SpreadingFactor),
 						  0);
 	}
 	
@@ -568,21 +653,13 @@ void SendLoRaData(int Channel, char *buffer, int Length)
     setMode( Channel, RF98_MODE_TX );
 }
 
-void
-ShowPacketCounts( int Channel )
+void ShowPacketCounts(int Channel)
 {
-    if ( Config.LoRaDevices[Channel].InUse )
+    if (Config.LoRaDevices[Channel].InUse)
     {
         ChannelPrintf( Channel, 7, 1, "Telem Packets = %d (%us)     ",
                        Config.LoRaDevices[Channel].TelemetryCount,
-                       Config.LoRaDevices[Channel].
-                       LastTelemetryPacketAt ? ( unsigned int ) ( time( NULL )
-                                                                  -
-                                                                  Config.
-                                                                  LoRaDevices
-                                                                  [Channel].
-                                                                  LastTelemetryPacketAt )
-                       : 0 );
+                       Config.LoRaDevices[Channel].LastTelemetryPacketAt ? (unsigned int) (time(NULL) - Config.LoRaDevices[Channel].LastTelemetryPacketAt) : 0);
         ChannelPrintf( Channel, 8, 1, "Image Packets = %d (%us)     ",
                        Config.LoRaDevices[Channel].SSDVCount,
                        Config.LoRaDevices[Channel].
@@ -613,8 +690,7 @@ ProcessCallingMessage( int Channel, char *Message )
 {
     char Payload[16];
     double Frequency;
-    int ImplicitOrExplicit, ErrorCoding, Bandwidth, SpreadingFactor,
-        LowDataRateOptimize;
+    int ImplicitOrExplicit, ErrorCoding, Bandwidth, SpreadingFactor, LowDataRateOptimize;
 
     ChannelPrintf( Channel, 3, 1, "Calling message %d bytes ",
                    strlen( Message ) );
@@ -628,13 +704,7 @@ ProcessCallingMessage( int Channel, char *Message )
     {
         if ( Config.LoRaDevices[Channel].AFC )
         {
-            double MasterFrequency;
-
-            sscanf( Config.LoRaDevices[Channel].Frequency, "%lf",
-                    &MasterFrequency );
-
-            Frequency +=
-                Config.LoRaDevices[Channel].activeFreq - MasterFrequency;
+            Frequency += (Config.LoRaDevices[Channel].activeFreq - Config.LoRaDevices[Channel].Frequency);
         }
 
         LogMessage( "Ch %d: Calling message, new frequency %7.3lf\n", Channel,
@@ -646,8 +716,7 @@ ProcessCallingMessage( int Channel, char *Message )
         // setFrequency(Channel, Config.LoRaDevices[Channel].activeFreq + );
         setFrequency( Channel, Frequency );
 
-        SetLoRaParameters( Channel, ImplicitOrExplicit, ErrorCoding,
-                           Bandwidth, SpreadingFactor, LowDataRateOptimize );
+        SetLoRaParameters( Channel, ImplicitOrExplicit, ECToInt(ErrorCoding), BandwidthToDouble(Bandwidth), SFToInt(SpreadingFactor), LowOptToInt(LowDataRateOptimize));
 
         setMode( Channel, RF98_MODE_RX_CONTINUOUS );
 
@@ -789,8 +858,7 @@ DoPositionCalcs( Channel )
 }
 
 
-void
-ProcessLine( int Channel, char *Line )
+void ProcessLine(int Channel, char *Line)
 {
     int Satellites;
     float TempInt, TempExt;
@@ -837,21 +905,21 @@ ProcessLine( int Channel, char *Line )
 }
 
 
-void
-ProcessTelemetryMessage( int Channel, char *Message )
+void ProcessTelemetryMessage( int Channel, char *Message)
 {
     if ( strlen( Message + 1 ) < 250 )
     {
         char *startmessage, *endmessage;
 
-        ChannelPrintf( Channel, 3, 1, "Telemetry %d bytes       ",
-                       strlen( Message + 1 ) );
+        ChannelPrintf( Channel, 3, 1, "Telemetry %d bytes       ", strlen( Message + 1 ) );
 
         startmessage = Message;
         endmessage = strchr( startmessage, '\n' );
 
-        if ( endmessage != NULL )
+        while ( endmessage != NULL )
         {
+			int Repeated;
+			
             habitate_telem_packets++;
 
             time_t now;
@@ -860,11 +928,16 @@ ProcessTelemetryMessage( int Channel, char *Message )
             *endmessage = '\0';
 
 			LogTelemetryPacket(startmessage);
+			
+			if ((Repeated = (*startmessage == '%')))
+			{
+				*startmessage = '$';
+			}
 
             strcpy( Config.LoRaDevices[Channel].Telemetry, startmessage );
             // UploadTelemetryPacket(startmessage);
 
-            ProcessLine( Channel, startmessage );
+            ProcessLine(Channel, startmessage);
 
             now = time( 0 );
             tm = localtime( &now );
@@ -877,15 +950,13 @@ ProcessTelemetryMessage( int Channel, char *Message )
                 telemetry_t t;
                 t.Channel = Channel;
                 t.Packet_Number = habitate_telem_packets;
-                memcpy( t.Telemetry, startmessage,
-                        strlen( startmessage ) + 1 );
+                memcpy( t.Telemetry, startmessage, strlen( startmessage ) + 1 );
 
                 // Add the telemetry packet to the pipe
                 int result = write( telem_pipe_fd[1], &t, sizeof( t ) );
                 if ( result == -1 )
                 {
-                    printf( "Error writing to the telemetry pipe\n" );
-                    exit( 1 );
+                    exit_error("Error writing to the telemetry pipe\n");
                 }
                 if ( result == 0 )
                 {
@@ -897,15 +968,16 @@ ProcessTelemetryMessage( int Channel, char *Message )
                 }
             }
 
-            LogMessage( "%02d:%02d:%02d Ch%d: %s\n", tm->tm_hour, tm->tm_min,
-                        tm->tm_sec, Channel, startmessage );
+			Config.LoRaDevices[Channel].TelemetryCount++;
+			
+            LogMessage("%02d:%02d:%02d Ch%d: %s%s\n", tm->tm_hour, tm->tm_min, tm->tm_sec, Channel, startmessage, Repeated ? " (repeated)" : "");
 
+			startmessage = endmessage + 1;
+			endmessage = strchr( startmessage, '\n' );
         }
 
         DoPositionCalcs( Channel );
 
-        // RJH I think this should be moved up to the bottom of the loop above  
-        Config.LoRaDevices[Channel].TelemetryCount++;
         Config.LoRaDevices[Channel].LastTelemetryPacketAt = time( NULL );
     }
 }
@@ -947,8 +1019,7 @@ FileExists( char *filename )
     return stat( filename, &st ) == 0;
 }
 
-void
-ProcessSSDVMessage( int Channel, char *Message )
+void ProcessSSDVMessage( int Channel, char *Message, int Repeated)
 {
     // SSDV packet
     uint32_t CallsignCode;
@@ -956,6 +1027,11 @@ ProcessSSDVMessage( int Channel, char *Message )
     int ImageNumber, PacketNumber;
     char filename[100];
     FILE *fp;
+	time_t now;
+	struct tm *tm;
+
+	now = time( 0 );
+	tm = localtime( &now );
 
     Message[0] = 0x55;
 
@@ -972,8 +1048,7 @@ ProcessSSDVMessage( int Channel, char *Message )
     ImageNumber = Message[6];
     PacketNumber = Message[7] * 256 + Message[8];
 
-    LogMessage( "Ch%d: SSDV Packet, Callsign %s, Image %d, Packet %d\n",
-                Channel, Callsign, Message[6], PacketNumber );
+    LogMessage("%02d:%02d:%02d Ch%d: SSDV Packet, Callsign %s, Image %d, Packet %d%s\n", tm->tm_hour, tm->tm_min, tm->tm_sec, Channel, Callsign, Message[6], PacketNumber, Repeated ? " (repeated)" : "");
     ChannelPrintf( Channel, 3, 1, "SSDV Packet                     " );
     ChannelPrintf( Channel, 5, 1, "SSDV %s: Image %d, Packet %d", Callsign,
                    Message[6], PacketNumber );
@@ -1024,8 +1099,7 @@ ProcessSSDVMessage( int Channel, char *Message )
         int result = write( ssdv_pipe_fd[1], &s, sizeof( s ) );
         if ( result == -1 )
         {
-            printf( "Error writing to the issdv pipe\n" );
-            exit( 1 );
+            exit_error("Error writing to the issdv pipe\n");
         }
         if ( result == 0 )
         {
@@ -1090,8 +1164,54 @@ TestMessageForSMSAcknowledgement( int Channel, char *Message )
     }
 }
 
-void
-DIO0_Interrupt( int Channel )
+int FixRSSI(int Channel, int RawRSSI, int SNR)
+{
+	int RSSI;
+	
+	if (Config.LoRaDevices[Channel].Frequency > 525)
+	{
+		// HF port (band 1)
+		RSSI = RawRSSI - 157;
+	}
+	else
+	{
+		// LF port (Bands 2/3)
+		RSSI = RawRSSI - 164;
+	}
+	
+	if (SNR < 0)
+	{
+		RSSI += SNR/4;
+	}
+	
+	return RSSI;
+}
+
+int CurrentRSSI(int Channel)
+{
+	return FixRSSI(Channel, readRegister(Channel, REG_CURRENT_RSSI), 0);
+}
+		
+int PacketSNR(int Channel)
+{
+	int8_t SNR;
+
+	SNR = readRegister(Channel, REG_PACKET_SNR);
+	SNR /= 4;
+	
+	return (int)SNR;
+}
+
+int PacketRSSI(int Channel)
+{
+	int SNR;
+	
+	SNR = PacketSNR(Channel);
+	
+	return FixRSSI(Channel, readRegister(Channel, REG_PACKET_RSSI), SNR);
+}
+		
+void DIO0_Interrupt( int Channel )
 {
     if ( Config.LoRaDevices[Channel].Sending )
     {
@@ -1128,10 +1248,10 @@ DIO0_Interrupt( int Channel )
             {
                 ProcessCallingMessage( Channel, Message + 1 );
             }
-            else if ( Message[1] == '$' )
+            else if ((Message[1] == '$') || (Message[1] == '%'))
             {
-                ProcessTelemetryMessage( Channel, Message + 1 );
-                TestMessageForSMSAcknowledgement( Channel, Message + 1 );
+                ProcessTelemetryMessage(Channel, Message + 1);
+                TestMessageForSMSAcknowledgement( Channel, Message + 1);
             }
             else if ( Message[1] == '>' )
             {
@@ -1140,21 +1260,25 @@ DIO0_Interrupt( int Channel )
             }
             else if ( Message[1] == '*' )
             {
-                LogMessage( "Uplink Command message %d bytes = %s", Bytes,
-                            Message + 1 );
+                LogMessage( "Uplink Command message %d bytes = %s", Bytes, Message + 1 );
             }
-            else if ((Message[1] == 0x66) || (Message[1] == 0x67) || (Message[1] == 0x68) || (Message[1] == 0x69))
+            else if (((Message[1] & 0x7F) == 0x66) ||		// SSDV JPG format
+					 ((Message[1] & 0x7F) == 0x67) ||		// SSDV other formats
+					 ((Message[1] & 0x7F) == 0x68) ||
+					 ((Message[1] & 0x7F) == 0x69))
             {
-                ProcessSSDVMessage( Channel, Message );
+				int Repeated;
+				
+				// Handle repeater bit
+				Repeated = Message[1] & 0x80;
+				Message[1] &= 0x7F;			
+				
+                ProcessSSDVMessage( Channel, Message, Repeated);
             }
             else
             {
-                LogMessage( "Unknown packet type is %02Xh, RSSI %d\n",
-                            Message[1], readRegister( Channel,
-                                                      REG_PACKET_RSSI ) -
-                            157 );
-                ChannelPrintf( Channel, 3, 1, "Unknown Packet %d, %d bytes",
-                               Message[0], Bytes );
+                LogMessage("Unknown packet type is %02Xh, RSSI %d\n", Message[1], PacketRSSI(Channel));
+                ChannelPrintf( Channel, 3, 1, "Unknown Packet %d, %d bytes", Message[0], Bytes);
                 Config.LoRaDevices[Channel].UnknownCount++;
             }
 
@@ -1203,9 +1327,7 @@ setupRFM98( int Channel )
 
         if ( wiringPiSPISetup( Channel, 500000 ) < 0 )
         {
-            fprintf( stderr,
-                     "Failed to open SPI port.  Try loading spi library with 'gpio load spi'" );
-            exit( 1 );
+            exit_error("Failed to open SPI port.  Try loading spi library with 'gpio load spi'" );
         }
 
         // LoRa mode 
@@ -1217,38 +1339,7 @@ setupRFM98( int Channel )
     }
 }
 
-double
-FrequencyReference( int Channel )
-{
-    switch ( Config.LoRaDevices[Channel].CurrentBandwidth )
-    {
-        case BANDWIDTH_7K8:
-            return 7800;
-        case BANDWIDTH_10K4:
-            return 10400;
-        case BANDWIDTH_15K6:
-            return 15600;
-        case BANDWIDTH_20K8:
-            return 20800;
-        case BANDWIDTH_31K25:
-            return 31250;
-        case BANDWIDTH_41K7:
-            return 41700;
-        case BANDWIDTH_62K5:
-            return 62500;
-        case BANDWIDTH_125K:
-            return 125000;
-        case BANDWIDTH_250K:
-            return 250000;
-        case BANDWIDTH_500K:
-            return 500000;
-    }
-
-    return 0;
-}
-
-double
-FrequencyError( int Channel )
+double FrequencyError( int Channel )
 {
     int32_t Temp;
 
@@ -1264,7 +1355,7 @@ FrequencyError( int Channel )
     }
 
     return -( ( double ) Temp * ( 1 << 24 ) / 32000000.0 ) *
-        ( FrequencyReference( Channel ) / 500000.0 );
+        ( Config.LoRaDevices[Channel].CurrentBandwidth / 500.0 );
 }
 
 int
@@ -1285,8 +1376,8 @@ receiveMessage( int Channel, char *message )
     // check for payload crc issues (0x20 is the bit we are looking for
     if ( ( x & 0x20 ) == 0x20 )
     {
-        LogMessage( "Ch%d: CRC Failure, RSSI %d\n", Channel,
-                    readRegister( Channel, REG_PACKET_RSSI ) - 157 );
+        LogMessage( "Ch%d: CRC Failure, RSSI %d\n", Channel, PacketRSSI(Channel));
+		
         // reset the crc flags
         writeRegister( Channel, REG_IRQ_FLAGS, 0x20 );
         ChannelPrintf( Channel, 3, 1, "CRC Failure %02Xh!!\n", x );
@@ -1295,27 +1386,13 @@ receiveMessage( int Channel, char *message )
     }
     else
     {
-        int8_t SNR;
-        int RSSI;
-
         currentAddr = readRegister( Channel, REG_FIFO_RX_CURRENT_ADDR );
         Bytes = readRegister( Channel, REG_RX_NB_BYTES );
 
-        SNR = readRegister( Channel, REG_PACKET_SNR );
-        SNR /= 4;
-        RSSI = readRegister( Channel, REG_PACKET_RSSI ) - 157;
-        if ( SNR < 0 )
-        {
-            RSSI += SNR;
-        }
-
-        ChannelPrintf( Channel, 10, 1, "Packet SNR = %d, RSSI = %d      ",
-                       ( int ) SNR, RSSI );
+        ChannelPrintf( Channel, 10, 1, "Packet SNR = %d, RSSI = %d      ", PacketSNR(Channel), PacketRSSI(Channel));
 
         FreqError = FrequencyError( Channel ) / 1000;
-        ChannelPrintf( Channel, 11, 1, "Freq. Error = %5.1lfkHz ",
-                       FreqError );
-
+        ChannelPrintf( Channel, 11, 1, "Freq. Error = %5.1lfkHz ", FreqError);
 
         writeRegister( Channel, REG_FIFO_ADDR_PTR, currentAddr );
 
@@ -1328,7 +1405,7 @@ receiveMessage( int Channel, char *message )
 
         message[Bytes] = '\0';
 
-        LogPacket( Channel, SNR, RSSI, FreqError, Bytes, message[1] );
+        LogPacket(Channel, PacketSNR(Channel), PacketRSSI(Channel), FreqError, Bytes, message[1]);
 
         if ( Config.LoRaDevices[Channel].AFC && ( fabs( FreqError ) > 0.5 ) )
         {
@@ -1340,79 +1417,6 @@ receiveMessage( int Channel, char *message )
     writeRegister( Channel, REG_IRQ_FLAGS, 0xFF );
 
     return Bytes;
-}
-
-void ReadString( FILE * fp, char *keyword, char *Result, int Length, int NeedValue )
-{
-    char line[100], *token, *value;
-
-    fseek( fp, 0, SEEK_SET );
-    *Result = '\0';
-
-    while ( fgets( line, sizeof( line ), fp ) != NULL )
-    {
-		line[strcspn(line, "\r")] = '\0';		// Get rid of CR if there is one
-		
-        token = strtok( line, "=" );
-        if ( strcasecmp( keyword, token ) == 0 )
-        {
-            value = strtok( NULL, "\n" );
-            strcpy( Result, value );
-            return;
-        }
-    }
-
-    if ( NeedValue )
-    {
-        LogMessage( "Missing value for '%s' in configuration file\n", keyword );
-        exit( 1 );
-    }
-}
-
-int
-ReadInteger( FILE * fp, char *keyword, int NeedValue, int DefaultValue )
-{
-    char Temp[64];
-
-    ReadString( fp, keyword, Temp, sizeof( Temp ), NeedValue );
-
-    if ( Temp[0] )
-    {
-        return atoi( Temp );
-    }
-
-    return DefaultValue;
-}
-
-float
-ReadFloat( FILE * fp, char *keyword )
-{
-    char Temp[64];
-
-    ReadString( fp, keyword, Temp, sizeof( Temp ), 0 );
-
-    if ( Temp[0] )
-    {
-        return atof( Temp );
-    }
-
-    return 0;
-}
-
-int
-ReadBoolean( FILE * fp, char *keyword, int NeedValue, int *Result )
-{
-    char Temp[32];
-
-    ReadString( fp, keyword, Temp, sizeof( Temp ), NeedValue );
-
-    if ( *Temp )
-    {
-        *Result = ( *Temp == '1' ) || ( *Temp == 'Y' ) || ( *Temp == 'y' )
-            || ( *Temp == 't' ) || ( *Temp == 'T' );
-    }
-
-    return *Temp;
 }
 
 void RemoveTrailingSlash(char *Value)
@@ -1432,74 +1436,67 @@ void LoadConfigFile(void)
 {
     FILE *fp;
     char *filename = "gateway.txt";
-    char Keyword[32];
-    int Channel, Temp;
-    char TempString[16];
+    int Channel, MainSection;
 
-    Config.LoRaDevices[0].InUse = 0;
-    Config.LoRaDevices[1].InUse = 0;
-    Config.EnableHabitat = 1;
-    Config.EnableSSDV = 1;
-    Config.EnableTelemetryLogging = 0;
-    Config.EnablePacketLogging = 0;
-    Config.SSDVJpegFolder[0] = '\0';
-    Config.ftpServer[0] = '\0';
-    Config.ftpUser[0] = '\0';
-    Config.ftpPassword[0] = '\0';
-    Config.ftpFolder[0] = '\0';
+	// Default configuration
     Config.latitude = -999;
     Config.longitude = -999;
-    Config.antenna[0] = '\0';
-    Config.EnableDev = 0;
+	Config.CallingTimeout = 300;
+    Config.NetworkLED = -1;
+    Config.InternetLED = -1;
+    Config.LoRaDevices[0].ActivityLED = -1;
+    Config.LoRaDevices[1].ActivityLED = -1;
 
     // Default pin allocations
     Config.LoRaDevices[0].DIO0 = 6;
     Config.LoRaDevices[0].DIO5 = 5;
-
     Config.LoRaDevices[1].DIO0 = 27;
     Config.LoRaDevices[1].DIO5 = 26;
+	
+	Config.LoRaDevices[0].Frequency = -1;
+	Config.LoRaDevices[1].Frequency = -1;
 
     if ( ( fp = fopen( filename, "r" ) ) == NULL )
     {
-        printf
-            ( "\nFailed to open config file %s (error %d - %s).\nPlease check that it exists and has read permission.\n",
-              filename, errno, strerror( errno ) );
-        exit( 1 );
+        exit_error("Failed to open config file\n");
     }
-
+	
+	RegisterConfigFile(filename);
+	
+	// Get reference to main settings section
+	MainSection = RegisterConfigSection("");
+	
     // Receiver config
-    ReadString( fp, "tracker", Config.Tracker, sizeof( Config.Tracker ), 1 );
+	RegisterConfigString(MainSection, -1, "tracker", Config.Tracker, sizeof(Config.Tracker), NULL);
     LogMessage( "Tracker = '%s'\n", Config.Tracker );
 
     // Enable uploads
-    ReadBoolean( fp, "EnableHabitat", 0, &Config.EnableHabitat );
-    ReadBoolean( fp, "EnableSSDV", 0, &Config.EnableSSDV );
+    RegisterConfigBoolean(MainSection, -1, "EnableHabitat", &Config.EnableHabitat, NULL);
+    RegisterConfigBoolean(MainSection, -1, "EnableSSDV", &Config.EnableSSDV, NULL);
 
     // Enable telemetry logging
-    ReadBoolean( fp, "LogTelemetry", 0, &Config.EnableTelemetryLogging );
+    RegisterConfigBoolean(MainSection, -1, "LogTelemetry", &Config.EnableTelemetryLogging, NULL);
 
     // Enable packet logging
-    ReadBoolean( fp, "LogPackets", 0, &Config.EnablePacketLogging );
+    RegisterConfigBoolean(MainSection, -1, "LogPackets", &Config.EnablePacketLogging, NULL);
 
     // Calling mode
-    Config.CallingTimeout = ReadInteger( fp, "CallingTimeout", 0, 300 );
+    RegisterConfigInteger(MainSection, -1, "CallingTimeout", &Config.CallingTimeout, NULL);
 
     // LED allocations
-    Config.NetworkLED = ReadInteger( fp, "NetworkLED", 0, -1 );
-    Config.InternetLED = ReadInteger( fp, "InternetLED", 0, -1 );
-    Config.LoRaDevices[0].ActivityLED =
-        ReadInteger( fp, "ActivityLED_0", 0, -1 );
-    Config.LoRaDevices[1].ActivityLED =
-        ReadInteger( fp, "ActivityLED_1", 0, -1 );
+    RegisterConfigInteger(MainSection, -1, "NetworkLED", &Config.NetworkLED, NULL);
+    RegisterConfigInteger(MainSection, -1, "InternetLED", &Config.InternetLED, NULL);
+    RegisterConfigInteger(MainSection, -1, "ActivityLED_0", &Config.LoRaDevices[0].ActivityLED, NULL);
+    RegisterConfigInteger(MainSection, -1, "ActivityLED_1", &Config.LoRaDevices[1].ActivityLED, NULL);
 
     // Server Port
-    Config.ServerPort = ReadInteger( fp, "ServerPort", 0, -1 );
+    RegisterConfigInteger(MainSection, -1, "ServerPort", &Config.ServerPort, NULL);
 
     // SSDV Settings
-    ReadString( fp, "jpgFolder", Config.SSDVJpegFolder, sizeof( Config.SSDVJpegFolder ), 0 );
+	RegisterConfigString(MainSection, -1, "JPGFolder", Config.SSDVJpegFolder, sizeof(Config.SSDVJpegFolder), NULL);
     if ( Config.SSDVJpegFolder[0] )
     {
-        // Create SSDV Folders
+        // Create SSDV Folder
         struct stat st = { 0 };
 
         if ( stat( Config.SSDVJpegFolder, &st ) == -1 )
@@ -1509,90 +1506,67 @@ void LoadConfigFile(void)
     }
 
     // ftp images
-    ReadString( fp, "ftpserver", Config.ftpServer, sizeof( Config.ftpServer ),
-                0 );
-    ReadString( fp, "ftpUser", Config.ftpUser, sizeof( Config.ftpUser ), 0 );
-    ReadString( fp, "ftpPassword", Config.ftpPassword,
-                sizeof( Config.ftpPassword ), 0 );
-    ReadString( fp, "ftpFolder", Config.ftpFolder, sizeof( Config.ftpFolder ),
-                0 );
+	RegisterConfigString(MainSection, -1, "ftpserver", Config.ftpServer, sizeof(Config.ftpServer), NULL);
+	RegisterConfigString(MainSection, -1, "ftpUser", Config.ftpUser, sizeof(Config.ftpUser), NULL);
+	RegisterConfigString(MainSection, -1, "ftpPassword", Config.ftpPassword, sizeof(Config.ftpPassword), NULL);
+	RegisterConfigString(MainSection, -1, "ftpFolder", Config.ftpFolder, sizeof(Config.ftpFolder), NULL);
 
     // Listener
-    Config.latitude = ReadFloat( fp, "Latitude" );
-    Config.longitude = ReadFloat( fp, "Longitude" );
-    ReadString( fp, "antenna", Config.antenna, sizeof( Config.antenna ), 0 );
+    RegisterConfigDouble(MainSection, -1, "Latitude", &Config.latitude, NULL);
+    RegisterConfigDouble(MainSection, -1, "Longitude", &Config.longitude, NULL);
+	RegisterConfigString(MainSection, -1, "antenna", Config.antenna, sizeof(Config.antenna), NULL);
 
     // Dev mode
-    ReadBoolean( fp, "EnableDev", 0, &Config.EnableDev );
+    RegisterConfigBoolean(MainSection, -1, "EnableDev", &Config.EnableDev, NULL);
 
     // SMS upload to tracker
-    Config.SMSFolder[0] = '\0';
-    ReadString(fp, "SMSFolder", Config.SMSFolder, sizeof( Config.SMSFolder ), 0);
-    if ( Config.SMSFolder[0] )
+	RegisterConfigString(MainSection, -1, "SMSFolder", Config.SMSFolder, sizeof(Config.SMSFolder), NULL);
+    if (Config.SMSFolder[0])
     {
 		RemoveTrailingSlash(Config.SMSFolder);
-        LogMessage( "Folder %s will be scanned for messages to upload\n", Config.SMSFolder );
+        LogMessage("Folder %s will be scanned for messages to upload\n", Config.SMSFolder);
     }
 
-    for ( Channel = 0; Channel <= 1; Channel++ )
+    for (Channel = 0; Channel <= 1; Channel++)
     {
-        // Defaults
-        Config.LoRaDevices[Channel].Frequency[0] = '\0';
-
-        sprintf( Keyword, "frequency_%d", Channel );
-        ReadString( fp, Keyword, Config.LoRaDevices[Channel].Frequency,
-                    sizeof( Config.LoRaDevices[Channel].Frequency ), 0 );
-        if ( Config.LoRaDevices[Channel].Frequency[0] )
+		RegisterConfigDouble(MainSection, Channel, "frequency", &Config.LoRaDevices[Channel].Frequency, NULL);
+        if (Config.LoRaDevices[Channel].Frequency > 100)
         {
+			// Defaults
             Config.LoRaDevices[Channel].ImplicitOrExplicit = EXPLICIT_MODE;
-            Config.LoRaDevices[Channel].ErrorCoding = ERROR_CODING_4_8;
-            Config.LoRaDevices[Channel].Bandwidth = BANDWIDTH_20K8;
-            Config.LoRaDevices[Channel].SpreadingFactor = SPREADING_11;
-            Config.LoRaDevices[Channel].LowDataRateOptimize = 0x00;
+            Config.LoRaDevices[Channel].ErrorCoding = ECToInt(ERROR_CODING_4_8);
+            Config.LoRaDevices[Channel].Bandwidth = BandwidthToDouble(BANDWIDTH_20K8);
+            Config.LoRaDevices[Channel].SpreadingFactor = SFToInt(SPREADING_11);
+            Config.LoRaDevices[Channel].LowDataRateOptimize = 0;
             Config.LoRaDevices[Channel].AFC = FALSE;
+            Config.LoRaDevices[Channel].Power = PA_MAX_UK;
+            Config.LoRaDevices[Channel].UplinkMode = -1;
 
-            LogMessage( "Channel %d frequency set to %s\n", Channel,
-                        Config.LoRaDevices[Channel].Frequency );
+            LogMessage( "Channel %d frequency set to %.3lfMHz\n", Channel, Config.LoRaDevices[Channel].Frequency);
             Config.LoRaDevices[Channel].InUse = 1;
 
             // DIO0 / DIO5 overrides
-            sprintf( Keyword, "DIO0_%d", Channel );
-            Config.LoRaDevices[Channel].DIO0 =
-                ReadInteger( fp, Keyword, 0,
-                             Config.LoRaDevices[Channel].DIO0 );
+			RegisterConfigInteger(MainSection, Channel, "DIO0", &Config.LoRaDevices[Channel].DIO0, NULL);
+			RegisterConfigInteger(MainSection, Channel, "DIO5", &Config.LoRaDevices[Channel].DIO5, NULL);
 
-            sprintf( Keyword, "DIO5_%d", Channel );
-            Config.LoRaDevices[Channel].DIO5 =
-                ReadInteger( fp, Keyword, 0,
-                             Config.LoRaDevices[Channel].DIO5 );
-
-            LogMessage( "LoRa Channel %d DIO0=%d DIO5=%d\n", Channel,
-                        Config.LoRaDevices[Channel].DIO0,
-                        Config.LoRaDevices[Channel].DIO5 );
+            LogMessage( "LoRa Channel %d DIO0=%d DIO5=%d\n", Channel, Config.LoRaDevices[Channel].DIO0, Config.LoRaDevices[Channel].DIO5 );
 
             // Uplink
-            sprintf( Keyword, "UplinkTime_%d", Channel );
-            Config.LoRaDevices[Channel].UplinkTime = ReadInteger( fp, Keyword, 0, 0 );
-            sprintf( Keyword, "UplinkCycle_%d", Channel );
-            Config.LoRaDevices[Channel].UplinkCycle = ReadInteger( fp, Keyword, 0, 0 );
-            LogMessage( "Channel %d UplinkTime %d Uplink Cycle %d\n", Channel,
-                        Config.LoRaDevices[Channel].UplinkTime,
-                        Config.LoRaDevices[Channel].UplinkCycle );
+			RegisterConfigInteger(MainSection, Channel, "UplinkTime", &Config.LoRaDevices[Channel].UplinkTime, NULL);
 
-            sprintf( Keyword, "Power_%d", Channel );
-            Config.LoRaDevices[Channel].Power = ReadInteger( fp, Keyword, 0, PA_MAX_UK );
+			RegisterConfigInteger(MainSection, Channel, "UplinkCycle", &Config.LoRaDevices[Channel].UplinkCycle, NULL);
+            LogMessage( "Channel %d UplinkTime %d Uplink Cycle %d\n", Channel, Config.LoRaDevices[Channel].UplinkTime, Config.LoRaDevices[Channel].UplinkCycle);
+
+			RegisterConfigInteger(MainSection, Channel, "Power", &Config.LoRaDevices[Channel].Power, NULL);
             LogMessage( "Channel %d power set to %02Xh\n", Channel, Config.LoRaDevices[Channel].Power );
 
-            sprintf( Keyword, "UplinkMode_%d", Channel );
-            Config.LoRaDevices[Channel].UplinkMode = ReadInteger( fp, Keyword, 0, -1);
+			RegisterConfigInteger(MainSection, Channel, "UplinkMode", &Config.LoRaDevices[Channel].UplinkMode, NULL);
 			if (Config.LoRaDevices[Channel].UplinkMode >= 0)
 			{
 				LogMessage( "Channel %d uplink mode %d\n", Channel, Config.LoRaDevices[Channel].UplinkMode);
 			}
 
-            sprintf( Keyword, "UplinkFrequency_%d", Channel );
-			Config.LoRaDevices[Channel].UplinkFrequency = 0;
-            Config.LoRaDevices[Channel].UplinkFrequency = ReadFloat(fp, Keyword);
+			RegisterConfigDouble(MainSection, Channel, "UplinkFrequency", &Config.LoRaDevices[Channel].UplinkFrequency, NULL);
 			if (Config.LoRaDevices[Channel].UplinkFrequency > 0)
             {
 				LogMessage( "Channel %d uplink frequency %.3lfMHz\n", Channel, Config.LoRaDevices[Channel].UplinkFrequency);
@@ -1600,104 +1574,40 @@ void LoadConfigFile(void)
 
             Config.LoRaDevices[Channel].SpeedMode = 0;
 
-            sprintf( Keyword, "mode_%d", Channel );
-            Config.LoRaDevices[Channel].SpeedMode = ReadInteger( fp, Keyword, 0, 0 );
-
+			RegisterConfigInteger(MainSection, Channel, "mode", &Config.LoRaDevices[Channel].SpeedMode, NULL);
 			if ((Config.LoRaDevices[Channel].SpeedMode < 0) || (Config.LoRaDevices[Channel].SpeedMode >= sizeof(LoRaModes)/sizeof(LoRaModes[0]))) Config.LoRaDevices[Channel].SpeedMode = 0;
 
+			// Defaults for this LoRa Mode
 			Config.LoRaDevices[Channel].ImplicitOrExplicit = LoRaModes[Config.LoRaDevices[Channel].SpeedMode].ImplicitOrExplicit;
-			Config.LoRaDevices[Channel].ErrorCoding = LoRaModes[Config.LoRaDevices[Channel].SpeedMode].ErrorCoding;
-			Config.LoRaDevices[Channel].Bandwidth = LoRaModes[Config.LoRaDevices[Channel].SpeedMode].Bandwidth;
-			Config.LoRaDevices[Channel].SpreadingFactor = LoRaModes[Config.LoRaDevices[Channel].SpeedMode].SpreadingFactor;
-			Config.LoRaDevices[Channel].LowDataRateOptimize = LoRaModes[Config.LoRaDevices[Channel].SpeedMode].LowDataRateOptimize;
+			Config.LoRaDevices[Channel].ErrorCoding = ECToInt(LoRaModes[Config.LoRaDevices[Channel].SpeedMode].ErrorCoding);
+			Config.LoRaDevices[Channel].Bandwidth = BandwidthToDouble(LoRaModes[Config.LoRaDevices[Channel].SpeedMode].Bandwidth);
+			Config.LoRaDevices[Channel].SpreadingFactor = SFToInt(LoRaModes[Config.LoRaDevices[Channel].SpeedMode].SpreadingFactor);
+			Config.LoRaDevices[Channel].LowDataRateOptimize = LowOptToInt(LoRaModes[Config.LoRaDevices[Channel].SpeedMode].LowDataRateOptimize);
 
-            sprintf( Keyword, "sf_%d", Channel );
-            Temp = ReadInteger( fp, Keyword, 0, 0 );
-            if ( ( Temp >= 6 ) && ( Temp <= 12 ) )
-            {
-                Config.LoRaDevices[Channel].SpreadingFactor = Temp << 4;
-                LogMessage( "Setting SF=%d\n", Temp );
+			// Overrides
+			if (RegisterConfigInteger(MainSection, Channel, "sf", &Config.LoRaDevices[Channel].SpreadingFactor, NULL))
+			{
+                LogMessage( "Setting SF=%d\n", Config.LoRaDevices[Channel].SpreadingFactor);
             }
 
-            sprintf( Keyword, "bandwidth_%d", Channel );
-            ReadString( fp, Keyword, TempString, sizeof( TempString ), 0 );
-            if ( *TempString )
+			if (RegisterConfigDouble(MainSection, Channel, "bandwidth", &Config.LoRaDevices[Channel].Bandwidth, NULL))
             {
-                LogMessage( "Setting BW=%s\n", TempString );
-            }
-            if ( strcmp( TempString, "7K8" ) == 0 )
-            {
-                Config.LoRaDevices[Channel].Bandwidth = BANDWIDTH_7K8;
-            }
-            else if ( strcmp( TempString, "10K4" ) == 0 )
-            {
-                Config.LoRaDevices[Channel].Bandwidth = BANDWIDTH_10K4;
-            }
-            else if ( strcmp( TempString, "15K6" ) == 0 )
-            {
-                Config.LoRaDevices[Channel].Bandwidth = BANDWIDTH_15K6;
-            }
-            else if ( strcmp( TempString, "20K8" ) == 0 )
-            {
-                Config.LoRaDevices[Channel].Bandwidth = BANDWIDTH_20K8;
-            }
-            else if ( strcmp( TempString, "31K25" ) == 0 )
-            {
-                Config.LoRaDevices[Channel].Bandwidth = BANDWIDTH_31K25;
-            }
-            else if ( strcmp( TempString, "41K7" ) == 0 )
-            {
-                Config.LoRaDevices[Channel].Bandwidth = BANDWIDTH_41K7;
-            }
-            else if ( strcmp( TempString, "62K5" ) == 0 )
-            {
-                Config.LoRaDevices[Channel].Bandwidth = BANDWIDTH_62K5;
-            }
-            else if ( strcmp( TempString, "125K" ) == 0 )
-            {
-                Config.LoRaDevices[Channel].Bandwidth = BANDWIDTH_125K;
-            }
-            else if ( strcmp( TempString, "250K" ) == 0 )
-            {
-                Config.LoRaDevices[Channel].Bandwidth = BANDWIDTH_250K;
-            }
-            else if ( strcmp( TempString, "500K" ) == 0 )
-            {
-                Config.LoRaDevices[Channel].Bandwidth = BANDWIDTH_500K;
+                LogMessage( "Setting Bandwidth=%.2lfkHz\n", Config.LoRaDevices[Channel].Bandwidth);
             }
 
-            sprintf( Keyword, "implicit_%d", Channel );
-            if ( ReadBoolean( fp, Keyword, 0, &Temp ) )
-            {
-                Config.LoRaDevices[Channel].ImplicitOrExplicit =
-                    Temp ? IMPLICIT_MODE : EXPLICIT_MODE;
+			RegisterConfigBoolean(MainSection, Channel, "implicit", &Config.LoRaDevices[Channel].ImplicitOrExplicit, NULL);
+
+			if (RegisterConfigInteger(MainSection, Channel, "coding", &Config.LoRaDevices[Channel].ErrorCoding, NULL))
+			{
+                LogMessage( "Setting Error Coding=%d\n", Config.LoRaDevices[Channel].ErrorCoding);
             }
 
-            sprintf( Keyword, "coding_%d", Channel );
-            Temp = ReadInteger( fp, Keyword, 0, 0 );
-            if ( ( Temp >= 5 ) && ( Temp <= 8 ) )
-            {
-                Config.LoRaDevices[Channel].ErrorCoding = ( Temp - 4 ) << 1;
-                LogMessage( "Setting Error Coding=%d\n", Temp );
-            }
+			RegisterConfigBoolean(MainSection, Channel, "lowopt", &Config.LoRaDevices[Channel].LowDataRateOptimize, NULL);
 
-            sprintf( Keyword, "lowopt_%d", Channel );
-            if ( ReadBoolean( fp, Keyword, 0, &Temp ) )
-            {
-                if ( Temp )
-                {
-                    Config.LoRaDevices[Channel].LowDataRateOptimize = 0x08;
-                }
-            }
-
-            sprintf( Keyword, "AFC_%d", Channel );
-            if ( ReadBoolean( fp, Keyword, 0, &Temp ) )
-            {
-                if ( Temp )
-                {
-                    Config.LoRaDevices[Channel].AFC = TRUE;
-                    ChannelPrintf( Channel, 11, 24, "AFC" );
-                }
+			RegisterConfigBoolean(MainSection, Channel, "AFC", &Config.LoRaDevices[Channel].AFC, NULL);
+			if (Config.LoRaDevices[Channel].AFC)
+			{
+                ChannelPrintf( Channel, 11, 24, "AFC" );
             }
 
             // Clear any flags left over from a previous run
@@ -1708,45 +1618,7 @@ void LoadConfigFile(void)
     fclose( fp );
 }
 
-void
-LoadPayloadFile( int ID )
-{
-    FILE *fp;
-    char filename[16];
-
-    sprintf( filename, "payload_%d.txt", ID );
-
-    if ( ( fp = fopen( filename, "r" ) ) != NULL )
-    {
-        LogMessage( "Reading payload file %s\n", filename );
-        ReadString( fp, "payload", Payloads[ID].Payload,
-                    sizeof( Payloads[ID].Payload ), 1 );
-        LogMessage( "Payload %d = '%s'\n", ID, Payloads[ID].Payload );
-
-        Payloads[ID].InUse = 1;
-
-        fclose( fp );
-    }
-    else
-    {
-        strcpy( Payloads[ID].Payload, "Unknown" );
-        Payloads[ID].InUse = 0;
-    }
-}
-
-void
-LoadPayloadFiles( void )
-{
-    int ID;
-
-    for ( ID = 0; ID < 16; ID++ )
-    {
-        LoadPayloadFile( ID );
-    }
-}
-
-WINDOW *
-InitDisplay( void )
+WINDOW *InitDisplay( void )
 {
     WINDOW *mainwin;
     int Channel;
@@ -1761,16 +1633,8 @@ InitDisplay( void )
 
     start_color(  );            /*  Initialize colours  */
 
-    if ( COLORS == 256 )
-    {
-        init_pair( 1, COLOR_WHITE, 22 );
-        init_pair( 2, COLOR_YELLOW, 22 );
-    }
-    else
-    {
-        init_pair( 1, COLOR_WHITE, COLOR_BLUE );
-        init_pair( 2, COLOR_YELLOW, COLOR_BLUE );
-    }
+    init_pair( 1, COLOR_WHITE, COLOR_BLUE );
+    init_pair( 2, COLOR_YELLOW, COLOR_BLUE );
 
     color_set( 1, NULL );
     // bkgd(COLOR_PAIR(1));
@@ -1800,15 +1664,6 @@ InitDisplay( void )
     curs_set( 0 );
 
     return mainwin;
-}
-
-void
-CloseDisplay( WINDOW * mainwin )
-{
-    /*  Clean up after ourselves  */
-    delwin( mainwin );
-    endwin(  );
-    refresh(  );
 }
 
 
@@ -1951,10 +1806,9 @@ GetTextMessageToUpload( int Channel, char *Message )
 
     Result = 0;
 
-    LogMessage("Checking for SMS file ...\n");
-
     if ( Config.SMSFolder[0] )
     {
+		LogMessage("Checking for SMS file in '%s' folder ...\n", Config.SMSFolder);
         dp = opendir( Config.SMSFolder );
         if ( dp != NULL )
         {
@@ -1966,7 +1820,7 @@ GetTextMessageToUpload( int Channel, char *Message )
                     char Line[256], FileName[256];
                     int FileNumber;
 
-                    sprintf( FileName, "%s%s", Config.SMSFolder, ep->d_name );
+                    sprintf( FileName, "%s/%s", Config.SMSFolder, ep->d_name );
                     sscanf( ep->d_name, "%d", &FileNumber );
 
                     if ( ( fp = fopen( FileName, "rt" ) ) != NULL )
@@ -1974,7 +1828,6 @@ GetTextMessageToUpload( int Channel, char *Message )
                         if ( fscanf( fp, "%[^\r]", Line ) )
                         {
                             // #001,@daveake: Good Luck Tim !!\n
-                            // @jonathenharty: RT @ProjectHeT: #astroPiTest The Essex Space Agency is looking forward to tweeting the real @esa! @GallarottiA: RT @ProjectHeT: #astroPiTest The Essex Space Agency is looking forward to tweeting the real @esa!
                             sprintf( Message, "#%d,%s\n", FileNumber, Line );
 
                             LogMessage( "UPLINK: %s", Message );
@@ -1990,6 +1843,10 @@ GetTextMessageToUpload( int Channel, char *Message )
             }
             closedir( dp );
         }
+		else
+		{
+			LogMessage("Failed to open folder - error code %d\n", errno);
+		}
     }
 
     return Result;
@@ -2114,16 +1971,12 @@ rjh_post_message( int Channel, char *buffer )
             }
             else if ( Message[1] == 0x66 || Message[1] == 0x68 )
             {
-                ProcessSSDVMessage( Channel, Message );
+                ProcessSSDVMessage( Channel, Message, 0);
             }
             else
             {
-                LogMessage( "Unknown packet type is %02Xh, RSSI %d\n",
-                            Message[1], readRegister( Channel,
-                                                      REG_PACKET_RSSI ) -
-                            157 );
-                ChannelPrintf( Channel, 3, 1, "Unknown Packet %d, %d bytes",
-                               Message[0], Bytes );
+                LogMessage( "Unknown packet type is %02Xh, RSSI %d\n", Message[1], PacketRSSI(Channel));
+                ChannelPrintf( Channel, 3, 1, "Unknown Packet %d, %d bytes", Message[0], Bytes);
                 Config.LoRaDevices[Channel].UnknownCount++;
             }
 
@@ -2141,15 +1994,23 @@ rjh_post_message( int Channel, char *buffer )
     }
 }
 
-int
-main( int argc, char **argv )
+
+int main( int argc, char **argv )
 {
     int ch;
     int LoopPeriod;
 	int Channel;
-    pthread_t SSDVThread, FTPThread, NetworkThread, HabitatThread,
-        ServerThread;
-    WINDOW *mainwin;
+    pthread_t SSDVThread, FTPThread, NetworkThread, HabitatThread, ServerThread;
+
+	atexit(bye);
+	
+    if ( wiringPiSetup(  ) < 0 )
+    {
+		exit_error("Failed to open wiringPi\n");
+    }
+
+	// Clear config to zeroes so we only have to set non-zero defaults
+	memset((void *)&Config, 0, sizeof(Config));
 
     if ( prog_count( "gateway" ) > 1 )
     {
@@ -2159,7 +2020,7 @@ main( int argc, char **argv )
 	
     curl_global_init( CURL_GLOBAL_ALL );    // RJH thread safe
 
-    mainwin = InitDisplay(  );
+    mainwin = InitDisplay();
 
     // Settings for character input
     noecho(  );
@@ -2170,32 +2031,20 @@ main( int argc, char **argv )
     LEDCounts[0] = 0;
     LEDCounts[1] = 0;
 
-    // Remove any old SSDV files
-    // system("rm -f /tmp/*.bin");  
-
     LoadConfigFile();
-    LoadPayloadFiles(  );
 
     int result;
 
     result = pipe( telem_pipe_fd );
     if ( result < 0 )
     {
-        fprintf( stderr, "Error creating telemetry pipe\n" );
-        return 1;
+        exit_error("Error creating telemetry pipe\n");
     }
 
     result = pipe( ssdv_pipe_fd );
     if ( result < 0 )
     {
-        fprintf( stderr, "Error creating ssdv pipe\n" );
-        return 1;
-    }
-
-    if ( wiringPiSetup(  ) < 0 )
-    {
-        fprintf( stderr, "Failed to open wiringPi\n" );
-        exit( 1 );
+        exit_error("Error creating ssdv pipe\n" );
     }
 
     if ( Config.LoRaDevices[0].ActivityLED >= 0 )
@@ -2219,18 +2068,21 @@ main( int argc, char **argv )
     // Initialise the vars
     stsv.parent_status = RUNNING;
     stsv.packet_count = 0;
+	
+    if (Config.EnableSSDV)
+	{
+		if ( pthread_create( &SSDVThread, NULL, SSDVLoop, ( void * ) &stsv ) )
+		{
+			fprintf( stderr, "Error creating SSDV thread\n" );
+			return 1;
+		}
+	}
 
-    if ( pthread_create( &SSDVThread, NULL, SSDVLoop, ( void * ) &stsv ) )
-    {
-        fprintf( stderr, "Error creating SSDV thread\n" );
-        return 1;
-    }
-
-    if ( pthread_create( &FTPThread, NULL, FTPLoop, NULL ) )
-    {
-        fprintf( stderr, "Error creating FTP thread\n" );
-        return 1;
-    }
+	if ( pthread_create( &FTPThread, NULL, FTPLoop, NULL ) )
+	{
+		fprintf( stderr, "Error creating FTP thread\n" );
+		return 1;
+	}
 
 
     // Initialise the vars
@@ -2238,11 +2090,13 @@ main( int argc, char **argv )
     htsv.packet_count = 0;
 
 
-    if ( pthread_create
-         ( &HabitatThread, NULL, HabitatLoop, ( void * ) &htsv ) )
-    {
-        fprintf( stderr, "Error creating Habitat thread\n" );
-        return 1;
+    if (Config.EnableHabitat)
+	{
+		if ( pthread_create (&HabitatThread, NULL, HabitatLoop, ( void * ) &htsv))
+		{
+			fprintf( stderr, "Error creating Habitat thread\n" );
+			return 1;
+		}
     }
 
     // RJH close (telem_pipe_fd[0]); // Close the read side of the pipe as we are writing here
@@ -2333,12 +2187,9 @@ main( int argc, char **argv )
             {
                 if ( Config.LoRaDevices[Channel].InUse )
                 {
-
                     ShowPacketCounts( Channel );
 
-                    ChannelPrintf( Channel, 12, 1, "Current RSSI = %4d   ",
-                                   readRegister( Channel,
-                                                 REG_CURRENT_RSSI ) - 157 );
+                    ChannelPrintf( Channel, 12, 1, "Current RSSI = %4d   ", CurrentRSSI(Channel));
 
                     // if (Config.LoRaDevices[Channel].LastPacketAt > 0)
                     // {
@@ -2347,11 +2198,8 @@ main( int argc, char **argv )
 
                     if ( Config.LoRaDevices[Channel].InCallingMode
                          && ( Config.CallingTimeout > 0 )
-                         && ( Config.
-                              LoRaDevices[Channel].ReturnToCallingModeAt > 0 )
-                         && ( time( NULL ) >
-                              Config.
-                              LoRaDevices[Channel].ReturnToCallingModeAt ) )
+                         && ( Config.LoRaDevices[Channel].ReturnToCallingModeAt > 0 )
+                         && ( time( NULL ) > Config.LoRaDevices[Channel].ReturnToCallingModeAt ) )
                     {
                         Config.LoRaDevices[Channel].InCallingMode = 0;
                         Config.LoRaDevices[Channel].ReturnToCallingModeAt = 0;
@@ -2364,11 +2212,7 @@ main( int argc, char **argv )
 
                         setMode( Channel, RF98_MODE_RX_CONTINUOUS );
 
-                        ChannelPrintf( Channel, 1, 1,
-                                       "Channel %d %sMHz  %s mode", Channel,
-                                       Config.LoRaDevices[Channel].Frequency,
-                                       Modes[Config.LoRaDevices
-                                             [Channel].SpeedMode] );
+                        ChannelPrintf( Channel, 1, 1, "Channel %d %.3lfMHz  %s mode", Channel, Config.LoRaDevices[Channel].Frequency, Modes[Config.LoRaDevices[Channel].SpeedMode]);
                     }
 
                     if ( ( Config.LoRaDevices[Channel].UplinkTime > 0 )
@@ -2426,22 +2270,29 @@ main( int argc, char **argv )
     LogMessage( "Stopping SSDV thread\n" );
     stsv.parent_status = STOPPED;
 
-    LogMessage( "Stopping Habitat thread\n" );
-    htsv.parent_status = STOPPED;
+	LogMessage( "Stopping Habitat thread\n" );
+	htsv.parent_status = STOPPED;
 
-    LogMessage( "Waiting for SSDV thread to close ...\n" );
-    pthread_join( SSDVThread, NULL );
-    LogMessage( "SSDV thread closed\n" );
-
-    LogMessage( "Waiting for Habitat thread to close ...\n" );
-    pthread_join( HabitatThread, NULL );
-    LogMessage( "Habitat thread closed\n" );
+    if (Config.EnableSSDV)
+	{
+		LogMessage( "Waiting for SSDV thread to close ...\n" );
+		pthread_join( SSDVThread, NULL );
+		LogMessage( "SSDV thread closed\n" );
+	}
+	
+    if (Config.EnableHabitat)
+	{
+		LogMessage( "Waiting for Habitat thread to close ...\n" );
+		pthread_join( HabitatThread, NULL );
+		LogMessage( "Habitat thread closed\n" );
+	}
+	
+    // CloseDisplay( mainwin );
 
     pthread_mutex_destroy( &var );
 
     // sleep (3);
 
-    CloseDisplay( mainwin );
     curl_global_cleanup(  );    // RJH thread safe
 
     if ( Config.NetworkLED >= 0 )

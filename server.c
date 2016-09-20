@@ -4,8 +4,8 @@
 #include <ctype.h>
 #include <stdio.h>              // Standard input/output definitions
 #include <string.h>             // String function definitions
-#include <unistd.h>             // UNIX standard function definitions
 #include <fcntl.h>              // File control definitions
+#include <unistd.h>             // UNIX standard function definitions
 #include <errno.h>              // Error number definitions
 #include <termios.h>            // POSIX terminal control definitions
 #include <stdint.h>
@@ -13,24 +13,80 @@
 #include <dirent.h>
 #include <math.h>
 #include <pthread.h>
+#include <wiringPi.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
 #include "server.h"
+#include "config.h"
 #include "global.h"
 
 extern bool run;
 extern bool server_closed;
 
+void ProcessClientLine(int connfd, char *line)
+{	
+	line[strcspn(line, "\r\n")] = '\0';		// Get rid of CR LF
+	
+	LogMessage("Received %s from client\n", line);
+	
+	if (strchr(line, '=') == NULL)
+	{
+		// Request or command
+		
+		if (strcasecmp(line, "settings") == 0)
+		{
+			int Index;
+			char SettingName[64], SettingValue[256], packet[4096];
+			
+			LogMessage("Responding to settings request\n");
+			
+			Index = 0;
+			packet[0] = '\0';
+			
+			while (SettingAsString(Index, SettingName, sizeof(SettingName), SettingValue, sizeof(SettingValue)))
+			{
+				char temp[300];
+				
+				sprintf(temp, "{\"class\":\"SET\",\"set\":\"%s\",\"val\":%s}\r\n", SettingName, SettingValue);
+				
+				if ((strlen(temp) + strlen(packet)) < sizeof(packet))
+				{
+					strcat(packet, temp);
+				}
+				
+				Index++;
+			}
+
+			send(connfd, packet, strlen(packet), MSG_NOSIGNAL);
+		}
+		else if (strcasecmp(line, "save") == 0)
+		{
+			LogMessage("Saving Settings\n");
+			SaveConfigFile();
+		}
+	}
+	else
+	{
+		// Setting
+		char *setting, *value, *saveptr;
+	
+		setting = strtok_r(line, "=", &saveptr);
+		value = strtok_r( NULL, "\n", &saveptr);
+		
+		SetConfigValue(setting, value);
+	}
+}
+
 void *ServerLoop( void *some_void_ptr )
 {
-    int listenfd = 0, connfd = 0;
+    int sockfd = 0;
     struct sockaddr_in serv_addr;
 
     char sendBuff[1025];
 
-    listenfd = socket( AF_INET, SOCK_STREAM, 0 );
+    sockfd = socket( AF_INET, SOCK_STREAM, 0 );
     memset( &serv_addr, '0', sizeof( serv_addr ) );
     memset( sendBuff, '0', sizeof( sendBuff ) );
 
@@ -40,7 +96,7 @@ void *ServerLoop( void *some_void_ptr )
 
     LogMessage( "Listening on port %d\n", Config.ServerPort );
 
-    if ( setsockopt( listenfd, SOL_SOCKET, SO_REUSEADDR, &( int )
+    if ( setsockopt( sockfd, SOL_SOCKET, SO_REUSEADDR, &( int )
                      {
                      1}, sizeof( int ) ) < 0 )
     {
@@ -48,28 +104,58 @@ void *ServerLoop( void *some_void_ptr )
     }
 
     if ( bind
-         ( listenfd, ( struct sockaddr * ) &serv_addr,
+         ( sockfd, ( struct sockaddr * ) &serv_addr,
            sizeof( serv_addr ) ) < 0 )
     {
         LogMessage( "Server failed errno %d\n", errno );
         exit( -1 );
     }
 
-    listen( listenfd, 10 );
-
+    listen( sockfd, 10 );
+	
     while ( run )
     {
-        int port_closed;
+		int SendEveryMS = 1000;
+		int MSPerLoop=100;
+        int ms, port_closed, connfd;
 
-        connfd = accept( listenfd, ( struct sockaddr * ) NULL, NULL );
+		fcntl(sockfd, F_SETFL, fcntl(sockfd, F_GETFL) & ~O_NONBLOCK);	// Blocking mode so we wait for a connection
+
+        connfd = accept( sockfd, ( struct sockaddr * ) NULL, NULL );	// Wait for connection
 
         LogMessage( "Connected to client\n" );
+
+		fcntl(connfd, F_SETFL, fcntl(sockfd, F_GETFL) | O_NONBLOCK);	// Non-blocking, so we don't block on receiving any commands from client
 
         for ( port_closed = 0; !port_closed; )
         {
             int Channel;
-            // Build json
-            // sprintf(sendBuff, "{\"class\":\"POSN\",\"time\":\"12:34:56\",\"lat\":54.12345,\"lon\":-2.12345,\"alt\":169}\r\n");
+			char packet[4096];
+
+			// Listen loop
+			for (ms=0; ms<SendEveryMS; ms+=MSPerLoop)
+			{
+				int bytecount;
+				
+				while ((bytecount = recv(connfd, packet, sizeof(packet), 0)) > 0)
+				{
+					char *line, *saveptr;
+					
+					packet[bytecount] = 0;
+					
+					line = strtok_r(packet, "\n", &saveptr);
+					while (line)
+					{
+						ProcessClientLine(connfd, line);
+						line = strtok_r( NULL, "\n", &saveptr);
+					}
+				}
+     
+				delay(MSPerLoop);
+			}
+				
+            // Send part
+			// Build json
 
 			for (Channel=0; Channel<=1; Channel++)
 			{
@@ -122,10 +208,6 @@ void *ServerLoop( void *some_void_ptr )
 				{
 					LogMessage( "Disconnected from client\n" );
 					port_closed = 1;
-				}
-				else
-				{
-					sleep(1);
 				}
 			}
         }

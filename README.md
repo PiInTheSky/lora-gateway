@@ -226,6 +226,27 @@ Many thanks to David Brooke for coding this feature and the AFC.
 Change History
 ==============
 
+14/09/2016 - V1.8.3
+-------------------
+
+	Save boolean settings sent by client
+	Use of atexit() so ncurses is always closed properly on exit
+	Added an exit-with-message function
+	Fixed errors where threads were closed on exit even if they hadn't been created (i.e. their functions disabled in the config)
+	Consistent RSSI calculations that take HF/LF port into account
+
+	
+14/09/2016 - V1.8.2
+-------------------
+
+	Configuration all in a generic array
+	Generic code to read/write config array/file
+	Send configuration values to JSON client
+	Accept commands and new config settings from client
+	Fixed SMS folder error
+	Fixed LDRO setting
+	
+
 03/09/2016 - V1.8
 -----------------
 
