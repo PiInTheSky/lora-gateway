@@ -145,10 +145,19 @@ UploadTelemetryPacket( telemetry_t * t )
         }
         else
         {
-            LogMessage( "Failed for URL '%s'\n", url );
-            LogMessage( "curl_easy_perform() failed: %s\n",
-                        curl_easy_strerror( res ) );
-            LogMessage( "error: %s\n", curl_error );
+			long http_code = 0;
+			
+			// Get http return code
+			curl_easy_getinfo (curl, CURLINFO_RESPONSE_CODE, &http_code);
+			
+			if (http_code != 403)
+			{
+				// Because 403 happens normally if we receive the same telemetry twice, which happens for example with airborne repeaters
+				LogMessage( "Failed for URL '%s'\n", url );
+				LogMessage( "curl_easy_perform() failed: %s\n",
+							curl_easy_strerror( res ) );
+				LogMessage( "error: %s\n", curl_error );
+			}
         }
 
         // always cleanup

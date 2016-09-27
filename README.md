@@ -226,6 +226,22 @@ Many thanks to David Brooke for coding this feature and the AFC.
 Change History
 ==============
 
+27/09/2016 - V1.8.5
+-------------------
+
+	New config setting - AFCMaxStep - limits AFC delta to this amount in kHz for each new packet
+	New config setting - AFCTimeout - Resets AFC changes if no packets received in this period (in seconds)
+	If gateway.txt missing, and gateway-sample.txt present, rename latter as former
+	Fixed SSDV upload status marker
+	Fix to frequency format when retuning after calling mode
+	Some log display messages now only appear if the feature they describe is in use
+	
+	
+15/09/2016 - V1.8.4
+-------------------
+
+	Fix to handle disabled channel
+
 14/09/2016 - V1.8.3
 -------------------
 

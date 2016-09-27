@@ -9,7 +9,6 @@ import time
 def get_list_of_missing_packets(PayloadID, Minutes):
 	result = ''
 	
-	# url = 'http://ssdv.habhub.org/api/v0/images?callsign=PI868&from=2016-01-22T11:00:00Z&missing_packets'
 	time_limit = datetime.utcnow() - timedelta(0,Minutes*60)	# n minutes ago
 	url = 'http://ssdv.habhub.org/api/v0/images?callsign=' + PayloadID + '&from=' + time_limit.strftime('%Y-%m-%dT%H:%M:%SZ') + '&missing_packets'
 
@@ -62,8 +61,7 @@ def get_list_of_missing_packets(PayloadID, Minutes):
 					last_missing_packet = mp
 				line = line + image_line
 				
-	if line != '':
-		result = "!" + line + "\n"
+	result = "!" + line + "\n"
 
 	return result
 
@@ -88,9 +86,8 @@ while True:
 		print("Checking ...")
 		# os.remove(folder + 'get_list.txt')
 		line = get_list_of_missing_packets(payload_id, 5)
-		if line == '':
+		if len(line) <= 2:
 			print("No missing packets")
-			line = "Nothing"
 		else:
 			print("Missing Packets:", line)
 		with open(folder + 'uplink.txt', "w") as text_file:
@@ -98,6 +95,7 @@ while True:
 				print(line, file=text_file)
 		time.sleep(1)
 	else:
-		print('.',end="",flush=True)
+		print('.',end="")
+		sys.stdout.flush()
 		time.sleep(1)
 
