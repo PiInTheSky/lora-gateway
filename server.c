@@ -23,13 +23,12 @@
 #include "global.h"
 
 extern bool run;
-extern bool server_closed;
 
-void ProcessClientLine(int connfd, char *line)
+void ProcessJSONClientLine(int connfd, char *line)
 {	
 	line[strcspn(line, "\r\n")] = '\0';		// Get rid of CR LF
 	
-	LogMessage("Received %s from client\n", line);
+	LogMessage("Received %s from JSON client\n", line);
 	
 	if (strchr(line, '=') == NULL)
 	{
@@ -79,140 +78,165 @@ void ProcessClientLine(int connfd, char *line)
 	}
 }
 
+int SendJSON(int connfd)
+{
+	int Channel, port_closed;
+    char sendBuff[1025];
+	
+	port_closed = 0;
+    memset( sendBuff, '0', sizeof( sendBuff ) );
+	
+	for (Channel=0; Channel<=1; Channel++)
+	{
+		if ( Config.EnableDev )
+		{
+			sprintf(sendBuff, "{\"class\":\"POSN\",\"index\":%d,\"payload\":\"%s\",\"time\":\"%s\",\"lat\":%.5lf,\"lon\":%.5lf,\"alt\":%d,\"rate\":%.1lf,\"predlat\":%.5lf,\"predlon\":%.5lf,\"speed\":%d,"
+							  "\"head\":%d,\"cda\":%.2lf,\"pls\":%.1lf,\"pt\":%d,\"ca\":%d,\"ct\":%d,\"as\":%.1lf,\"ad\":%d,\"sl\":%d,\"sr\":%d,\"st\":%d,\"gr\":%.2lf,\"fm\":%d}\r\n",
+						Channel,
+						Config.LoRaDevices[Channel].Payload,
+						Config.LoRaDevices[Channel].Time,
+						Config.LoRaDevices[Channel].Latitude,
+						Config.LoRaDevices[Channel].Longitude,
+						Config.LoRaDevices[Channel].Altitude,
+						Config.LoRaDevices[Channel].AscentRate,
+						Config.LoRaDevices[Channel].PredictedLatitude,
+						Config.LoRaDevices[Channel].PredictedLongitude,
+						Config.LoRaDevices[Channel].Speed,
+						
+						Config.LoRaDevices[Channel].Heading,
+						Config.LoRaDevices[Channel].cda,
+						Config.LoRaDevices[Channel].PredictedLandingSpeed,
+						Config.LoRaDevices[Channel].PredictedTime,
+						Config.LoRaDevices[Channel].CompassActual,
+						Config.LoRaDevices[Channel].CompassTarget,
+						Config.LoRaDevices[Channel].AirSpeed,
+						Config.LoRaDevices[Channel].AirDirection,
+						Config.LoRaDevices[Channel].ServoLeft,
+						Config.LoRaDevices[Channel].ServoRight,
+						Config.LoRaDevices[Channel].ServoTime,
+						Config.LoRaDevices[Channel].GlideRatio,
+						Config.LoRaDevices[Channel].FlightMode);
+		}
+		else
+		{
+			sprintf(sendBuff, "{\"class\":\"POSN\",\"index\":%d,\"payload\":\"%s\",\"time\":\"%s\",\"lat\":%.5lf,\"lon\":%.5lf,\"alt\":%d,\"rate\":%.1lf}\r\n",
+						Channel,
+						Config.LoRaDevices[Channel].Payload,
+						Config.LoRaDevices[Channel].Time,
+						Config.LoRaDevices[Channel].Latitude,
+						Config.LoRaDevices[Channel].Longitude,
+						Config.LoRaDevices[Channel].Altitude,
+						Config.LoRaDevices[Channel].AscentRate);
+		}
+
+		if ( !run )
+		{
+			port_closed = 1;
+		}
+		else if ( send(connfd, sendBuff, strlen(sendBuff), MSG_NOSIGNAL ) <= 0 )
+		{
+			LogMessage( "Disconnected from client\n" );
+			port_closed = 1;
+		}
+	}
+	
+	return port_closed;
+}
 void *ServerLoop( void *some_void_ptr )
 {
-    int sockfd = 0;
     struct sockaddr_in serv_addr;
+	struct TServerInfo *ServerInfo;
+	
+	ServerInfo = (struct TServerInfo *)some_void_ptr;
 
-    char sendBuff[1025];
-
-    sockfd = socket( AF_INET, SOCK_STREAM, 0 );
+    ServerInfo->sockfd = socket( AF_INET, SOCK_STREAM, 0 );
     memset( &serv_addr, '0', sizeof( serv_addr ) );
-    memset( sendBuff, '0', sizeof( sendBuff ) );
 
     serv_addr.sin_family = AF_INET;
     serv_addr.sin_addr.s_addr = htonl( INADDR_ANY );
-    serv_addr.sin_port = htons( Config.ServerPort );
+    serv_addr.sin_port = htons(ServerInfo->Port);
 
-    LogMessage( "Listening on port %d\n", Config.ServerPort );
+    LogMessage( "Listening on JSON port %d\n", ServerInfo->Port);
 
-    if ( setsockopt( sockfd, SOL_SOCKET, SO_REUSEADDR, &( int )
-                     {
-                     1}, sizeof( int ) ) < 0 )
-    {
+    if (setsockopt(ServerInfo->sockfd, SOL_SOCKET, SO_REUSEADDR, &(int){1}, sizeof(int)) < 0)
+	{
         LogMessage( "setsockopt(SO_REUSEADDR) failed" );
     }
 
-    if ( bind
-         ( sockfd, ( struct sockaddr * ) &serv_addr,
-           sizeof( serv_addr ) ) < 0 )
+    if (bind(ServerInfo->sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0)
     {
         LogMessage( "Server failed errno %d\n", errno );
         exit( -1 );
     }
 
-    listen( sockfd, 10 );
+    listen(ServerInfo->sockfd, 10);
 	
-    while ( run )
+    while (run)
     {
 		int SendEveryMS = 1000;
 		int MSPerLoop=100;
-        int ms, port_closed, connfd;
+        int ms=0;
+		int connfd;
+		
+		Config.EnableDev=1;
 
-		fcntl(sockfd, F_SETFL, fcntl(sockfd, F_GETFL) & ~O_NONBLOCK);	// Blocking mode so we wait for a connection
+		fcntl(ServerInfo->sockfd, F_SETFL, fcntl(ServerInfo->sockfd, F_GETFL) & ~O_NONBLOCK);	// Blocking mode so we wait for a connection
 
-        connfd = accept( sockfd, ( struct sockaddr * ) NULL, NULL );	// Wait for connection
+        connfd = accept(ServerInfo->sockfd, ( struct sockaddr * ) NULL, NULL );	// Wait for connection
 
-        LogMessage( "Connected to client\n" );
+        LogMessage( "Connected to client\n");
+		ServerInfo->Connected = 1;
 
-		fcntl(connfd, F_SETFL, fcntl(sockfd, F_GETFL) | O_NONBLOCK);	// Non-blocking, so we don't block on receiving any commands from client
+		fcntl(connfd, F_SETFL, fcntl(ServerInfo->sockfd, F_GETFL) | O_NONBLOCK);	// Non-blocking, so we don't block on receiving any commands from client
 
-        for ( port_closed = 0; !port_closed; )
+        while (ServerInfo->Connected)
         {
-            int Channel;
 			char packet[4096];
+			int bytecount;
 
-			// Listen loop
-			for (ms=0; ms<SendEveryMS; ms+=MSPerLoop)
-			{
-				int bytecount;
+			ms += MSPerLoop;
+			
+			// Listen part
+			bytecount = -1;
 				
-				while ((bytecount = recv(connfd, packet, sizeof(packet), 0)) > 0)
+			while ((bytecount = recv(connfd, packet, sizeof(packet), 0)) > 0)
+			{
+				char *line, *saveptr;
+				
+				packet[bytecount] = 0;
+				
+				// JSON server
+				line = strtok_r(packet, "\n", &saveptr);
+				while (line)
 				{
-					char *line, *saveptr;
-					
-					packet[bytecount] = 0;
-					
-					line = strtok_r(packet, "\n", &saveptr);
-					while (line)
+					ProcessJSONClientLine(connfd, line);
+					line = strtok_r( NULL, "\n", &saveptr);
+				}
+			}
+			
+			if (bytecount == 0)
+			{
+				// -1 is no more data, 0 means port closed
+				LogMessage("Disconnected from client\n");
+				ServerInfo->Connected = 0;
+			}
+
+			if (ServerInfo->Connected)
+			{
+				// Send to JSON client
+				if (ms >= SendEveryMS)
+				{
+					if (SendJSON(connfd))
 					{
-						ProcessClientLine(connfd, line);
-						line = strtok_r( NULL, "\n", &saveptr);
+						ServerInfo->Connected = 0;
 					}
 				}
-     
-				delay(MSPerLoop);
 			}
-				
-            // Send part
-			// Build json
-
-			for (Channel=0; Channel<=1; Channel++)
-			{
-				if ( Config.EnableDev )
-				{
-					sprintf(sendBuff, "{\"class\":\"POSN\",\"index\":%d,\"payload\":\"%s\",\"time\":\"%s\",\"lat\":%.5lf,\"lon\":%.5lf,\"alt\":%d,\"rate\":%.1lf,\"predlat\":%.5lf,\"predlon\":%.5lf,\"speed\":%d,"
-									  "\"head\":%d,\"cda\":%.2lf,\"pls\":%.1lf,\"pt\":%d,\"ca\":%d,\"ct\":%d,\"as\":%.1lf,\"ad\":%d,\"sl\":%d,\"sr\":%d,\"st\":%d,\"gr\":%.2lf,\"fm\":%d}\r\n",
-								Channel,
-								Config.LoRaDevices[Channel].Payload,
-								Config.LoRaDevices[Channel].Time,
-								Config.LoRaDevices[Channel].Latitude,
-								Config.LoRaDevices[Channel].Longitude,
-								Config.LoRaDevices[Channel].Altitude,
-								Config.LoRaDevices[Channel].AscentRate,
-								Config.LoRaDevices[Channel].PredictedLatitude,
-								Config.LoRaDevices[Channel].PredictedLongitude,
-								Config.LoRaDevices[Channel].Speed,
-								
-								Config.LoRaDevices[Channel].Heading,
-								Config.LoRaDevices[Channel].cda,
-								Config.LoRaDevices[Channel].PredictedLandingSpeed,
-								Config.LoRaDevices[Channel].PredictedTime,
-								Config.LoRaDevices[Channel].CompassActual,
-								Config.LoRaDevices[Channel].CompassTarget,
-								Config.LoRaDevices[Channel].AirSpeed,
-								Config.LoRaDevices[Channel].AirDirection,
-								Config.LoRaDevices[Channel].ServoLeft,
-								Config.LoRaDevices[Channel].ServoRight,
-								Config.LoRaDevices[Channel].ServoTime,
-								Config.LoRaDevices[Channel].GlideRatio,
-								Config.LoRaDevices[Channel].FlightMode);
-				}
-				else
-				{
-					sprintf(sendBuff, "{\"class\":\"POSN\",\"index\":%d,\"payload\":\"%s\",\"time\":\"%s\",\"lat\":%.5lf,\"lon\":%.5lf,\"alt\":%d,\"rate\":%.1lf}\r\n",
-								Channel,
-								Config.LoRaDevices[Channel].Payload,
-								Config.LoRaDevices[Channel].Time,
-								Config.LoRaDevices[Channel].Latitude,
-								Config.LoRaDevices[Channel].Longitude,
-								Config.LoRaDevices[Channel].Altitude,
-								Config.LoRaDevices[Channel].AscentRate);
-				}
-
-				if ( !run )
-				{
-					port_closed = 1;
-				}
-				else if ( send(connfd, sendBuff, strlen(sendBuff), MSG_NOSIGNAL ) <= 0 )
-				{
-					LogMessage( "Disconnected from client\n" );
-					port_closed = 1;
-				}
-			}
+			
+			delay(MSPerLoop);
         }
 
-        close( connfd );
+        close(connfd);
     }
 
     return NULL;

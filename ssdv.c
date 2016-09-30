@@ -66,7 +66,6 @@ UploadImagePacket( ssdv_t * s, unsigned int packets )
     curl = curl_easy_init(  );
     if ( curl )
     {
-
         // So that the response to the curl POST doesn;'t mess up my finely crafted display!
         curl_easy_setopt( curl, CURLOPT_WRITEFUNCTION, write_ssdv_data );
 
@@ -90,25 +89,22 @@ UploadImagePacket( ssdv_t * s, unsigned int packets )
         // Create json with the base64 data in hex, the tracker callsign and the current timestamp
         strcpy( json, "{\"type\": \"packets\",\"packets\":[" );
 
-        for ( PacketIndex = 0; PacketIndex < packets; PacketIndex++ )
+        for (PacketIndex = 0; PacketIndex < packets; PacketIndex++)
         {
-            base64_encode( s[PacketIndex].SSDV_Packet, 256, &base64_length,
-                           base64_data );
+            base64_encode(s[PacketIndex].SSDV_Packet, 256, &base64_length, base64_data);
             base64_data[base64_length] = '\0';
 
-            sprintf( packet_json,
-                     "{\"type\": \"packet\", \"packet\": \"%s\", \"encoding\": \"base64\", \"received\": \"%s\", \"receiver\": \"%s\"}%s",
-                     base64_data, now, Config.Tracker,
-                     PacketIndex == ( packets - 1 ) ? "" : "," );
-            strcat( json, packet_json );
+            sprintf(packet_json,
+                    "{\"type\": \"packet\", \"packet\": \"%s\", \"encoding\": \"base64\", \"received\": \"%s\", \"receiver\": \"%s\"}%s",
+                    base64_data, now, Config.Tracker,
+                    PacketIndex == ( packets - 1 ) ? "" : ",");
+            strcat(json, packet_json);
         }
-        strcat( json, "]}" );
+        strcat(json, "]}");
 
         // LogTelemetryPacket(json);
 
         strcpy( url, "http://ssdv.habhub.org/api/v0/packets" );
-        // strcpy(url,"http://ext.hgf.com/ssdv/rjh.php");
-        // strcpy(url,"http://ext.hgf.com/ssdv/apiv0.php?q=packets");
 
         // Set the headers
         headers = NULL;
@@ -144,10 +140,8 @@ UploadImagePacket( ssdv_t * s, unsigned int packets )
     }
 }
 
-void *
-SSDVLoop( void *vars )
+void *SSDVLoop( void *vars )
 {
-
     if ( Config.EnableSSDV )
     {
         const int max_packets = 51;
@@ -185,11 +179,11 @@ SSDVLoop( void *vars )
 
             if ( j == 50 || ( ( packets == 0 ) && ( j > 0 ) ) )
             {
-                ChannelPrintf( s[0].Channel, 6, 1, "Habitat" );
-
+				ChannelPrintf(s[0].Channel, 6, 16, "SSDV");
+				
                 UploadImagePacket( s, j );
-
-                ChannelPrintf( s[0].Channel, 6, 1, "       " );
+				
+				ChannelPrintf(s[0].Channel, 6, 16, "    ");
 
                 j = 0;
 
