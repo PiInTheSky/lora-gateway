@@ -146,14 +146,9 @@ UploadTelemetryPacket( telemetry_t * t )
 		if ( res == CURLE_OK )
 		{
 			curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &http_resp);
-			if ( http_resp != 201 && http_resp != 409 )
+			if (http_resp != 201 && http_resp != 403 && http_resp != 409)
 			{
-				// unhandled response
-				LogMessage( "Failed for URL '%s'\n", url );
-				LogMessage( "curl_easy_perform() failed: %s\n",
-						curl_easy_strerror( res ) );
-				LogMessage( "error: %s\n", curl_error );
-				LogMessage( "HTTP response %ld\n", http_resp );
+				LogMessage("Unexpected HTTP response %ld for URL '%s'\n", http_resp, url);
 			}
 		}
 		else
