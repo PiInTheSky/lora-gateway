@@ -29,15 +29,13 @@ extern pthread_mutex_t var;
 extern void ChannelPrintf( int Channel, int row, int column,
                            const char *format, ... );
 
-size_t
-habitat_write_data( void *buffer, size_t size, size_t nmemb, void *userp )
+size_t habitat_write_data( void *buffer, size_t size, size_t nmemb, void *userp )
 {
     // LogMessage("%s\n", (char *)buffer);
     return size * nmemb;
 }
 
-void
-hash_to_hex( unsigned char *hash, char *line )
+void hash_to_hex( unsigned char *hash, char *line )
 {
     int idx;
 
@@ -46,12 +44,9 @@ hash_to_hex( unsigned char *hash, char *line )
         sprintf( &( line[idx * 2] ), "%02x", hash[idx] );
     }
     line[64] = '\0';
-
-    // LogMessage(line);
 }
 
-void
-UploadTelemetryPacket( telemetry_t * t )
+void UploadTelemetryPacket( telemetry_t * t )
 {
     CURL *curl;
     CURLcode res;
@@ -72,8 +67,8 @@ UploadTelemetryPacket( telemetry_t * t )
         struct curl_slist *headers = NULL;
         time_t rawtime;
         struct tm *tm;
-	int retries;
-	long int http_resp;
+		int retries;
+		long int http_resp;
 
         // Get formatted timestamp
         time( &rawtime );
@@ -119,59 +114,59 @@ UploadTelemetryPacket( telemetry_t * t )
 
 
         // Set the URL that is about to receive our PUT
-        sprintf( url,
-                 "http://habitat.habhub.org/habitat/_design/payload_telemetry/_update/add_listener/%s",
-                 doc_id );
-//        sprintf(url, "http://ext.hgf.com/ssdv/rjh.php");
+        sprintf( url, "http://habitat.habhub.org/habitat/_design/payload_telemetry/_update/add_listener/%s", doc_id);
 
         // Set the headers
         headers = NULL;
-        headers = curl_slist_append( headers, "Accept: application/json" );
-        headers =
-            curl_slist_append( headers, "Content-Type: application/json" );
-        headers = curl_slist_append( headers, "charsets: utf-8" );
+        headers = curl_slist_append(headers, "Accept: application/json");
+        headers = curl_slist_append(headers, "Content-Type: application/json");
+        headers = curl_slist_append(headers, "charsets: utf-8" );
 
         // PUT to http://habitat.habhub.org/habitat/_design/payload_telemetry/_update/add_listener/<doc_id> with content-type application/json
-        curl_easy_setopt( curl, CURLOPT_HTTPHEADER, headers );
-        curl_easy_setopt( curl, CURLOPT_URL, url );
-        curl_easy_setopt( curl, CURLOPT_CUSTOMREQUEST, "PUT" );
-        curl_easy_setopt( curl, CURLOPT_POSTFIELDS, json );
+        curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+        curl_easy_setopt(curl, CURLOPT_URL, url);
+        curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, "PUT");
+        curl_easy_setopt(curl, CURLOPT_POSTFIELDS, json);
 
-	retries = 0;
-	do {
-		// Perform the request, res will get the return code
-		res = curl_easy_perform( curl );
-
-		// Check for errors
-		if ( res == CURLE_OK )
+		retries = 0;
+		do
 		{
-			curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &http_resp);
-			if (http_resp != 201 && http_resp != 403 && http_resp != 409)
+			// Perform the request, res will get the return code
+			res = curl_easy_perform( curl );
+
+			// Check for errors
+			if ( res == CURLE_OK )
 			{
-				LogMessage("Unexpected HTTP response %ld for URL '%s'\n", http_resp, url);
+				curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &http_resp);
+				if (http_resp != 201 && http_resp != 403 && http_resp != 409)
+				{
+					LogMessage("Unexpected HTTP response %ld for URL '%s'\n", http_resp, url);
+				}
 			}
-		}
-		else
-		{
-			http_resp = 0;
-			LogMessage( "Failed for URL '%s'\n", url );
-			LogMessage( "curl_easy_perform() failed: %s\n",
-					curl_easy_strerror( res ) );
-			LogMessage( "error: %s\n", curl_error );
-		}
-	} while ((http_resp == 409) && (++retries < 5));
+			else
+			{
+				http_resp = 0;
+				LogMessage("Failed for URL '%s'\n", url);
+				LogMessage("curl_easy_perform() failed: %s\n", curl_easy_strerror(res));
+				LogMessage("error: %s\n", curl_error);
+			}
+			
+			if (http_resp == 409)
+			{
+				// conflict between us and another uploader at the same time
+				// wait for a random period before trying again
+				delay(random() & 255);		// 0-255 ms
+			}
+		} while ((http_resp == 409) && (++retries < 5));
 
         // always cleanup
         curl_slist_free_all( headers );
         curl_easy_cleanup( curl );
-        // free(base64_data);
     }
-
 }
 
 
-void *
-HabitatLoop( void *vars )
+void *HabitatLoop( void *vars )
 {
 
     if ( Config.EnableHabitat )

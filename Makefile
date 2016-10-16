@@ -12,7 +12,7 @@ CFLAGS=-Wall -O3 #-std=c99
 LDFLAGS= -lm -lwiringPi -lwiringPiDev -lcurl -lncurses -lpthread
 RM=rm
 
-%.o: %.c         # combined w/ next line will compile recently changed .c files
+%.o: %.c *.h     # combined w/ next line will compile recently changed .c files
 	$(CC) $(CFLAGS) -o $@ -c $<
 
 .PHONY : all     # .PHONY ignores files named all

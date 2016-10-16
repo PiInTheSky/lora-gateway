@@ -80,63 +80,35 @@ void ProcessJSONClientLine(int connfd, char *line)
 
 int SendJSON(int connfd)
 {
-	int Channel, port_closed;
+	int PayloadIndex, port_closed;
     char sendBuff[1025];
 	
 	port_closed = 0;
     memset( sendBuff, '0', sizeof( sendBuff ) );
 	
-	for (Channel=0; Channel<=1; Channel++)
+	for (PayloadIndex=0; PayloadIndex<MAX_PAYLOADS; PayloadIndex++)
 	{
-		if ( Config.EnableDev )
+		if (Config.Payloads[PayloadIndex].InUse)
 		{
-			sprintf(sendBuff, "{\"class\":\"POSN\",\"index\":%d,\"payload\":\"%s\",\"time\":\"%s\",\"lat\":%.5lf,\"lon\":%.5lf,\"alt\":%d,\"rate\":%.1lf,\"predlat\":%.5lf,\"predlon\":%.5lf,\"speed\":%d,"
-							  "\"head\":%d,\"cda\":%.2lf,\"pls\":%.1lf,\"pt\":%d,\"ca\":%d,\"ct\":%d,\"as\":%.1lf,\"ad\":%d,\"sl\":%d,\"sr\":%d,\"st\":%d,\"gr\":%.2lf,\"fm\":%d}\r\n",
-						Channel,
-						Config.LoRaDevices[Channel].Payload,
-						Config.LoRaDevices[Channel].Time,
-						Config.LoRaDevices[Channel].Latitude,
-						Config.LoRaDevices[Channel].Longitude,
-						Config.LoRaDevices[Channel].Altitude,
-						Config.LoRaDevices[Channel].AscentRate,
-						Config.LoRaDevices[Channel].PredictedLatitude,
-						Config.LoRaDevices[Channel].PredictedLongitude,
-						Config.LoRaDevices[Channel].Speed,
-						
-						Config.LoRaDevices[Channel].Heading,
-						Config.LoRaDevices[Channel].cda,
-						Config.LoRaDevices[Channel].PredictedLandingSpeed,
-						Config.LoRaDevices[Channel].PredictedTime,
-						Config.LoRaDevices[Channel].CompassActual,
-						Config.LoRaDevices[Channel].CompassTarget,
-						Config.LoRaDevices[Channel].AirSpeed,
-						Config.LoRaDevices[Channel].AirDirection,
-						Config.LoRaDevices[Channel].ServoLeft,
-						Config.LoRaDevices[Channel].ServoRight,
-						Config.LoRaDevices[Channel].ServoTime,
-						Config.LoRaDevices[Channel].GlideRatio,
-						Config.LoRaDevices[Channel].FlightMode);
-		}
-		else
-		{
-			sprintf(sendBuff, "{\"class\":\"POSN\",\"index\":%d,\"payload\":\"%s\",\"time\":\"%s\",\"lat\":%.5lf,\"lon\":%.5lf,\"alt\":%d,\"rate\":%.1lf}\r\n",
-						Channel,
-						Config.LoRaDevices[Channel].Payload,
-						Config.LoRaDevices[Channel].Time,
-						Config.LoRaDevices[Channel].Latitude,
-						Config.LoRaDevices[Channel].Longitude,
-						Config.LoRaDevices[Channel].Altitude,
-						Config.LoRaDevices[Channel].AscentRate);
-		}
+			sprintf(sendBuff, "{\"class\":\"POSN\",\"index\":%d,\"channel\":%d,\"payload\":\"%s\",\"time\":\"%s\",\"lat\":%.5lf,\"lon\":%.5lf,\"alt\":%d,\"rate\":%.1lf}\r\n",
+					PayloadIndex,
+					Config.Payloads[PayloadIndex].Channel,
+					Config.Payloads[PayloadIndex].Payload,
+					Config.Payloads[PayloadIndex].Time,
+					Config.Payloads[PayloadIndex].Latitude,
+					Config.Payloads[PayloadIndex].Longitude,
+					Config.Payloads[PayloadIndex].Altitude,
+					Config.Payloads[PayloadIndex].AscentRate);
 
-		if ( !run )
-		{
-			port_closed = 1;
-		}
-		else if ( send(connfd, sendBuff, strlen(sendBuff), MSG_NOSIGNAL ) <= 0 )
-		{
-			LogMessage( "Disconnected from client\n" );
-			port_closed = 1;
+			if ( !run )
+			{
+				port_closed = 1;
+			}
+			else if ( send(connfd, sendBuff, strlen(sendBuff), MSG_NOSIGNAL ) <= 0 )
+			{
+				LogMessage( "Disconnected from client\n" );
+				port_closed = 1;
+			}
 		}
 	}
 	

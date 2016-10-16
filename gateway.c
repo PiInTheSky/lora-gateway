@@ -34,7 +34,7 @@
 #include "gateway.h"
 #include "config.h"
 
-#define VERSION	"V1.8.5"
+#define VERSION	"V1.8.6"
 bool run = TRUE;
 
 // RFM98
@@ -293,8 +293,7 @@ void LogPacket( int Channel, int8_t SNR, int RSSI, double FreqError, int Bytes, 
     }
 }
 
-void
-LogTelemetryPacket( char *Telemetry )
+void LogTelemetryPacket(char *Telemetry)
 {
     // if (Config.EnableTelemetryLogging)
     {
@@ -784,93 +783,132 @@ void UploadListenerTelemetry( char *callsign, float gps_lat, float gps_lon, char
     }
 }
 
+void RemoveOldPayloads(void)
+{
+	int i;
+	
+	for (i=0; i<MAX_PAYLOADS; i++)
+	{
+		if (Config.Payloads[i].InUse)
+		{
+            if ((time(NULL) - Config.Payloads[i].LastPacketAt) > 10800)
+			{
+				// More than 3 hours old, so remove it
+			}
+			
+			Config.Payloads[i].InUse = 0;
+		}
+	}
+}
 
-void DoPositionCalcs(Channel)
+int FindFreePayload(char *Payload)
+{
+	int i, Oldest;
+	
+	// First pass - find match for payload
+	for (i=0; i<MAX_PAYLOADS; i++)
+	{
+		if (Config.Payloads[i].InUse)
+		{
+			if (strcmp(Payload, Config.Payloads[i].Payload) == 0)
+			{
+				return i;
+			}
+		}
+	}
+	
+	// Second pass - just find a free position
+	for (i=0; i<MAX_PAYLOADS; i++)
+	{
+		if (!Config.Payloads[i].InUse)
+		{
+			Config.Payloads[i].InUse = 1;
+			strcpy(Config.Payloads[i].Payload, Payload);
+            return i;
+		}
+	}
+	
+	// Third pass - find oldest payload
+	Oldest = 0;
+	for (i=1; i<MAX_PAYLOADS; i++)
+	{
+		if (Config.Payloads[i].LastPositionAt < Config.Payloads[Oldest].LastPositionAt)
+		{
+			Oldest = i;
+		}
+	}
+	
+	strcpy(Config.Payloads[Oldest].Payload, Payload);
+	
+	return i;
+}
+
+void DoPositionCalcs(int PayloadIndex)
 {
     unsigned long Now;
     struct tm tm;
     float Climb, Period;
 
-    strptime( Config.LoRaDevices[Channel].Time, "%H:%M:%S", &tm );
+    strptime(Config.Payloads[PayloadIndex].Time, "%H:%M:%S", &tm);
     Now = tm.tm_hour * 3600 + tm.tm_min * 60 + tm.tm_sec;
 
-    if ( ( Config.LoRaDevices[Channel].LastPositionAt > 0 )
-         && ( Now > Config.LoRaDevices[Channel].LastPositionAt ) )
+    if ((Config.Payloads[PayloadIndex].LastPositionAt > 0 )
+         && ( Now > Config.Payloads[PayloadIndex].LastPositionAt ) )
     {
-        Climb =
-            ( float ) Config.LoRaDevices[Channel].Altitude -
-            ( float ) Config.LoRaDevices[Channel].PreviousAltitude;
-        Period =
-            ( float ) Now -
-            ( float ) Config.LoRaDevices[Channel].LastPositionAt;
-        Config.LoRaDevices[Channel].AscentRate = Climb / Period;
+        Climb = (float)Config.Payloads[PayloadIndex].Altitude - (float)Config.Payloads[PayloadIndex].PreviousAltitude;
+        Period = (float)Now - (float)Config.Payloads[PayloadIndex].LastPositionAt;
+        Config.Payloads[PayloadIndex].AscentRate = Climb / Period;
     }
     else
     {
-        Config.LoRaDevices[Channel].AscentRate = 0;
+        Config.Payloads[PayloadIndex].AscentRate = 0;
     }
 
-    Config.LoRaDevices[Channel].PreviousAltitude =
-        Config.LoRaDevices[Channel].Altitude;
-    Config.LoRaDevices[Channel].LastPositionAt = Now;
-
-    ChannelPrintf( Channel, 4, 1, "%8.5lf, %8.5lf, %05u   ",
-                   Config.LoRaDevices[Channel].Latitude,
-                   Config.LoRaDevices[Channel].Longitude,
-                   Config.LoRaDevices[Channel].Altitude );
+    Config.Payloads[PayloadIndex].LastPositionAt = Now;
+    Config.Payloads[PayloadIndex].PreviousAltitude = Config.Payloads[PayloadIndex].Altitude;
 }
-
 
 void ProcessLine(int Channel, char *Line)
 {
-    int Satellites;
-    float TempInt, TempExt;
+	int PayloadIndex;
+	char Payload[32];
 
-    Config.LoRaDevices[Channel].FlightMode = -1;
+	// Find free position for this payload
+	sscanf(Line + 2, "%31[^,]", Payload);
+	PayloadIndex = FindFreePayload(Payload);
 
-    if ( Config.EnableDev )
-    {
-        sscanf( Line + 2,
-                "%15[^,],%u,%8[^,],%lf,%lf,%u,%d,%d,%d,%f,%f,%lf,%lf,%lf,%lf,%d,%d,%d,%lf,%d,%d,%d,%d,%lf,%d",
-                ( Config.LoRaDevices[Channel].Payload ),
-                &( Config.LoRaDevices[Channel].Counter ),
-                ( Config.LoRaDevices[Channel].Time ),
-                &( Config.LoRaDevices[Channel].Latitude ),
-                &( Config.LoRaDevices[Channel].Longitude ),
-                &( Config.LoRaDevices[Channel].Altitude ),
-                &( Config.LoRaDevices[Channel].Speed ),
-                &( Config.LoRaDevices[Channel].Heading ), &Satellites,
-                &TempInt, &TempExt, &( Config.LoRaDevices[Channel].cda ),
-                &( Config.LoRaDevices[Channel].PredictedLatitude ),
-                &( Config.LoRaDevices[Channel].PredictedLongitude ),
-                &( Config.LoRaDevices[Channel].PredictedLandingSpeed ),
-                &( Config.LoRaDevices[Channel].PredictedTime ),
-                &( Config.LoRaDevices[Channel].CompassActual ),
-                &( Config.LoRaDevices[Channel].CompassTarget ),
-                &( Config.LoRaDevices[Channel].AirSpeed ),
-                &( Config.LoRaDevices[Channel].AirDirection ),
-                &( Config.LoRaDevices[Channel].ServoLeft ),
-                &( Config.LoRaDevices[Channel].ServoRight ),
-                &( Config.LoRaDevices[Channel].ServoTime ),
-                &( Config.LoRaDevices[Channel].GlideRatio ),
-                &( Config.LoRaDevices[Channel].FlightMode ) );
-    }
-    else
-    {
-        sscanf( Line + 2, "%15[^,],%u,%8[^,],%lf,%lf,%u",
-                ( Config.LoRaDevices[Channel].Payload ),
-                &( Config.LoRaDevices[Channel].Counter ),
-                ( Config.LoRaDevices[Channel].Time ),
-                &( Config.LoRaDevices[Channel].Latitude ),
-                &( Config.LoRaDevices[Channel].Longitude ),
-                &( Config.LoRaDevices[Channel].Altitude ) );
-    }
+	// Store sentence against this payload
+    strcpy(Config.Payloads[PayloadIndex].Telemetry, Line);
+	
+	// Fill in source channel
+	Config.Payloads[PayloadIndex].Channel = Channel;
+	
+	// Parse key fields from sentence
+	sscanf( Line + 2, "%15[^,],%u,%8[^,],%lf,%lf,%u",
+			(Config.Payloads[PayloadIndex].Payload),
+			&(Config.Payloads[PayloadIndex].Counter),
+			(Config.Payloads[PayloadIndex].Time),
+			&(Config.Payloads[PayloadIndex].Latitude),
+			&(Config.Payloads[PayloadIndex].Longitude),
+			&(Config.Payloads[PayloadIndex].Altitude));
+
+	// Mark when this was received, so we can time-out old payloads
+	Config.Payloads[PayloadIndex].LastPacketAt = time(NULL);
+
+	// Ascent rate
+    DoPositionCalcs(PayloadIndex);
+	
+	// Update display
+    ChannelPrintf(Channel, 4, 1, "%8.5lf, %8.5lf, %05u   ",
+                  Config.Payloads[PayloadIndex].Latitude,
+                  Config.Payloads[PayloadIndex].Longitude,
+                  Config.Payloads[PayloadIndex].Altitude);	
 }
 
 
-void ProcessTelemetryMessage( int Channel, char *Message)
+void ProcessTelemetryMessage(int Channel, char *Message)
 {
-    if ( strlen( Message + 1 ) < 250 )
+    if (strlen(Message + 1) < 250)
     {
         char *startmessage, *endmessage;
 
@@ -896,9 +934,6 @@ void ProcessTelemetryMessage( int Channel, char *Message)
 			{
 				*startmessage = '$';
 			}
-
-            strcpy( Config.LoRaDevices[Channel].Telemetry, startmessage );
-            // UploadTelemetryPacket(startmessage);
 
             ProcessLine(Channel, startmessage);
 
@@ -938,8 +973,6 @@ void ProcessTelemetryMessage( int Channel, char *Message)
 			startmessage = endmessage + 1;
 			endmessage = strchr( startmessage, '\n' );
         }
-
-        DoPositionCalcs( Channel );
 
         Config.LoRaDevices[Channel].LastTelemetryPacketAt = time( NULL );
     }
@@ -1240,7 +1273,7 @@ void DIO0_Interrupt( int Channel )
                 Config.LoRaDevices[Channel].UnknownCount++;
             }
 
-            Config.LoRaDevices[Channel].LastPacketAt = time( NULL );
+            // Config.LoRaDevices[Channel].LastPacketAt = time( NULL );
 
             if (Config.LoRaDevices[Channel].InCallingMode && (Config.CallingTimeout > 0))
             {
@@ -1979,7 +2012,7 @@ rjh_post_message( int Channel, char *buffer )
                 Config.LoRaDevices[Channel].UnknownCount++;
             }
 
-            Config.LoRaDevices[Channel].LastPacketAt = time( NULL );
+            // Config.LoRaDevices[Channel].LastPacketAt = time( NULL );
 
             ShowPacketCounts( Channel );
         }

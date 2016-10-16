@@ -2,7 +2,26 @@
 
 #define RUNNING 1               // The main program is running
 #define STOPPED 0               // The main program has stopped
- struct TLoRaDevice {
+
+#define MAX_PAYLOADS	32
+
+struct TPayload
+{
+	int InUse;
+	int Channel;
+	
+	time_t LastPacketAt;
+	
+	char Telemetry[256];
+	char Payload[32];
+	
+	char Time[12];
+	unsigned int Counter, LastCounter;
+	double Longitude, Latitude;
+	unsigned int Altitude, PreviousAltitude;
+	float AscentRate;
+	unsigned long LastPositionAt;
+}; struct TLoRaDevice {
 	double Frequency;
 	double Bandwidth;
 	double CurrentBandwidth;
@@ -22,25 +41,16 @@
 	WINDOW * Window;
 	unsigned int TelemetryCount, SSDVCount, BadCRCCount, UnknownCount;
 	int Sending;
-	char Telemetry[256];
-	char Payload[16], Time[12];
-	unsigned int Counter, LastCounter;
-	unsigned long Seconds;
-	double PredictedLongitude, PredictedLatitude;
-	double Longitude, Latitude;
-	unsigned int Altitude, PreviousAltitude;
-	unsigned int Satellites;
-	unsigned long LastPositionAt;
-	time_t LastPacketAt, LastSSDVPacketAt, LastTelemetryPacketAt;
-	float AscentRate;
+	// unsigned long Seconds;
+	// double PredictedLongitude, PredictedLatitude;
+	// unsigned int Satellites;
+	time_t LastSSDVPacketAt, LastTelemetryPacketAt;
 	time_t ReturnToCallingModeAt;
 	time_t ReturnToOriginalFrequencyAt;
 	int InCallingMode;
 	int ActivityLED;
 	double UplinkFrequency;
 	int UplinkMode;
-	int Speed, Heading, PredictedTime, CompassActual, CompassTarget, AirDirection, ServoLeft, ServoRight, ServoTime, FlightMode;
-	double cda, PredictedLandingSpeed, AirSpeed, GlideRatio;
 
 	// Normal (non TDM) uplink
 	int UplinkTime;
@@ -59,6 +69,7 @@
 	char ftpPassword[32];
 	char ftpFolder[64];
 	struct TLoRaDevice LoRaDevices[2];
+	struct TPayload Payloads[MAX_PAYLOADS];
 	int NetworkLED;
 	int InternetLED;
 	int ServerPort;					// JSON port for telemetry, settings
