@@ -72,6 +72,8 @@ UploadTelemetryPacket( telemetry_t * t )
         struct curl_slist *headers = NULL;
         time_t rawtime;
         struct tm *tm;
+	int retries;
+	long int http_resp;
 
         // Get formatted timestamp
         time( &rawtime );
@@ -85,7 +87,7 @@ UploadTelemetryPacket( telemetry_t * t )
         curl_easy_setopt( curl, CURLOPT_TIMEOUT, 15 );
 
         // RJH capture http errors and report
-        curl_easy_setopt( curl, CURLOPT_FAILONERROR, 1 );
+        // curl_easy_setopt( curl, CURLOPT_FAILONERROR, 1 );
         curl_easy_setopt( curl, CURLOPT_ERRORBUFFER, curl_error );
 
         // Avoid curl library bug that happens if above timeout occurs (sigh)
@@ -135,30 +137,29 @@ UploadTelemetryPacket( telemetry_t * t )
         curl_easy_setopt( curl, CURLOPT_CUSTOMREQUEST, "PUT" );
         curl_easy_setopt( curl, CURLOPT_POSTFIELDS, json );
 
-        // Perform the request, res will get the return code
-        res = curl_easy_perform( curl );
+	retries = 0;
+	do {
+		// Perform the request, res will get the return code
+		res = curl_easy_perform( curl );
 
-        // Check for errors
-        if ( res == CURLE_OK )
-        {
-            // LogMessage("OK\n");
-        }
-        else
-        {
-			long http_code = 0;
-			
-			// Get http return code
-			curl_easy_getinfo (curl, CURLINFO_RESPONSE_CODE, &http_code);
-			
-			if (http_code != 403)
+		// Check for errors
+		if ( res == CURLE_OK )
+		{
+			curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &http_resp);
+			if (http_resp != 201 && http_resp != 403 && http_resp != 409)
 			{
-				// Because 403 happens normally if we receive the same telemetry twice, which happens for example with airborne repeaters
-				LogMessage( "Failed for URL '%s'\n", url );
-				LogMessage( "curl_easy_perform() failed: %s\n",
-							curl_easy_strerror( res ) );
-				LogMessage( "error: %s\n", curl_error );
+				LogMessage("Unexpected HTTP response %ld for URL '%s'\n", http_resp, url);
 			}
-        }
+		}
+		else
+		{
+			http_resp = 0;
+			LogMessage( "Failed for URL '%s'\n", url );
+			LogMessage( "curl_easy_perform() failed: %s\n",
+					curl_easy_strerror( res ) );
+			LogMessage( "error: %s\n", curl_error );
+		}
+	} while ((http_resp == 409) && (++retries < 5));
 
         // always cleanup
         curl_slist_free_all( headers );
