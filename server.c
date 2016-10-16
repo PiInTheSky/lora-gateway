@@ -114,6 +114,7 @@ int SendJSON(int connfd)
 	
 	return port_closed;
 }
+
 void *ServerLoop( void *some_void_ptr )
 {
     struct sockaddr_in serv_addr;
@@ -202,6 +203,7 @@ void *ServerLoop( void *some_void_ptr )
 					{
 						ServerInfo->Connected = 0;
 					}
+					ms = 0;
 				}
 			}
 			
