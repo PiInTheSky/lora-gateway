@@ -906,7 +906,7 @@ void ProcessLine(int Channel, char *Line)
 }
 
 
-void ProcessTelemetryMessage(int Channel, char *Message)
+void ProcessTelemetryMessage(int Channel, char *Message, double RxFrequency)
 {
     if (strlen(Message + 1) < 250)
     {
@@ -948,6 +948,7 @@ void ProcessTelemetryMessage(int Channel, char *Message)
                 telemetry_t t;
                 t.Channel = Channel;
                 t.Packet_Number = habitate_telem_packets;
+		t.RxFrequency = RxFrequency;
                 memcpy( t.Telemetry, startmessage, strlen( startmessage ) + 1 );
 
                 // Add the telemetry packet to the pipe
@@ -1220,9 +1221,10 @@ void DIO0_Interrupt( int Channel )
     else
     {
         int Bytes;
+	double RxFrequency;
         char Message[257];
 
-        Bytes = receiveMessage( Channel, Message + 1 );
+        Bytes = receiveMessage( Channel, Message + 1, &RxFrequency );
 
         if ( Bytes > 0 )
         {			
@@ -1242,7 +1244,7 @@ void DIO0_Interrupt( int Channel )
             }
             else if ((Message[1] == '$') || (Message[1] == '%'))
             {
-                ProcessTelemetryMessage(Channel, Message + 1);
+                ProcessTelemetryMessage(Channel, Message + 1, RxFrequency);
                 TestMessageForSMSAcknowledgement( Channel, Message + 1);
             }
             else if ( Message[1] == '>' )
@@ -1351,7 +1353,7 @@ double FrequencyError( int Channel )
 }
 
 int
-receiveMessage( int Channel, char *message )
+receiveMessage( int Channel, char *message, double *RxFrequency )
 {
     int i, Bytes, currentAddr, x;
     unsigned char data[257];
@@ -1385,6 +1387,8 @@ receiveMessage( int Channel, char *message )
 
         FreqError = FrequencyError( Channel ) / 1000;
         ChannelPrintf( Channel, 11, 1, "Freq. Error = %5.1lfkHz ", FreqError);
+
+	*RxFrequency = Config.LoRaDevices[Channel].activeFreq + (FreqError / 1000);
 
         writeRegister( Channel, REG_FIFO_ADDR_PTR, currentAddr );
 
@@ -1947,6 +1951,7 @@ void SendUplinkMessage( int Channel )
     }
 }
 
+#ifdef RJH_TEST
 void
 rjh_post_message( int Channel, char *buffer )
 {
@@ -2018,7 +2023,7 @@ rjh_post_message( int Channel, char *buffer )
         }
     }
 }
-
+#endif
 
 int main( int argc, char **argv )
 {
@@ -2155,6 +2160,7 @@ int main( int argc, char **argv )
                                  Config.longitude, Config.antenna );
     }
 
+#ifdef RJH_TEST
     char buffer[300];
     char ssdv_buff[257];
     int message_count = 0;
@@ -2164,6 +2170,7 @@ int main( int argc, char **argv )
 
     char fileName_ssdv[20] = "ssdv.bin";
     FILE *file_ssdv = fopen( fileName_ssdv, "rb" );
+#endif
 
     LogMessage( "Starting now ...\n" );
 
@@ -2175,6 +2182,7 @@ int main( int argc, char **argv )
             ProcessKeyPress( ch );
         }
 
+#ifdef RJH_TEST
         // RJH Test mode
         if ( message_count % 10 == 9 )
         {
@@ -2199,7 +2207,7 @@ int main( int argc, char **argv )
             }
             message_count++;    // We need to increment this here or we will lock
         }
-
+#endif
 	
         if (LoopPeriod > 1000)
         {

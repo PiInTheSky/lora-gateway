@@ -105,10 +105,10 @@ void UploadTelemetryPacket( telemetry_t * t )
         char counter[10];
         sprintf( counter, "%d", t->Packet_Number );
 
-        // Create json with the base64 data in hex, the tracker callsign and the current timestamp
+        // Create json with the base64 data in hex, the tracker callsign, received frequency and the current timestamp
         sprintf( json,
-                 "{\"data\": {\"_raw\": \"%s\"},\"receivers\": {\"%s\": {\"time_created\": \"%s\",\"time_uploaded\": \"%s\"}}}",
-                 base64_data, Config.Tracker, now, now );
+                 "{\"data\": {\"_raw\": \"%s\"},\"receivers\": {\"%s\": {\"rig_info\": {\"frequency\":%.0f},\"time_created\": \"%s\",\"time_uploaded\": \"%s\"}}}",
+                 base64_data, Config.Tracker, t->RxFrequency * 1000000, now, now );
 
         // LogTelemetryPacket(json);
 

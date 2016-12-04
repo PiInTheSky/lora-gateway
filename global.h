@@ -86,6 +86,7 @@ typedef struct {
     short int Channel;
     char Telemetry[257];
     int Packet_Number;
+    double RxFrequency;
 } telemetry_t;
 
 typedef struct {
