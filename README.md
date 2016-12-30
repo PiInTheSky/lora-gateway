@@ -174,13 +174,29 @@ There's nothing special about "calling mode" except that after a period (Calling
 There is no current standard claling channel.
 
 
-Use
-===
+Interactive use
+===============
 
 Run with:
 
 	sudo ./gateway
 
+Install as a Service
+====================
+
+Procserv can be used to run the gateway as a background service.
+
+First edit hab-lora-gateway.conf to reflect the path to your installation, then:
+
+	1. sudo cp hab-lora-gateway.conf /etc/
+	2. sudo cp hab-lora-gateway /etc/init.d/
+	3. sudo apt-get install procserv telnet
+	4. sudo update-rc.d hab-lora-gateway defaults
+	5. sudo service hab-lora-gateway start
+
+The gateway script can now be reached using telnet:
+
+	telnet localhost 50100
 
 Display
 =======
