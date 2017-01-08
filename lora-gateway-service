@@ -1,6 +1,6 @@
 #!/bin/bash
 ### BEGIN INIT INFO
-# Provides:          hab-lora-gateway
+# Provides:          lora-gateway
 # Required-Start:    $all
 # Required-Stop:
 # Default-Start:     2 3 4 5
@@ -19,7 +19,7 @@ export HOSTNAME=$(hostname -s)
 
 exe=/usr/bin/procServ
 options="-k ^X --killsig 15 -x ^C -i ^D -c"
-prog=hab-lora-gateway
+prog=lora-gateway
 params=
 conf=/etc/lora-gateway-service.conf
 logdir=/var/log/$prog
