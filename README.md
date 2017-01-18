@@ -32,6 +32,13 @@ Install the dependencies:
 
 	sudo apt-get install git wiringpi libcurl4-openssl-dev libncurses5-dev 
 
+Install SSDV so you can view locally downloaded images.  If you skip this section then the gateway will still work but SSDV data will not be decoded into JPG files locally (but can still be viewed online).
+
+	1. cd
+	2. git clone https://github.com/fsphil/ssdv.git
+	3. cd ssdv
+	4. sudo make install
+
 Install the LoRa gateway
 
 	1. cd ~ 
