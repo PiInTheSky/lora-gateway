@@ -1,3 +1,6 @@
+Habitat LoRa Gateway
+====================
+
 Part of the LoRa Balloon Tracking System
 
 Runs on a Raspberry Pi with 1 or 2 RFM98HW modules attached to the SPI port.
@@ -25,20 +28,9 @@ Installation
 
 Enable SPI in raspi-config.
 
-Install WiringPi:
+Install the dependencies:
 
-	1. cd ~
-	2. git clone git://git.drogon.net/wiringPi
-	3. cd wiringPi
-	4. ./build
-
-Install the curl library:
-
-	sudo apt-get install libcurl4-openssl-dev
-	
-Install the ncurses library
-
-	sudo apt-get install libncurses5-dev
+	sudo apt-get install git wiringpi libcurl4-openssl-dev libncurses5-dev 
 
 Install the LoRa gateway
 
@@ -48,7 +40,6 @@ Install the LoRa gateway
 	4. make
 	5. cp gateway-sample.txt gateway.txt
 	
-
 
 Configuration
 =============
