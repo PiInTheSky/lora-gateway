@@ -1,3 +1,6 @@
+Habitat LoRa Gateway
+====================
+
 Part of the LoRa Balloon Tracking System
 
 Runs on a Raspberry Pi with 1 or 2 RFM98HW modules attached to the SPI port.
@@ -25,20 +28,16 @@ Installation
 
 Enable SPI in raspi-config.
 
-Install WiringPi:
+Install the dependencies:
 
-	1. cd ~
-	2. git clone git://git.drogon.net/wiringPi
-	3. cd wiringPi
-	4. ./build
+	sudo apt-get install git wiringpi libcurl4-openssl-dev libncurses5-dev 
 
-Install the curl library:
+Install SSDV so you can view locally downloaded images.  If you skip this section then the gateway will still work but SSDV data will not be decoded into JPG files locally (but can still be viewed online).
 
-	sudo apt-get install libcurl4-openssl-dev
-	
-Install the ncurses library
-
-	sudo apt-get install libncurses5-dev
+	1. cd
+	2. git clone https://github.com/fsphil/ssdv.git
+	3. cd ssdv
+	4. sudo make install
 
 Install the LoRa gateway
 
@@ -48,7 +47,6 @@ Install the LoRa gateway
 	4. make
 	5. cp gateway-sample.txt gateway.txt
 	
-
 
 Configuration
 =============
