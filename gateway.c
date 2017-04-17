@@ -33,6 +33,7 @@
 #include "server.h"
 #include "gateway.h"
 #include "config.h"
+#include "gui.h"
 
 #define VERSION	"V1.8.6"
 bool run = TRUE;
@@ -161,6 +162,9 @@ struct TBandwidth
 };
 
 int LEDCounts[2];
+
+int help_win_displayed = 0;
+
 pthread_mutex_t var = PTHREAD_MUTEX_INITIALIZER;
 
 #pragma pack(1)
@@ -367,7 +371,10 @@ void ChannelPrintf(int Channel, int row, int column, const char *format, ... )
 
     mvwaddstr( Config.LoRaDevices[Channel].Window, row, column, Buffer );
 
-    wrefresh( Config.LoRaDevices[Channel].Window );
+    if (! help_win_displayed)
+    {
+        wrefresh( Config.LoRaDevices[Channel].Window );
+    }
 
     pthread_mutex_unlock( &var );   // unlock once you are done
 
@@ -1772,6 +1779,10 @@ ProcessKeyPress( int ch )
             break;
         case 'c':
             ReTune( Channel, -0.001 );
+            break;
+        case 'h':
+            help_win_displayed = 1;
+            gui_show_help();
             break;
         default:
             //LogMessage("KeyPress %d\n", ch);
