@@ -33,8 +33,9 @@
 #include "server.h"
 #include "gateway.h"
 #include "config.h"
+#include "gui.h"
 
-#define VERSION	"V1.8.6"
+#define VERSION	"V1.8.7"
 bool run = TRUE;
 
 // RFM98
@@ -161,6 +162,9 @@ struct TBandwidth
 };
 
 int LEDCounts[2];
+
+int help_win_displayed = 0;
+
 pthread_mutex_t var = PTHREAD_MUTEX_INITIALIZER;
 
 #pragma pack(1)
@@ -367,7 +371,10 @@ void ChannelPrintf(int Channel, int row, int column, const char *format, ... )
 
     mvwaddstr( Config.LoRaDevices[Channel].Window, row, column, Buffer );
 
-    wrefresh( Config.LoRaDevices[Channel].Window );
+    if (! help_win_displayed)
+    {
+        wrefresh( Config.LoRaDevices[Channel].Window );
+    }
 
     pthread_mutex_unlock( &var );   // unlock once you are done
 
@@ -439,6 +446,18 @@ void setFrequency( int Channel, double Frequency )
     Config.LoRaDevices[Channel].activeFreq = Frequency;
 
     // LogMessage("Set Frequency to %lf\n", Frequency);
+
+    ChannelPrintf( Channel, 1, 1, "Channel %d %s MHz ", Channel, FrequencyString );
+}
+
+void displayFrequency ( int Channel, double Frequency )
+{
+    char FrequencyString[10];
+
+    // Format frequency as xxx.xxx.x Mhz
+    sprintf( FrequencyString, "%8.4lf ", Frequency );
+    FrequencyString[8] = FrequencyString[7];
+    FrequencyString[7] = '.';
 
     ChannelPrintf( Channel, 1, 1, "Channel %d %s MHz ", Channel, FrequencyString );
 }
@@ -524,6 +543,17 @@ void SetLoRaParameters( int Channel, int ImplicitOrExplicit, int ErrorCoding, do
     writeRegister( Channel, REG_DETECTION_THRESHOLD, ( SpreadingFactor == 6 ) ? 0x0C : 0x0A );    // 0x0C for SF6, 0x0A otherwise
 
     Config.LoRaDevices[Channel].CurrentBandwidth = Bandwidth;			// Used for AFC - current bandwidth may be different to that configured (i.e. because we're using calling mode)
+
+    ChannelPrintf( Channel, 2, 1, "%s, %.2lf, SF%d, EC4:%d %s",
+                   ImplicitOrExplicit ? "Implicit" : "Explicit",
+                   Bandwidth,
+				   SpreadingFactor,
+                   ErrorCoding,
+                   LowDataRateOptimize ? "LDRO" : "" );
+}
+
+void displayLoRaParameters( int Channel, int ImplicitOrExplicit, int ErrorCoding, double Bandwidth, int SpreadingFactor, int LowDataRateOptimize )
+{
 
     ChannelPrintf( Channel, 2, 1, "%s, %.2lf, SF%d, EC4:%d %s",
                    ImplicitOrExplicit ? "Implicit" : "Explicit",
@@ -912,7 +942,14 @@ void ProcessTelemetryMessage(int Channel, char *Message)
     {
         char *startmessage, *endmessage;
 
-        ChannelPrintf( Channel, 3, 1, "Telemetry %d bytes       ", strlen( Message + 1 ) );
+        char telem[40];
+        char buffer[40];
+
+        sprintf(telem, "Telemetry %d bytes", strlen( Message + 1 ));
+
+        // Pad the string with spaces to the size of the window
+        sprintf(buffer,"%-37s", telem );
+        ChannelPrintf( Channel, 3, 1, buffer);
 
         startmessage = Message;
         endmessage = strchr( startmessage, '\n' );
@@ -1667,17 +1704,25 @@ WINDOW *InitDisplay(void)
 
     init_pair( 1, COLOR_WHITE, COLOR_BLUE );
     init_pair( 2, COLOR_YELLOW, COLOR_BLUE );
+    init_pair( 3, COLOR_YELLOW, COLOR_BLACK );
 
     color_set( 1, NULL );
     // bkgd(COLOR_PAIR(1));
     // attrset(COLOR_PAIR(1) | A_BOLD);
 
-    char title[80];
+    char buffer[80];
 
-    sprintf( title, "LoRa Habitat and SSDV Gateway by M0RPI, M0RJX - " VERSION);
+    sprintf( buffer, "LoRa Habitat and SSDV Gateway by M0RPI, M0RJX - " VERSION);
 
     // Title bar
-    mvaddstr( 0, ( 80 - strlen( title ) ) / 2, title );
+    mvaddstr( 0, ( 80 - strlen( buffer ) ) / 2, buffer );
+
+    // Help 
+    sprintf( buffer, "Press (H) for Help");
+    color_set( 3, NULL );
+    mvaddstr( 15, ( 80 - strlen( buffer ) ) / 2, buffer );
+
+    color_set( 1, NULL );
     refresh(  );
 
     // Windows for LoRa live data
@@ -1742,7 +1787,7 @@ ProcessKeyPress( int ch )
     }
 
     /* ignore if channel is not in use */
-    if ( !Config.LoRaDevices[Channel].InUse )
+    if ( !Config.LoRaDevices[Channel].InUse && ch !='h' )
     {
         return;
     }
@@ -1773,8 +1818,23 @@ ProcessKeyPress( int ch )
         case 'c':
             ReTune( Channel, -0.001 );
             break;
+        case 'p':
+            break;
+        case 'h':
+            help_win_displayed = 1;
+
+            gui_show_help();
+
+            for (Channel=0; Channel<=1; Channel++)
+            {
+                if ( Config.LoRaDevices[Channel].InUse ) displayChannel (Channel); 
+            }
+
+            help_win_displayed = 0;
+            
+            break;
         default:
-            //LogMessage("KeyPress %d\n", ch);
+            // LogMessage("KeyPress %d\n", ch);
             return;
     }
 }
@@ -2017,6 +2077,26 @@ rjh_post_message( int Channel, char *buffer )
             ShowPacketCounts( Channel );
         }
     }
+}
+
+void displayChannel (int Channel) {
+
+    displayFrequency ( Channel, Config.LoRaDevices[Channel].Frequency );
+
+    displayLoRaParameters( 
+        Channel, 
+        Config.LoRaDevices[Channel].ImplicitOrExplicit,
+        Config.LoRaDevices[Channel].ErrorCoding, 
+        Config.LoRaDevices[Channel].Bandwidth, 
+        Config.LoRaDevices[Channel].SpreadingFactor, 
+        Config.LoRaDevices[Channel].LowDataRateOptimize
+        );
+
+    if (Config.LoRaDevices[Channel].AFC)
+        ChannelPrintf( Channel, 11, 24, "AFC" );
+    else
+        ChannelPrintf( Channel, 11, 24, "   " );
+ 
 }
 
 
@@ -2339,3 +2419,4 @@ int main( int argc, char **argv )
     return 0;
 
 }
+
