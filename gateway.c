@@ -942,7 +942,14 @@ void ProcessTelemetryMessage(int Channel, char *Message)
     {
         char *startmessage, *endmessage;
 
-        ChannelPrintf( Channel, 3, 1, "Telemetry %d bytes       ", strlen( Message + 1 ) );
+        char telem[40];
+        char buffer[40];
+
+        sprintf(telem, "Telemetry %d bytes", strlen( Message + 1 ));
+
+        // Pad the string with spaces to the size of the window
+        sprintf(buffer,"%-37s", telem );
+        ChannelPrintf( Channel, 3, 1, buffer);
 
         startmessage = Message;
         endmessage = strchr( startmessage, '\n' );
