@@ -224,6 +224,18 @@ Many thanks to David Brooke for coding this feature and the AFC.
 Change History
 ==============
 
+??/??/2017 - V1.8.7
+-------------------
+
+    New help screen added to show the available commands.
+
+    Press H to access this feature
+
+    Fixed a padding bug on telemetry line !
+
+??/??/2017 - V1.8.6
+-------------------
+
 27/09/2016 - V1.8.5
 -------------------
 

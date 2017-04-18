@@ -35,7 +35,7 @@
 #include "config.h"
 #include "gui.h"
 
-#define VERSION	"V1.8.6"
+#define VERSION	"V1.8.7"
 bool run = TRUE;
 
 // RFM98
