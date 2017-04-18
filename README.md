@@ -224,7 +224,7 @@ Many thanks to David Brooke for coding this feature and the AFC.
 Change History
 ==============
 
-??/??/2017 - V1.8.7
+18/04/2017 - V1.8.7
 -------------------
 
     New help screen added to show the available commands.
