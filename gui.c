@@ -1,6 +1,7 @@
 #include "gui.h"
+#include <string.h>
 
-extern int help_win_displayed;
+// extern int help_win_displayed;
 
 WINDOW *create_help_win(int height, int width, int starty, int startx);
 void destroy_help_win(WINDOW *local_win);
@@ -20,6 +21,9 @@ WINDOW *create_help_win(int height, int width, int starty, int startx)
 
 void destroy_help_win(WINDOW *local_win)
 {   
+    int i = 0;
+    char buffer [80];
+
     /* box(local_win, ' ', ' '); : This won't produce the desired
      * result of erasing the window. It will leave it's four corners 
      * and so an ugly remnant of window. 
@@ -36,46 +40,44 @@ void destroy_help_win(WINDOW *local_win)
      * 8. bl: character to be used for the bottom left corner of the window 
      * 9. br: character to be used for the bottom right corner of the window
      */
+
+
+    for (i=1;i<15;i++)
+        mvchgat(i, 39, 2, COLOR_PAIR(3), 0, NULL);
+
+
+    // Put the HELP message back
+    sprintf( buffer, "             Press (H) for Help             ");
+    color_set( 3, NULL );
+    mvaddstr( 15, ( 80 - strlen( buffer ) ) / 2, buffer );
+
     wrefresh(local_win);
     delwin(local_win);
 }
 
 void gui_show_help ()
 {
+    char ch;
+    char buffer [80];
+    int startx, starty, width, height;
 
     WINDOW *help_win;
-
-    int startx, starty, width, height;
-    int ch;
 
     height = 14;
     width = 76;
     starty = 1;  /* Calculating for a center placement */
     startx = 2;    /* of the window        */
     help_win = create_help_win(height, width, starty, startx);
+    sprintf( buffer, "Press any key to return to the main screen!");
+    color_set( 3, NULL );
+    mvaddstr( 15, ( 80 - strlen( buffer ) ) / 2, buffer );
 
-    while((ch = getch()) != 'c')
-    {   
-        switch(ch)
-        {   case KEY_LEFT:
-                destroy_help_win(help_win);
-                help_win = create_help_win(height, width, starty,--startx);
-                break;
-            case KEY_RIGHT:
-                destroy_help_win(help_win);
-                help_win = create_help_win(height, width, starty,++startx);
-                break;
-            case KEY_UP:
-                destroy_help_win(help_win);
-                help_win = create_help_win(height, width, --starty,startx);
-                break;
-            case KEY_DOWN:
-                destroy_help_win(help_win);
-                help_win = create_help_win(height, width, ++starty,startx);
-                break;  
-        }
-    }
+    // Wait for any key to be pressed
+    while ((ch=getch()) == 255)
+    {
+    };
 
-    help_win_displayed = 0;
+    destroy_help_win(help_win);
+    // help_win_displayed = 0;
 
 }

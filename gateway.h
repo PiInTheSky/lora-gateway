@@ -10,5 +10,6 @@ void LogTelemetryPacket( char *Telemetry );
 void LogMessage( const char *format, ... );
 void ChannelPrintf( int Channel, int row, int column, const char *format,
                     ... );
+void displayChannel (int Channel); 
 
 #endif
