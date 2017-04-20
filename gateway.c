@@ -36,7 +36,7 @@
 #include "rfmxx.h"
 #include "gui.h"
 
-#define VERSION	"V1.8.7"
+#define VERSION	"V1.8.8"
 
 bool run = TRUE;
 
