@@ -36,10 +36,10 @@ WINDOW *create_help_win(int height, int width, int starty, int startx)
     sprintf( buffer, "D = +1MHz      C= -1MHz  ");
     mvaddstr( 8, ( 80 - strlen( buffer ) ) / 2, buffer );
 
-    sprintf( buffer, "F = Toggle AFC ");
+    sprintf( buffer, "F = Toggle AFC");
     mvaddstr( 10, ( 80 - strlen( buffer ) ) / 2, buffer );
 
-    sprintf( buffer, "M = Toggle Modes (This is not implemented yet!!!) ");
+    sprintf( buffer, "M = Toggle Modes");
     mvaddstr( 12, ( 80 - strlen( buffer ) ) / 2, buffer );
 
     wrefresh(local_win);        /* Show that box        */

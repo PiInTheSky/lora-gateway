@@ -80,7 +80,7 @@
 #define LNA_OFF_GAIN                0x00
 #define LNA_LOW_GAIN                0xC0    // 1100 0000
 
-struct TLoRaMode 
+typedef struct TLoRaMode 
 {
 	int	ImplicitOrExplicit;
 	int ErrorCoding;
@@ -89,7 +89,10 @@ struct TLoRaMode
 	int LowDataRateOptimize;
 	int BaudRate;
 	char *Description;
-} LoRaModes[] =
+} TLoRaMode;
+
+
+TLoRaMode LoRaModes[] =
 {
 	{EXPLICIT_MODE, ERROR_CODING_4_8, BANDWIDTH_20K8, SPREADING_11, 1,    60, "Telemetry"},			// 0: Normal mode for telemetry
 	{IMPLICIT_MODE, ERROR_CODING_4_5, BANDWIDTH_20K8, SPREADING_6,  0,  1400, "SSDV"},				// 1: Normal mode for SSDV

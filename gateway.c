@@ -47,6 +47,8 @@ int LEDCounts[2];
 
 int help_win_displayed = 0;
 
+int MAX_LORA_MODES = (sizeof(LoRaModes)/sizeof(TLoRaMode));
+
 pthread_mutex_t var = PTHREAD_MUTEX_INITIALIZER;
 
 #pragma pack(1)
@@ -413,7 +415,7 @@ void SetLoRaParameters( int Channel, int ImplicitOrExplicit, int ErrorCoding, do
                    Bandwidth,
 				   SpreadingFactor,
                    ErrorCoding,
-                   LowDataRateOptimize ? "LDRO" : "" );
+                   LowDataRateOptimize ? "LDRO " : "     " );
 }
 
 void displayLoRaParameters( int Channel, int ImplicitOrExplicit, int ErrorCoding, double Bandwidth, int SpreadingFactor, int LowDataRateOptimize )
@@ -424,7 +426,7 @@ void displayLoRaParameters( int Channel, int ImplicitOrExplicit, int ErrorCoding
                    Bandwidth,
 				   SpreadingFactor,
                    ErrorCoding,
-                   LowDataRateOptimize ? "LDRO" : "" );
+                   LowDataRateOptimize ? "LDRO " : "     " );
 }
 
 void SetDefaultLoRaParameters( int Channel )
@@ -1457,6 +1459,7 @@ void LoadConfigFile(void)
             Config.LoRaDevices[Channel].AFC = FALSE;
             Config.LoRaDevices[Channel].Power = PA_MAX_UK;
             Config.LoRaDevices[Channel].UplinkMode = -1;
+            Config.LoRaDevices[Channel].CurrentMode = -1;
 
             LogMessage( "Channel %d frequency set to %.3lfMHz\n", Channel, Config.LoRaDevices[Channel].Frequency);
             Config.LoRaDevices[Channel].InUse = 1;
@@ -1682,7 +1685,8 @@ ProcessKeyPress( int ch )
         case 'c':
             ReTune( Channel, -0.001 );
             break;
-        case 'p':
+        case 'm':
+            toggleMode ( Channel );
             break;
         case 'h':
             help_win_displayed = 1;
@@ -1961,6 +1965,59 @@ void displayChannel (int Channel) {
     else
         ChannelPrintf( Channel, 11, 24, "   " );
  
+}
+
+void toggleMode (int Channel) {
+
+
+    int currentMode = Config.LoRaDevices[Channel].CurrentMode;
+
+    // Put transceiver into sleep mode before changing registers
+    setMode( Channel, RF98_MODE_SLEEP );
+
+    // If there are more default modes change to them else set parameters back to the gateway.txt ones!
+    if (currentMode < (MAX_LORA_MODES -1))  {
+
+        // Move on to the next mode
+        currentMode ++;
+ 
+        // Set the parameters
+        SetLoRaParameters(
+            Channel, 
+            LoRaModes[currentMode].ImplicitOrExplicit, 
+            ECToInt(LoRaModes[currentMode].ErrorCoding), 
+            BandwidthToDouble(LoRaModes[currentMode].Bandwidth), 
+            SFToInt(LoRaModes[currentMode].SpreadingFactor), 
+            LowOptToInt(LoRaModes[currentMode].LowDataRateOptimize)
+        );
+
+        // Report change
+        LogMessage( "Channel %d Changed to mode %d (%s)\n", Channel, currentMode, LoRaModes[currentMode].Description);
+    }
+    else
+    {
+
+        // Return to gateway.txt settings
+        currentMode = -1;  // Reset back to config file as this may be a custom mode
+
+        // Set the parameters
+        SetLoRaParameters(
+            Channel, 
+            Config.LoRaDevices[Channel].ImplicitOrExplicit, 
+            Config.LoRaDevices[Channel].ErrorCoding, 
+            Config.LoRaDevices[Channel].Bandwidth, 
+            Config.LoRaDevices[Channel].SpreadingFactor, 
+            Config.LoRaDevices[Channel].LowDataRateOptimize);
+
+        // Report change
+        LogMessage( "Channel %d Changed to gateway.txt configuration.\n", Channel);
+    } 
+
+    // Put transceiver into listening mode
+    setMode( Channel, RF98_MODE_RX_CONTINUOUS );
+
+    Config.LoRaDevices[Channel].CurrentMode = currentMode;
+
 }
 
 

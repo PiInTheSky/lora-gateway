@@ -219,10 +219,19 @@ Many thanks to David Brooke for coding this feature and the AFC.
 	d	increase frequency by 1kHz
 	c	decrease frequency by 1kHz
 
+	m	toggle through pre-defined modes (0-6)
+
 	f	toggle AFC
 
 Change History
 ==============
+
+20/04/2017 - V1.8.8
+-------------------
+
+    Added the ability to cycle through pre defined modes using the m key !
+
+    Moved all the RFMxx register codes to rfmxx.h
 
 18/04/2017 - V1.8.7
 -------------------

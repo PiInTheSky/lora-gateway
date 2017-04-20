@@ -62,6 +62,8 @@ struct TLoRaDevice
 	// Normal (non TDM) uplink
 	int UplinkTime;
 	int UplinkCycle;
+
+    int CurrentMode;                 // RJH Used to store the current RX mode when toggling -1 = as defined in gateway.txt 0,1,2,3... as defined rfmxx.h LoRaModes[]
 };
 
  

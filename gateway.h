@@ -11,5 +11,6 @@ void LogMessage( const char *format, ... );
 void ChannelPrintf( int Channel, int row, int column, const char *format,
                     ... );
 void displayChannel (int Channel); 
+void toggleMode (int Channel); 
 
 #endif
