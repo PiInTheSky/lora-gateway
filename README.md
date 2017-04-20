@@ -229,14 +229,14 @@ Change History
 20/04/2017 - V1.8.8
 -------------------
 
-    Added the ability to cycle through pre defined modes using the m key !
+    M0RJX (Robert Harrison) added the ability to cycle through pre defined modes using the m key !
 
-    Moved all the RFMxx register codes to rfmxx.h
+    Moved all the RFMxx register codes to rfmxx.h to reduce the size of gateway.c
 
 18/04/2017 - V1.8.7
 -------------------
 
-    New help screen added to show the available commands.
+    M0RJX (Robert Harrison) added New help screen added to show the available commands.
 
     Press H to access this feature
 
