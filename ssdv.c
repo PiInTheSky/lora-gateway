@@ -89,18 +89,19 @@ UploadImagePacket( ssdv_t * s, unsigned int packets )
         // Create json with the base64 data in hex, the tracker callsign and the current timestamp
         strcpy( json, "{\"type\": \"packets\",\"packets\":[" );
 
-        for (PacketIndex = 0; PacketIndex < packets; PacketIndex++)
+        for ( PacketIndex = 0; PacketIndex < packets; PacketIndex++ )
         {
-            base64_encode(s[PacketIndex].SSDV_Packet, 256, &base64_length, base64_data);
+            base64_encode( s[PacketIndex].SSDV_Packet, 256, &base64_length,
+                           base64_data );
             base64_data[base64_length] = '\0';
 
-            sprintf(packet_json,
-                    "{\"type\": \"packet\", \"packet\": \"%s\", \"encoding\": \"base64\", \"received\": \"%s\", \"receiver\": \"%s\"}%s",
-                    base64_data, now, Config.Tracker,
-                    PacketIndex == ( packets - 1 ) ? "" : ",");
-            strcat(json, packet_json);
+            sprintf( packet_json,
+                     "{\"type\": \"packet\", \"packet\": \"%s\", \"encoding\": \"base64\", \"received\": \"%s\", \"receiver\": \"%s\"}%s",
+                     base64_data, now, Config.Tracker,
+                     PacketIndex == ( packets - 1 ) ? "" : "," );
+            strcat( json, packet_json );
         }
-        strcat(json, "]}");
+        strcat( json, "]}" );
 
         // LogTelemetryPacket(json);
 
@@ -140,7 +141,8 @@ UploadImagePacket( ssdv_t * s, unsigned int packets )
     }
 }
 
-void *SSDVLoop( void *vars )
+void *
+SSDVLoop( void *vars )
 {
     if ( Config.EnableSSDV )
     {
@@ -179,17 +181,17 @@ void *SSDVLoop( void *vars )
 
             if ( j == 50 || ( ( packets == 0 ) && ( j > 0 ) ) )
             {
-				ChannelPrintf(s[0].Channel, 6, 16, "SSDV");
-				
+                ChannelPrintf( s[0].Channel, 6, 16, "SSDV" );
+
                 UploadImagePacket( s, j );
-				
-				ChannelPrintf(s[0].Channel, 6, 16, "    ");
+
+                ChannelPrintf( s[0].Channel, 6, 16, "    " );
 
                 j = 0;
 
                 packets = 0;
             }
-			delay(100);			// Don't eat too much CPU
+            delay( 100 );       // Don't eat too much CPU
         }
     }
 

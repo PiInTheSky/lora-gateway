@@ -3,7 +3,7 @@
 
 #include <ncurses.h>
 
-void gui_show_help ();
+void gui_show_help(  );
 void guiCloseDisplay( WINDOW * mainwin );
 
 #endif

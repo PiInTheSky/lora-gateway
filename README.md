@@ -238,7 +238,7 @@ Change History
 18/04/2017 - V1.8.7
 -------------------
 
-    M0RJX (Robert Harrison) added New help screen added to show the available commands.
+    M0RJX (Robert Harrison) added new help screen to show the available commands.
 
     Press H to access this feature
 
