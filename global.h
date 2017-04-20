@@ -21,11 +21,18 @@ struct TPayload
 	unsigned int Altitude, PreviousAltitude;
 	float AscentRate;
 	unsigned long LastPositionAt;
-}; struct TLoRaDevice {
+};
+ 
+struct TLoRaDevice 
+{
 	double Frequency;
 	double Bandwidth;
 	double CurrentBandwidth;
-			int InUse;    	int DIO0;	int DIO5;	double activeFreq;
+		
+	int InUse;    
+	int DIO0;
+	int DIO5;
+	double activeFreq;
 	
 	int AFC;					// Enable Automatic Frequency Control
 	double MaxAFCStep;			// Maximum adjustment, in kHz, per packet
@@ -56,9 +63,14 @@ struct TPayload
 	int UplinkTime;
 	int UplinkCycle;
 };
- struct TConfig  {   	char Tracker[16];				// Callsign or name of receiver
+
+ 
+struct TConfig 
+ {   
+	char Tracker[16];				// Callsign or name of receiver
 	double latitude, longitude;		// Receiver's location
-     	int EnableHabitat;
+     
+	int EnableHabitat;
 	int EnableSSDV;
 	int EnableTelemetryLogging;
 	int EnablePacketLogging;
@@ -77,7 +89,9 @@ struct TPayload
 	char antenna[64];
 	int EnableDev;
 };
- typedef struct {
+
+ 
+typedef struct {
     int parent_status;
     unsigned long packet_count;
 } thread_shared_vars_t;
@@ -102,6 +116,10 @@ struct TServerInfo
 };
 
 extern struct TConfig Config;
-extern int SSDVSendArrayIndex;
-extern pthread_mutex_t ssdv_mutex;
- void LogMessage( const char *format, ... );
+
+extern int SSDVSendArrayIndex;
+
+extern pthread_mutex_t ssdv_mutex;
+
+ 
+void LogMessage( const char *format, ... );

@@ -93,3 +93,12 @@ void gui_show_help ()
     destroy_help_win(help_win);
 
 }
+
+void guiCloseDisplay( WINDOW * mainwin )
+{
+    /*  Clean up after ourselves  */
+    delwin( mainwin );
+    endwin(  );
+    refresh(  );
+}
+
