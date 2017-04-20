@@ -233,6 +233,8 @@ Change History
 
     Moved all the RFMxx register codes to rfmxx.h to reduce the size of gateway.c
 
+    Added note to the gateway-sample.txt file that all pins numbers are the wiringpi pin numbers.
+
 18/04/2017 - V1.8.7
 -------------------
 
