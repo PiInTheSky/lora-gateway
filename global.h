@@ -1,4 +1,8 @@
+#ifndef _GLOBAL_H
+#define _GLOBAL_H
+
 #include <curses.h>
+#include "rfmxx.h"
 
 #define RUNNING 1               // The main program is running
 #define STOPPED 0               // The main program has stopped
@@ -61,14 +65,23 @@ struct TLoRaDevice {
     int UplinkTime;
     int UplinkCycle;
 
-    int CurrentMode;            // RJH Used to store the current RX mode when toggling -1 = as defined in gateway.txt 0,1,2,3... as defined rfmxx.h LoRaModes[]
-};
+    // RJH Used to hold gateway.txt config
+    TLoRaMode InitialLoRaSettings;
 
+    // RJH Used to store the current RX mode when 
+    // toggling -1 = as defined in gateway.txt 
+    // 0,1,2,3... as defined rfmxx.h LoRaModes[]
+    int CurrentMode;
+
+    // RJH store for current frequency when toggeling through calling mode and back out
+    double FrequencyHold;
+
+};
 
 struct TConfig {
     char Tracker[16];           // Callsign or name of receiver
     double latitude, longitude; // Receiver's location
-
+    double altitude;
     int EnableHabitat;
     int EnableSSDV;
     int EnableTelemetryLogging;
@@ -88,7 +101,6 @@ struct TConfig {
     char antenna[64];
     int EnableDev;
 };
-
 
 typedef struct {
     int parent_status;
@@ -119,5 +131,6 @@ extern int SSDVSendArrayIndex;
 
 extern pthread_mutex_t ssdv_mutex;
 
-
 void LogMessage( const char *format, ... );
+
+#endif

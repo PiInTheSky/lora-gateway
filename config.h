@@ -1,5 +1,6 @@
 typedef enum { stNone, stString, stInteger, stDouble,
-        stBoolean } TSettingType;
+    stBoolean
+} TSettingType;
  struct TSetting  {
     int SectionIndex;
      int Index;

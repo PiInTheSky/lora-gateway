@@ -35,8 +35,11 @@
 #include "config.h"
 #include "rfmxx.h"
 #include "gui.h"
+#include "haversine.h"
 
 #define VERSION	"V1.8.8"
+
+struct TConfig Config;
 
 bool run = TRUE;
 
@@ -47,7 +50,7 @@ int LEDCounts[2];
 
 int help_win_displayed = 0;
 
-int MAX_LORA_MODES = ( sizeof( LoRaModes ) / sizeof( TLoRaMode ) );
+int MAX_LORA_MODES = 0;
 
 pthread_mutex_t var = PTHREAD_MUTEX_INITIALIZER;
 
@@ -525,8 +528,8 @@ SendLoRaData( int Channel, char *buffer, int Length )
         SetLoRaParameters( Channel,
                            LoRaModes[UplinkMode].ImplicitOrExplicit,
                            ECToInt( LoRaModes[UplinkMode].ErrorCoding ),
-                           BandwidthToDouble( LoRaModes[UplinkMode].
-                                              Bandwidth ),
+                           BandwidthToDouble( LoRaModes
+                                              [UplinkMode].Bandwidth ),
                            SFToInt( LoRaModes[UplinkMode].SpreadingFactor ),
                            0 );
     }
@@ -562,23 +565,20 @@ ShowPacketCounts( int Channel )
     {
         ChannelPrintf( Channel, 7, 1, "Telem Packets = %d (%us)     ",
                        Config.LoRaDevices[Channel].TelemetryCount,
-                       Config.LoRaDevices[Channel].
-                       LastTelemetryPacketAt ? ( unsigned int ) ( time( NULL )
-                                                                  -
-                                                                  Config.
-                                                                  LoRaDevices
-                                                                  [Channel].
-                                                                  LastTelemetryPacketAt )
-                       : 0 );
+                       Config.
+                       LoRaDevices[Channel].LastTelemetryPacketAt ? ( unsigned
+                                                                      int )
+                       ( time( NULL ) -
+                         Config.LoRaDevices[Channel].LastTelemetryPacketAt ) :
+                       0 );
         ChannelPrintf( Channel, 8, 1, "Image Packets = %d (%us)     ",
                        Config.LoRaDevices[Channel].SSDVCount,
-                       Config.
-                       LoRaDevices[Channel].LastSSDVPacketAt ? ( unsigned
-                                                                 int ) ( time
-                                                                         ( NULL )
-                                                                         -
-                                                                         Config.LoRaDevices
-                                                                         [Channel].LastSSDVPacketAt )
+                       Config.LoRaDevices[Channel].
+                       LastSSDVPacketAt ? ( unsigned int ) ( time( NULL ) -
+                                                             Config.
+                                                             LoRaDevices
+                                                             [Channel].
+                                                             LastSSDVPacketAt )
                        : 0 );
 
         ChannelPrintf( Channel, 9, 1, "Bad CRC = %d Bad Type = %d",
@@ -611,11 +611,11 @@ ProcessCallingMessage( int Channel, char *Message )
                  &ErrorCoding,
                  &Bandwidth, &SpreadingFactor, &LowDataRateOptimize ) == 7 )
     {
+
         if ( Config.LoRaDevices[Channel].AFC )
         {
             Frequency +=
-                ( Config.LoRaDevices[Channel].activeFreq -
-                  Config.LoRaDevices[Channel].Frequency );
+                ( Config.LoRaDevices[Channel].activeFreq - Config.LoRaDevices[Channel].Frequency);
         }
 
         LogMessage( "Ch %d: Calling message, new frequency %7.3lf\n", Channel,
@@ -835,6 +835,9 @@ ProcessLine( int Channel, char *Line )
 {
     int PayloadIndex;
     char Payload[32];
+    double d = 0;
+    double b = 0;
+    double e = 0;
 
     // Find free position for this payload
     sscanf( Line + 2, "%31[^,]", Payload );
@@ -862,10 +865,36 @@ ProcessLine( int Channel, char *Line )
     DoPositionCalcs( PayloadIndex );
 
     // Update display
-    ChannelPrintf( Channel, 4, 1, "%8.5lf, %8.5lf, %05u   ",
+    ChannelPrintf( Channel, 4, 1, "Lat:%8.5lf Lon:%8.5lf Alt:%05u ",
                    Config.Payloads[PayloadIndex].Latitude,
                    Config.Payloads[PayloadIndex].Longitude,
                    Config.Payloads[PayloadIndex].Altitude );
+
+    d = haversine_distance( Config.latitude, Config.longitude,
+                            Config.Payloads[PayloadIndex].Latitude,
+                            Config.Payloads[PayloadIndex].Longitude );
+    b = haversine_bearing( Config.latitude, Config.longitude,
+                           Config.Payloads[PayloadIndex].Latitude,
+                           Config.Payloads[PayloadIndex].Longitude );
+    e = haversine_elevation( Config.latitude, Config.longitude, 100,
+                             Config.Payloads[PayloadIndex].Latitude,
+                             Config.Payloads[PayloadIndex].Longitude,
+                             Config.Payloads[PayloadIndex].Altitude );
+
+    ChannelPrintf( Channel, 5, 1, "Dis:%06.0lf Bea:%05.1lf Ele:%04.1lf  ", d,
+                   b, e );
+
+    /*
+       LogMessage( "LoRa Gateway (lat,lng,alt) = %8.6lf, %8.6lfi, 100\n", Config.latitude, Config.longitude );
+       LogMessage( "Payload (lat,lng,alt) = %8.6lf, %8.6lf, %u\n",
+       Config.Payloads[PayloadIndex].Latitude,
+       Config.Payloads[PayloadIndex].Longitude,
+       Config.Payloads[PayloadIndex].Altitude);
+       LogMessage( "Distance = %.3lf km\n",d);
+       LogMessage( "Bearing = %.1lf degrees\n",b);
+       LogMessage( "Elevation = %.1lf degrees\n",e);
+     */
+
 }
 
 
@@ -1477,6 +1506,9 @@ LoadConfigFile( void )
     Config.LoRaDevices[0].Frequency = -1;
     Config.LoRaDevices[1].Frequency = -1;
 
+    Config.LoRaDevices[0].FrequencyHold = -1;
+    Config.LoRaDevices[1].FrequencyHold = -1;
+
     if ( ( fp = fopen( filename, "r" ) ) == NULL )
     {
         exit_error( "Failed to open config file\n" );
@@ -1637,8 +1669,9 @@ LoadConfigFile( void )
             }
 
             RegisterConfigDouble( MainSection, Channel, "UplinkFrequency",
-                                  &Config.LoRaDevices[Channel].
-                                  UplinkFrequency, NULL );
+                                  &Config.
+                                  LoRaDevices[Channel].UplinkFrequency,
+                                  NULL );
             if ( Config.LoRaDevices[Channel].UplinkFrequency > 0 )
             {
                 LogMessage( "Channel %d uplink frequency %.3lfMHz\n", Channel,
@@ -1650,28 +1683,32 @@ LoadConfigFile( void )
             RegisterConfigInteger( MainSection, Channel, "mode",
                                    &Config.LoRaDevices[Channel].SpeedMode,
                                    NULL );
+
             if ( ( Config.LoRaDevices[Channel].SpeedMode < 0 )
                  || ( Config.LoRaDevices[Channel].SpeedMode >=
-                      sizeof( LoRaModes ) / sizeof( LoRaModes[0] ) ) )
+                      MAX_LORA_MODES ) )
                 Config.LoRaDevices[Channel].SpeedMode = 0;
 
             // Defaults for this LoRa Mode
             Config.LoRaDevices[Channel].ImplicitOrExplicit =
-                LoRaModes[Config.LoRaDevices[Channel].SpeedMode].
-                ImplicitOrExplicit;
+                LoRaModes[Config.LoRaDevices[Channel].
+                          SpeedMode].ImplicitOrExplicit;
             Config.LoRaDevices[Channel].ErrorCoding =
-                ECToInt( LoRaModes[Config.LoRaDevices[Channel].SpeedMode].
-                         ErrorCoding );
+                ECToInt( LoRaModes
+                         [Config.LoRaDevices[Channel].
+                          SpeedMode].ErrorCoding );
             Config.LoRaDevices[Channel].Bandwidth =
                 BandwidthToDouble( LoRaModes
-                                   [Config.LoRaDevices[Channel].SpeedMode].
-                                   Bandwidth );
+                                   [Config.LoRaDevices[Channel].
+                                    SpeedMode].Bandwidth );
             Config.LoRaDevices[Channel].SpreadingFactor =
-                SFToInt( LoRaModes[Config.LoRaDevices[Channel].SpeedMode].
-                         SpreadingFactor );
+                SFToInt( LoRaModes
+                         [Config.LoRaDevices[Channel].
+                          SpeedMode].SpreadingFactor );
             Config.LoRaDevices[Channel].LowDataRateOptimize =
-                LowOptToInt( LoRaModes[Config.LoRaDevices[Channel].SpeedMode].
-                             LowDataRateOptimize );
+                LowOptToInt( LoRaModes
+                             [Config.LoRaDevices[Channel].
+                              SpeedMode].LowDataRateOptimize );
 
             // Overrides
             if ( RegisterConfigInteger
@@ -1691,8 +1728,9 @@ LoadConfigFile( void )
             }
 
             RegisterConfigBoolean( MainSection, Channel, "implicit",
-                                   &Config.LoRaDevices[Channel].
-                                   ImplicitOrExplicit, NULL );
+                                   &Config.
+                                   LoRaDevices[Channel].ImplicitOrExplicit,
+                                   NULL );
 
             if ( RegisterConfigInteger
                  ( MainSection, Channel, "coding",
@@ -1703,8 +1741,9 @@ LoadConfigFile( void )
             }
 
             RegisterConfigBoolean( MainSection, Channel, "lowopt",
-                                   &Config.LoRaDevices[Channel].
-                                   LowDataRateOptimize, NULL );
+                                   &Config.
+                                   LoRaDevices[Channel].LowDataRateOptimize,
+                                   NULL );
 
             RegisterConfigBoolean( MainSection, Channel, "AFC",
                                    &Config.LoRaDevices[Channel].AFC, NULL );
@@ -1722,8 +1761,9 @@ LoadConfigFile( void )
                 }
 
                 RegisterConfigInteger( MainSection, Channel, "AFCTimeout",
-                                       &Config.LoRaDevices[Channel].
-                                       AFCTimeout, NULL );
+                                       &Config.
+                                       LoRaDevices[Channel].AFCTimeout,
+                                       NULL );
                 if ( Config.LoRaDevices[Channel].AFCTimeout > 0 )
                 {
                     LogMessage( "AFC Timeout = %.0ds\n",
@@ -1731,8 +1771,28 @@ LoadConfigFile( void )
                 }
             }
 
+            // RJH Store the LoRaMode settings so they are not lost when toggling
+
+            Config.LoRaDevices[Channel].
+                InitialLoRaSettings.ImplicitOrExplicit =
+                Config.LoRaDevices[Channel].ImplicitOrExplicit;
+
+            Config.LoRaDevices[Channel].InitialLoRaSettings.ErrorCoding =
+                Config.LoRaDevices[Channel].ErrorCoding;
+
+            Config.LoRaDevices[Channel].InitialLoRaSettings.Bandwidth =
+                Config.LoRaDevices[Channel].Bandwidth;
+
+            Config.LoRaDevices[Channel].InitialLoRaSettings.SpreadingFactor =
+                Config.LoRaDevices[Channel].SpreadingFactor;
+
+            Config.LoRaDevices[Channel].
+                InitialLoRaSettings.LowDataRateOptimize =
+                Config.LoRaDevices[Channel].LowDataRateOptimize;
+
             // Clear any flags left over from a previous run
             writeRegister( Channel, REG_IRQ_FLAGS, 0xFF );
+
         }
     }
 
@@ -2144,7 +2204,7 @@ void
 displayChannel( int Channel )
 {
 
-    displayFrequency( Channel, Config.LoRaDevices[Channel].Frequency );
+    displayFrequency( Channel, Config.LoRaDevices[Channel].activeFreq );
 
     displayLoRaParameters( Channel,
                            Config.LoRaDevices[Channel].ImplicitOrExplicit,
@@ -2180,16 +2240,75 @@ toggleMode( int Channel )
             // Move on to the next mode
             currentMode++;
 
+            // RJH Returning from calling frequency set frequency back to original
+            if ( Config.LoRaDevices[Channel].FrequencyHold != -1 )
+            {
+
+                Config.LoRaDevices[Channel].Frequency =
+                    Config.LoRaDevices[Channel].FrequencyHold;
+
+                // Return to the frequrncy before calling frequency
+                setFrequency( Channel,
+                              Config.LoRaDevices[Channel].FrequencyHold );
+
+                // Clear the stored frequency
+                Config.LoRaDevices[Channel].FrequencyHold = -1;
+
+                // Reset the calling mode flags
+                Config.LoRaDevices[Channel].InCallingMode = 0;
+                Config.LoRaDevices[Channel].ReturnToCallingModeAt = 0;
+
+
+                LogMessage( "Channel %d Changed frequency %f\n", Channel,
+                            Config.LoRaDevices[Channel].activeFreq );
+            }
+
+            // RJH If entering calling frequency save current frequency and set calling frequency
+            if ( strcmp( LoRaModes[currentMode].Description, "Calling" ) ==
+                 0 )
+            {
+
+                // Make sure were on 434 only ATM for calling.
+                if ( abs
+                     ( Config.LoRaDevices[Channel].activeFreq -
+                       LORA_CALLING_FREQUENCY_434 ) < 100 )
+                {
+
+                    // Store the curent frequency 
+                    Config.LoRaDevices[Channel].FrequencyHold =
+                        Config.LoRaDevices[Channel].activeFreq;
+
+                    Config.LoRaDevices[Channel].Frequency =
+                        LORA_CALLING_FREQUENCY_434;
+
+                    // Move to the calling frequency
+                    setFrequency( Channel, LORA_CALLING_FREQUENCY_434 );
+
+                    LogMessage( "Channel %d Changed frequency %f\n", Channel,
+                                Config.LoRaDevices[Channel].activeFreq );
+                }
+                else
+                    currentMode++;
+
+            }
+
             // Set the parameters
-            SetLoRaParameters( Channel,
-                               LoRaModes[currentMode].ImplicitOrExplicit,
-                               ECToInt( LoRaModes[currentMode].ErrorCoding ),
-                               BandwidthToDouble( LoRaModes[currentMode].
-                                                  Bandwidth ),
-                               SFToInt( LoRaModes[currentMode].
-                                        SpreadingFactor ),
-                               LowOptToInt( LoRaModes[currentMode].
-                                            LowDataRateOptimize ) );
+            Config.LoRaDevices[Channel].ImplicitOrExplicit =
+                LoRaModes[currentMode].ImplicitOrExplicit;
+
+            Config.LoRaDevices[Channel].ErrorCoding =
+                ECToInt(LoRaModes[currentMode].ErrorCoding);
+
+            Config.LoRaDevices[Channel].Bandwidth =
+                BandwidthToDouble(LoRaModes[currentMode].Bandwidth);
+
+            Config.LoRaDevices[Channel].SpreadingFactor =
+                SFToInt(LoRaModes[currentMode].SpreadingFactor);
+
+            Config.LoRaDevices[Channel].LowDataRateOptimize =
+                LowOptToInt(LoRaModes[currentMode].LowDataRateOptimize);
+
+            SetDefaultLoRaParameters( Channel );
 
             // Report change
             LogMessage( "Channel %d Changed to mode %d (%s)\n", Channel,
@@ -2202,13 +2321,25 @@ toggleMode( int Channel )
             currentMode = -1;   // Reset back to config file as this may be a custom mode
 
             // Set the parameters
-            SetLoRaParameters( Channel,
-                               Config.LoRaDevices[Channel].ImplicitOrExplicit,
-                               Config.LoRaDevices[Channel].ErrorCoding,
-                               Config.LoRaDevices[Channel].Bandwidth,
-                               Config.LoRaDevices[Channel].SpreadingFactor,
-                               Config.LoRaDevices[Channel].
-                               LowDataRateOptimize );
+            Config.LoRaDevices[Channel].ImplicitOrExplicit =
+                Config.LoRaDevices[Channel].
+                InitialLoRaSettings.ImplicitOrExplicit;
+
+            Config.LoRaDevices[Channel].ErrorCoding =
+                Config.LoRaDevices[Channel].InitialLoRaSettings.ErrorCoding;
+
+            Config.LoRaDevices[Channel].Bandwidth =
+                Config.LoRaDevices[Channel].InitialLoRaSettings.Bandwidth;
+
+            Config.LoRaDevices[Channel].SpreadingFactor =
+                Config.LoRaDevices[Channel].
+                InitialLoRaSettings.SpreadingFactor;
+
+            Config.LoRaDevices[Channel].LowDataRateOptimize =
+                Config.LoRaDevices[Channel].
+                InitialLoRaSettings.LowDataRateOptimize;
+
+            SetDefaultLoRaParameters( Channel );
 
             // Report change
             LogMessage( "Channel %d Changed to gateway.txt configuration.\n",
@@ -2234,6 +2365,8 @@ main( int argc, char **argv )
     pthread_t SSDVThread, FTPThread, NetworkThread, HabitatThread,
         ServerThread;
     struct TServerInfo JSONInfo;
+
+    MAX_LORA_MODES = rfmxx_NumberOfLoRaModes(  );
 
     atexit( bye );
 
@@ -2433,18 +2566,19 @@ main( int argc, char **argv )
                     // Calling mode timeout?
                     if ( Config.LoRaDevices[Channel].InCallingMode
                          && ( Config.CallingTimeout > 0 )
-                         && ( Config.LoRaDevices[Channel].
-                              ReturnToCallingModeAt > 0 )
+                         && ( Config.
+                              LoRaDevices[Channel].ReturnToCallingModeAt > 0 )
                          && ( time( NULL ) >
-                              Config.LoRaDevices[Channel].
-                              ReturnToCallingModeAt ) )
+                              Config.
+                              LoRaDevices[Channel].ReturnToCallingModeAt ) )
                     {
                         Config.LoRaDevices[Channel].InCallingMode = 0;
                         Config.LoRaDevices[Channel].ReturnToCallingModeAt = 0;
 
                         LogMessage( "Return to calling mode\n" );
 
-                        setLoRaMode( Channel );
+                        setMode( Channel, RF98_MODE_SLEEP );
+                        setFrequency( Channel, Config.LoRaDevices[Channel].Frequency);
 
                         SetDefaultLoRaParameters( Channel );
 
@@ -2454,14 +2588,17 @@ main( int argc, char **argv )
                     // AFC Timeout ?
                     if ( !Config.LoRaDevices[Channel].InCallingMode &&
                          ( Config.LoRaDevices[Channel].AFCTimeout > 0 ) &&
-                         ( Config.LoRaDevices[Channel].
-                           ReturnToOriginalFrequencyAt > 0 )
+                         ( Config.
+                           LoRaDevices[Channel].ReturnToOriginalFrequencyAt >
+                           0 )
                          && ( time( NULL ) >
-                              Config.LoRaDevices[Channel].
-                              ReturnToOriginalFrequencyAt ) )
+                              Config.
+                              LoRaDevices
+                              [Channel].ReturnToOriginalFrequencyAt ) )
                     {
-                        Config.LoRaDevices[Channel].
-                            ReturnToOriginalFrequencyAt = 0;
+                        Config.
+                            LoRaDevices[Channel].ReturnToOriginalFrequencyAt =
+                            0;
 
                         LogMessage
                             ( "AFC timeout - return to original frequency\n" );
@@ -2500,8 +2637,9 @@ main( int argc, char **argv )
                     {
                         if ( --LEDCounts[Channel] == 0 )
                         {
-                            digitalWrite( Config.LoRaDevices[Channel].
-                                          ActivityLED, 0 );
+                            digitalWrite( Config.
+                                          LoRaDevices[Channel].ActivityLED,
+                                          0 );
                         }
                     }
                 }
