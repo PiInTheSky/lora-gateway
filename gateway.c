@@ -2229,8 +2229,8 @@ void
 toggleMode( int Channel )
 {
 
-
     int currentMode = Config.LoRaDevices[Channel].CurrentMode;
+    char buffer[38];
 
     if ( Config.LoRaDevices[Channel].InUse )
     {
@@ -2315,6 +2315,9 @@ toggleMode( int Channel )
 
             SetDefaultLoRaParameters( Channel );
 
+            sprintf (buffer,"   **%s**   ",LoRaModes[currentMode].Description);
+            ChannelPrintf( Channel, 0, (38-strlen(buffer))/2, buffer );
+
             // Report change
             LogMessage( "Channel %d Changed to mode %d (%s)\n", Channel,
                         currentMode, LoRaModes[currentMode].Description );
@@ -2345,6 +2348,8 @@ toggleMode( int Channel )
                 LowDataRateOptimize;
 
             SetDefaultLoRaParameters( Channel );
+
+            ChannelPrintf( Channel, 0, (34-10)/2, "                ",LoRaModes[currentMode].Description);
 
             // Report change
             LogMessage( "Channel %d Changed to gateway.txt configuration.\n",
