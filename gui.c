@@ -18,28 +18,28 @@ create_help_win( int height, int width, int starty, int startx )
     color_set( 2, NULL );
 
     sprintf( buffer, " Command set for the LoRa Gateway " );
-    mvaddstr( 1, ( 80 - strlen( buffer ) ) / 2, buffer );
+    mvaddstr( 1, startx+( 80 - strlen( buffer ) ) / 2, buffer );
 
     sprintf( buffer, "Channel 0 commands are lower case (a-z)" );
-    mvaddstr( 3, ( 80 - strlen( buffer ) ) / 2, buffer );
+    mvaddstr( 3, startx+( 80 - strlen( buffer ) ) / 2, buffer );
 
     sprintf( buffer, "Channel 1 commands are upper case (A-Z)" );
-    mvaddstr( 4, ( 80 - strlen( buffer ) ) / 2, buffer );
+    mvaddstr( 4, startx+( 80 - strlen( buffer ) ) / 2, buffer );
 
     sprintf( buffer, "A = +100MHz    Z= -100MHz" );
-    mvaddstr( 6, ( 80 - strlen( buffer ) ) / 2, buffer );
+    mvaddstr( 6, startx+( 80 - strlen( buffer ) ) / 2, buffer );
 
     sprintf( buffer, "S = +10MHz     X= -10MHz " );
-    mvaddstr( 7, ( 80 - strlen( buffer ) ) / 2, buffer );
+    mvaddstr( 7, startx+( 80 - strlen( buffer ) ) / 2, buffer );
 
     sprintf( buffer, "D = +1MHz      C= -1MHz  " );
-    mvaddstr( 8, ( 80 - strlen( buffer ) ) / 2, buffer );
+    mvaddstr( 8, startx+( 80 - strlen( buffer ) ) / 2, buffer );
 
     sprintf( buffer, "F = Toggle AFC" );
-    mvaddstr( 10, ( 80 - strlen( buffer ) ) / 2, buffer );
+    mvaddstr( 10, startx+( 80 - strlen( buffer ) ) / 2, buffer );
 
     sprintf( buffer, "M = Toggle Modes" );
-    mvaddstr( 12, ( 80 - strlen( buffer ) ) / 2, buffer );
+    mvaddstr( 12, startx+( 80 - strlen( buffer ) ) / 2, buffer );
 
     wrefresh( local_win );      /* Show that box        */
 
@@ -50,6 +50,7 @@ void
 destroy_help_win( WINDOW * local_win )
 {
     int i = 0;
+    int x_offset = getbegx(local_win)-2;
     char buffer[80];
 
     // Remove the border
@@ -57,19 +58,19 @@ destroy_help_win( WINDOW * local_win )
 
     color_set( 3, NULL );
     for ( i = 1; i < 15; i++ )
-        mvaddstr( i, 39, "  " );
+        mvaddstr( i, x_offset+39, "  " );
 
     // Put the HELP message back
     sprintf( buffer, "             Press (H) for Help             " );
     color_set( 3, NULL );
-    mvaddstr( 15, ( 80 - strlen( buffer ) ) / 2, buffer );
+    mvaddstr( 15, x_offset+( 80 - strlen( buffer ) ) / 2, buffer );
 
     wrefresh( local_win );
     delwin( local_win );
 }
 
 void
-gui_show_help(  )
+gui_show_help(int x_offset )
 {
     char ch;
     char buffer[80];
@@ -80,11 +81,11 @@ gui_show_help(  )
     height = 14;
     width = 76;
     starty = 1;                 /* Calculating for a center placement */
-    startx = 2;                 /* of the window        */
+    startx = 2 + x_offset ;      /* of the window        */
     help_win = create_help_win( height, width, starty, startx );
     sprintf( buffer, "Press any key to return to the main screen!" );
     color_set( 3, NULL );
-    mvaddstr( 15, ( 80 - strlen( buffer ) ) / 2, buffer );
+    mvaddstr( 15, x_offset+( 80 - strlen( buffer ) ) / 2, buffer );
 
     // Wait for any key to be pressed
     while ( ( ch = getch(  ) ) == 255 )
