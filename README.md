@@ -226,14 +226,16 @@ Many thanks to David Brooke for coding this feature and the AFC.
 Change History
 ==============
 
-20/04/2017 - V1.8.8
+06/05/2017 - V1.8.8
 -------------------
 
     M0RJX (Robert Harrison) added the ability to cycle through pre defined modes using the m key !
 
-    Moved all the RFMxx register codes to rfmxx.h to reduce the size of gateway.c
+    M0RJX Moved all the RFMxx register codes to rfmxx.h to reduce the size of gateway.c
 
-    Added note to the gateway-sample.txt file that all pins numbers are the wiringpi pin numbers.
+    M0RJX Added note to the gateway-sample.txt file that all pins numbers are the wiringpi pin numbers.
+
+    M0RJH Added Distance, Bearing and Elevation line when decoding payload data
 
 18/04/2017 - V1.8.7
 -------------------
