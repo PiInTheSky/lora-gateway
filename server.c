@@ -24,15 +24,62 @@
 
 extern bool run;
 
+void EncryptMessage(char *Code, char *Message)
+{
+	int i, Len;
+	
+	Len = strlen(Code);
+	
+	if (Len > 0)
+	{
+		i = 0;
+		while (*Message)
+		{
+			*Message = (*Message ^ Code[i]) | 0x80;
+			Message++;
+			i = (i + 1) % Len;
+		}
+	}
+}
+
 void ProcessJSONClientLine(int connfd, char *line)
 {	
 	line[strcspn(line, "\r\n")] = '\0';		// Get rid of CR LF
 	
-	LogMessage("Received %s from JSON client\n", line);
+	LogMessage("Received '%s' from JSON client\n", line);
 	
-	if (strchr(line, '=') == NULL)
+	if (strchr(line, '=') != NULL)
 	{
-		// Request or command
+		// Setting
+		char *setting, *value, *saveptr;
+	
+		setting = strtok_r(line, "=", &saveptr);
+		value = strtok_r( NULL, "\n", &saveptr);
+		
+		SetConfigValue(setting, value);
+	}
+	else if (strchr(line, ':') != NULL)
+	{
+		// Command with parameters
+		char *command, *value, *saveptr;
+	
+		command = strtok_r(line, ":", &saveptr);
+		value = strtok_r(NULL, "\n", &saveptr);
+		
+		if (strcasecmp(command, "send") == 0)
+		{
+			LogMessage("Message '%s' to send\n", value);
+	
+			EncryptMessage(Config.UplinkCode, value+1);		// +1 so we don't encode the key byt at the start of the message
+			
+			strcpy(Config.LoRaDevices[1].UplinkMessage, value);
+		}
+	}
+	else
+
+	{
+		// single-word request
+
 		
 		if (strcasecmp(line, "settings") == 0)
 		{
@@ -66,17 +113,18 @@ void ProcessJSONClientLine(int connfd, char *line)
 			SaveConfigFile();
 		}
 	}
-	else
-	{
-		// Setting
-		char *setting, *value, *saveptr;
-	
-		setting = strtok_r(line, "=", &saveptr);
-		value = strtok_r( NULL, "\n", &saveptr);
-		
-		SetConfigValue(setting, value);
-	}
+
+
+
+
+
+
+
+
+
+
 }
+
 
 int SendJSON(int connfd)
 {
@@ -90,7 +138,7 @@ int SendJSON(int connfd)
 	{
 		if (Config.Payloads[PayloadIndex].InUse)
 		{
-			sprintf(sendBuff, "{\"class\":\"POSN\",\"index\":%d,\"channel\":%d,\"payload\":\"%s\",\"time\":\"%s\",\"lat\":%.5lf,\"lon\":%.5lf,\"alt\":%d,\"rate\":%.1lf}\r\n",
+			sprintf(sendBuff, "{\"class\":\"POSN\",\"index\":%d,\"channel\":%d,\"payload\":\"%s\",\"time\":\"%s\",\"lat\":%.5lf,\"lon\":%.5lf,\"alt\":%d,\"rate\":%.1lf,\"sentence\":\"%s\"}\r\n",
 					PayloadIndex,
 					Config.Payloads[PayloadIndex].Channel,
 					Config.Payloads[PayloadIndex].Payload,
@@ -98,7 +146,8 @@ int SendJSON(int connfd)
 					Config.Payloads[PayloadIndex].Latitude,
 					Config.Payloads[PayloadIndex].Longitude,
 					Config.Payloads[PayloadIndex].Altitude,
-					Config.Payloads[PayloadIndex].AscentRate);
+					Config.Payloads[PayloadIndex].AscentRate,
+					Config.Payloads[PayloadIndex].Telemetry);
 
 			if ( !run )
 			{

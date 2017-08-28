@@ -35,7 +35,7 @@
 #include "config.h"
 #include "gui.h"
 
-#define VERSION	"V1.8.7"
+#define VERSION	"V1.8.8"
 bool run = TRUE;
 
 // RFM98
@@ -941,7 +941,6 @@ void ProcessTelemetryMessage(int Channel, char *Message)
     if (strlen(Message + 1) < 250)
     {
         char *startmessage, *endmessage;
-
         char telem[40];
         char buffer[40];
 
@@ -951,8 +950,9 @@ void ProcessTelemetryMessage(int Channel, char *Message)
         sprintf(buffer,"%-37s", telem );
         ChannelPrintf( Channel, 3, 1, buffer);
 
-        startmessage = Message;
+        startmessage = Message + strspn(Message, "$") - 2;
         endmessage = strchr( startmessage, '\n' );
+		if (endmessage == NULL)	endmessage = strchr(startmessage, 0);
 
         while ( endmessage != NULL )
         {
@@ -1593,6 +1593,8 @@ void LoadConfigFile(void)
             Config.LoRaDevices[Channel].AFC = FALSE;
             Config.LoRaDevices[Channel].Power = PA_MAX_UK;
             Config.LoRaDevices[Channel].UplinkMode = -1;
+            Config.LoRaDevices[Channel].UplinkTime = -1;
+            Config.LoRaDevices[Channel].UplinkCycle = -1;
 
             LogMessage( "Channel %d frequency set to %.3lfMHz\n", Channel, Config.LoRaDevices[Channel].Frequency);
             Config.LoRaDevices[Channel].InUse = 1;
@@ -1606,16 +1608,19 @@ void LoadConfigFile(void)
             // Uplink
 			RegisterConfigInteger(MainSection, Channel, "UplinkTime", &Config.LoRaDevices[Channel].UplinkTime, NULL);
 			RegisterConfigInteger(MainSection, Channel, "UplinkCycle", &Config.LoRaDevices[Channel].UplinkCycle, NULL);
-			if ((Config.LoRaDevices[Channel].UplinkTime > 0) && (Config.LoRaDevices[Channel].UplinkCycle))
+			if ((Config.LoRaDevices[Channel].UplinkTime >= 0) && (Config.LoRaDevices[Channel].UplinkCycle > Config.LoRaDevices[Channel].UplinkTime))
 			{
 				LogMessage( "Channel %d UplinkTime %d Uplink Cycle %d\n", Channel, Config.LoRaDevices[Channel].UplinkTime, Config.LoRaDevices[Channel].UplinkCycle);
+
+
+				RegisterConfigInteger(MainSection, Channel, "Power", &Config.LoRaDevices[Channel].Power, NULL);
+
+
+				LogMessage( "Channel %d power set to %02Xh\n", Channel, Config.LoRaDevices[Channel].Power );
+				RegisterConfigBoolean(MainSection, Channel, "SSDVUplink", &Config.LoRaDevices[Channel].SSDVUplink, NULL);
 			}
 
 			RegisterConfigInteger(MainSection, Channel, "Power", &Config.LoRaDevices[Channel].Power, NULL);
-			if ((Config.LoRaDevices[Channel].UplinkTime > 0) && (Config.LoRaDevices[Channel].UplinkCycle))
-			{
-				LogMessage( "Channel %d power set to %02Xh\n", Channel, Config.LoRaDevices[Channel].Power );
-			}
 
 			RegisterConfigInteger(MainSection, Channel, "UplinkMode", &Config.LoRaDevices[Channel].UplinkMode, NULL);
 			if (Config.LoRaDevices[Channel].UplinkMode >= 0)
@@ -1950,20 +1955,13 @@ GetExternalListOfMissingSSDVPackets( int Channel, char *Message )
     // First, create request file
     FILE *fp;
 
-    // LogMessage("GetExternalListOfMissingSSDVPackets()\n");
-
-    // if ((fp = fopen("get_list.txt", "wt")) != NULL)
+	if (Config.LoRaDevices[Channel].SSDVUplink)
     {
         int i;
 
-        // fprintf(fp, "No Message\n");
-        // fclose(fp);
-
-        // LogMessage("File created\n");
-
         // Now wait for uplink.txt file to appear.
         // Timeout before the end of our Tx slot if no file appears
-
+		
         for ( i = 0; i < 20; i++ )
         {
             if ( ( fp = fopen( "uplink.txt", "r" ) ) )
@@ -1997,7 +1995,12 @@ void SendUplinkMessage( int Channel )
     char Message[512];
 
     // Decide what type of message we need to send
-    if ( GetTextMessageToUpload( Channel, Message ) )
+	if (*Config.LoRaDevices[Channel].UplinkMessage)
+	{
+		SendLoRaData(Channel, Config.LoRaDevices[Channel].UplinkMessage, strlen(Config.LoRaDevices[Channel].UplinkMessage)+1);
+		*Config.LoRaDevices[Channel].UplinkMessage = 0;
+	}
+    else if ( GetTextMessageToUpload( Channel, Message ) )
     {
         SendLoRaData( Channel, Message, 255 );
     }

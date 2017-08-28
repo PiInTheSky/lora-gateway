@@ -55,6 +55,8 @@ struct TPayload
 	// Normal (non TDM) uplink
 	int UplinkTime;
 	int UplinkCycle;
+	int SSDVUplink;
+	char UplinkMessage[256];
 };
  struct TConfig  {   	char Tracker[16];				// Callsign or name of receiver
 	double latitude, longitude;		// Receiver's location
@@ -76,6 +78,7 @@ struct TPayload
 	char SMSFolder[64];
 	char antenna[64];
 	int EnableDev;
+	char UplinkCode[64];
 };
  typedef struct {
     int parent_status;

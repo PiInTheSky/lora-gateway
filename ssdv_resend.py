@@ -10,7 +10,7 @@ def get_list_of_missing_packets(PayloadID, Minutes):
 	result = ''
 	
 	time_limit = datetime.utcnow() - timedelta(0,Minutes*60)	# n minutes ago
-	url = 'http://ssdv.habhub.org/api/v0/images?callsign=' + PayloadID + '&from=' + time_limit.strftime('%Y-%m-%dT%H:%M:%SZ') + '&missing_packets'
+	url = 'http://ssdv.habhub.org/api/v0/images?callsign=' + PayloadID + '&from=' + time_limit.strftime('%Y-%m-%dT%H:%M:%SZ') + '&missing_packets=true'
 
 	print("url", url)
 	
@@ -31,7 +31,7 @@ def get_list_of_missing_packets(PayloadID, Minutes):
 			if len(item['missing_packets']) > 0:
 				print(item['id'], item['image_id'], len(item['missing_packets']))
 				print(item['missing_packets'])
-				pl = item['packets']
+				# pl = item['packets']
 				# print("highest_packet_id = ", item['last_packet'])
 				first_missing_packet = -1
 				last_missing_packet = -1
