@@ -57,6 +57,21 @@ struct TPayload
 	int UplinkCycle;
 	int SSDVUplink;
 	char UplinkMessage[256];
+	
+	// Telnet uplink
+	char Telemetry[256];
+	unsigned char PacketID;
+	int TimeSinceLastTx;
+	int HABAck;						// Received message ACKd our last Tx
+	int HABConnected;				// 1 if HAB has telnet connection
+	char ToTelnetBuffer[256];			// Buffer for data Telnet --> LoRa
+	int ToTelnetBufferCount;
+	char FromTelnetBuffer[256];			// Buffer for data LoRa --> Telnet
+	int FromTelnetBufferCount;
+	char HABUplink[256];
+	int HABUplinkCount;
+	int GotHABReply;
+	int GotReply;	
 };
  struct TConfig  {   	char Tracker[16];				// Callsign or name of receiver
 	double latitude, longitude;		// Receiver's location
@@ -75,6 +90,9 @@ struct TPayload
 	int NetworkLED;
 	int InternetLED;
 	int ServerPort;					// JSON port for telemetry, settings
+	int HABPort;				// Telnet style port for comms with HAB
+	int HABTimeout;				// Timeout in ms for telnet uplink
+	int HABChannel;				// LoRa Channel for uplink
 	char SMSFolder[64];
 	char antenna[64];
 	int EnableDev;
@@ -101,6 +119,7 @@ struct TServerInfo
 {
 	int Port;
 	int Connected;
+	int ServerIndex;
 	int sockfd;
 };
 

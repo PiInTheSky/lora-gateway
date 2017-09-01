@@ -113,16 +113,6 @@ void ProcessJSONClientLine(int connfd, char *line)
 			SaveConfigFile();
 		}
 	}
-
-
-
-
-
-
-
-
-
-
 }
 
 
@@ -178,7 +168,7 @@ void *ServerLoop( void *some_void_ptr )
     serv_addr.sin_addr.s_addr = htonl( INADDR_ANY );
     serv_addr.sin_port = htons(ServerInfo->Port);
 
-    LogMessage( "Listening on JSON port %d\n", ServerInfo->Port);
+    LogMessage( "Listening on %s port %d\n", ServerInfo->ServerIndex ? "HAB" : "JSON", ServerInfo->Port);
 
     if (setsockopt(ServerInfo->sockfd, SOL_SOCKET, SO_REUSEADDR, &(int){1}, sizeof(int)) < 0)
 	{
@@ -206,53 +196,91 @@ void *ServerLoop( void *some_void_ptr )
 
         connfd = accept(ServerInfo->sockfd, ( struct sockaddr * ) NULL, NULL );	// Wait for connection
 
-        LogMessage( "Connected to client\n");
+        LogMessage( "Connected to %s client\n", ServerInfo->ServerIndex ? "HAB" : "JSON");
 		ServerInfo->Connected = 1;
 
 		fcntl(connfd, F_SETFL, fcntl(ServerInfo->sockfd, F_GETFL) | O_NONBLOCK);	// Non-blocking, so we don't block on receiving any commands from client
 
         while (ServerInfo->Connected)
         {
-			char packet[4096];
 			int bytecount;
 
 			ms += MSPerLoop;
 			
 			// Listen part
 			bytecount = -1;
-				
-			while ((bytecount = recv(connfd, packet, sizeof(packet), 0)) > 0)
+			if (ServerInfo->ServerIndex == 0)
 			{
-				char *line, *saveptr;
+				char packet[4096];
 				
-				packet[bytecount] = 0;
-				
-				// JSON server
-				line = strtok_r(packet, "\n", &saveptr);
-				while (line)
+				while ((bytecount = recv(connfd, packet, sizeof(packet), 0)) > 0)
 				{
-					ProcessJSONClientLine(connfd, line);
-					line = strtok_r( NULL, "\n", &saveptr);
+					char *line, *saveptr;
+				
+					packet[bytecount] = 0;
+					
+					// JSON server
+					line = strtok_r(packet, "\n", &saveptr);
+					while (line)
+					{
+						ProcessJSONClientLine(connfd, line);
+						line = strtok_r( NULL, "\n", &saveptr);
+					}
+				}
+				if (bytecount == 0)
+				{
+					// -1 is no more data, 0 means port closed
+					ServerInfo->Connected = 0;
+				}
+			}
+			else
+			{
+				char RxByte;
+				
+				while ((bytecount = recv(connfd, &RxByte, 1, 0)) > 0)
+				{
+					Config.LoRaDevices[Config.HABChannel].FromTelnetBuffer[Config.LoRaDevices[Config.HABChannel].FromTelnetBufferCount++] = RxByte;
+					LogMessage("KEYB BUFFER %d BYTES\n", Config.LoRaDevices[Config.HABChannel].FromTelnetBufferCount);
 				}
 			}
 			
 			if (bytecount == 0)
 			{
 				// -1 is no more data, 0 means port closed
-				LogMessage("Disconnected from client\n");
+				LogMessage("Disconnected from %s client\n", ServerInfo->ServerIndex ? "HAB" : "JSON");
 				ServerInfo->Connected = 0;
 			}
 
 			if (ServerInfo->Connected)
 			{
-				// Send to JSON client
-				if (ms >= SendEveryMS)
+				// Send part
+				
+				if (ServerInfo->ServerIndex == 0)
 				{
-					if (SendJSON(connfd))
+					// Send to JSON client
+					if (ms >= SendEveryMS)
 					{
-						ServerInfo->Connected = 0;
+						if (SendJSON(connfd))
+						{
+							ServerInfo->Connected = 0;
+						}
 					}
-					ms = 0;
+				}
+				else
+				{
+					int Channel;
+					
+					for (Channel=0; Channel<=1; Channel++)
+
+					{
+						if (Config.LoRaDevices[Channel].ToTelnetBufferCount > 0)
+						{
+							send(connfd, Config.LoRaDevices[Channel].ToTelnetBuffer, Config.LoRaDevices[Channel].ToTelnetBufferCount, 0);
+							Config.LoRaDevices[Channel].ToTelnetBufferCount = 0;
+						}
+
+					}
+
 				}
 			}
 			
