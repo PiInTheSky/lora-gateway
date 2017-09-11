@@ -35,7 +35,7 @@
 #include "config.h"
 #include "gui.h"
 
-#define VERSION	"V1.8.9"
+#define VERSION	"V1.8.10"
 bool run = TRUE;
 
 // RFM98
@@ -951,7 +951,7 @@ void ProcessTelemetryMessage(int Channel, char *Message)
         sprintf(buffer,"%-37s", telem );
         ChannelPrintf( Channel, 3, 1, buffer);
 
-        startmessage = Message + strspn(Message, "$") - 2;
+        startmessage = Message + strspn(Message, "$%") - 2;
         endmessage = strchr( startmessage, '\n' );
 		if (endmessage == NULL)	endmessage = strchr(startmessage, 0);
 
@@ -2045,13 +2045,11 @@ void SendTelnetMessage(int Channel, struct TServerInfo *TelnetInfo, int TimedOut
 
 	if (Config.LoRaDevices[Channel].HABAck)
 	{
-		LogMessage("NEW PACKET for Channel %d\n", Channel);
 		// Prepare new packet
 		Config.LoRaDevices[Channel].PacketID++;				// Packet acked, so onto next packet
 		Config.LoRaDevices[Channel].HABUplinkCount = 0;		// Remove existing packet contents
 		if (TelnetInfo->Connected)
 		{
-			LogMessage("CONNECTED, FromTelnetBufferCount=%d\n", Config.LoRaDevices[Channel].FromTelnetBufferCount);
 			if (Config.LoRaDevices[Channel].FromTelnetBufferCount > 0)
 			{
 				memcpy(Config.LoRaDevices[Channel].HABUplink, Config.LoRaDevices[Channel].FromTelnetBuffer, Config.LoRaDevices[Channel].FromTelnetBufferCount);
