@@ -35,7 +35,7 @@
 #include "config.h"
 #include "gui.h"
 
-#define VERSION	"V1.8.10"
+#define VERSION	"V1.8.11"
 bool run = TRUE;
 
 // RFM98
@@ -138,7 +138,8 @@ struct TLoRaMode
 	{IMPLICIT_MODE, ERROR_CODING_4_5, BANDWIDTH_250K, SPREADING_6,  0, 16828, "TurboX"},			// 4: Fastest mode within IR2030 in 868MHz band
 	{EXPLICIT_MODE, ERROR_CODING_4_8, BANDWIDTH_41K7, SPREADING_11, 0,   200, "Calling"},			// 5: Calling mode
 	{IMPLICIT_MODE, ERROR_CODING_4_5, BANDWIDTH_41K7, SPREADING_6,  0,  2800, "Uplink"},			// 6: Uplink mode for 868
-	{EXPLICIT_MODE, ERROR_CODING_4_5, BANDWIDTH_20K8, SPREADING_7,  0,  2800, "Telnet"}				// 7: Telnet-style comms with HAB on 434
+	{EXPLICIT_MODE, ERROR_CODING_4_5, BANDWIDTH_20K8, SPREADING_7,  0,  2800, "Telnet"},			// 7: Telnet-style comms with HAB on 434
+	{IMPLICIT_MODE, ERROR_CODING_4_5, BANDWIDTH_62K5, SPREADING_6,  0,  4500, "SSDV Repeater"}		// 8: Fast (SSDV) repeater network	
 };
 
 struct TConfig Config;
@@ -1031,8 +1032,7 @@ void ProcessTelnetMessage(int Channel, char *Message, int Bytes)
 	// Store header details which are used in next Tx
 	Config.LoRaDevices[Channel].HABConnected = (FirstByte & 0x80) ? 1 : 0;
 	Config.LoRaDevices[Channel].HABAck = (FirstByte & 0x40) ? 1 : 0;
-	
-	// Pass any data on from HAB to local telnet client
+
 	if (Bytes > 2)
 	{
 		strcpy(Config.LoRaDevices[Channel].ToTelnetBuffer, Message+2);
@@ -2093,13 +2093,14 @@ void SendTelnetMessage(int Channel, struct TServerInfo *TelnetInfo, int TimedOut
 	else
 	{
 		Length = sprintf(Message, "+%c", FirstByte);
-		// LogMessage("Sending +[%02X]\n", FirstByte);
+		LogMessage("SENDING +[%02X]\n", FirstByte);
 	}
 	
 	Config.LoRaDevices[Channel].HABAck = 0;
 		
 	SendLoRaData(Channel, Message, Length);
 }
+
 void SendUplinkMessage( int Channel )
 {
     char Message[512];
