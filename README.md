@@ -224,6 +224,13 @@ Many thanks to David Brooke for coding this feature and the AFC.
 Change History
 ==============
 
+01/10/2017 - V1.8.12
+--------------------
+
+    Added null uplink option
+
+    Test for incoming null uplink message
+
 21/09/2017 - V1.8.11
 --------------------
 

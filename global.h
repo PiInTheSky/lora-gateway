@@ -55,6 +55,7 @@ struct TPayload
 	// Normal (non TDM) uplink
 	int UplinkTime;
 	int UplinkCycle;
+	int IdleUplink;
 	int SSDVUplink;
 	char UplinkMessage[256];
 	
