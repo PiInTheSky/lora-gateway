@@ -35,7 +35,7 @@
 #include "config.h"
 #include "gui.h"
 
-#define VERSION	"V1.8.10"
+#define VERSION	"V1.8.12"
 bool run = TRUE;
 
 // RFM98
@@ -138,7 +138,8 @@ struct TLoRaMode
 	{IMPLICIT_MODE, ERROR_CODING_4_5, BANDWIDTH_250K, SPREADING_6,  0, 16828, "TurboX"},			// 4: Fastest mode within IR2030 in 868MHz band
 	{EXPLICIT_MODE, ERROR_CODING_4_8, BANDWIDTH_41K7, SPREADING_11, 0,   200, "Calling"},			// 5: Calling mode
 	{IMPLICIT_MODE, ERROR_CODING_4_5, BANDWIDTH_41K7, SPREADING_6,  0,  2800, "Uplink"},			// 6: Uplink mode for 868
-	{EXPLICIT_MODE, ERROR_CODING_4_5, BANDWIDTH_20K8, SPREADING_7,  0,  2800, "Telnet"}				// 7: Telnet-style comms with HAB on 434
+	{EXPLICIT_MODE, ERROR_CODING_4_5, BANDWIDTH_20K8, SPREADING_7,  0,  2800, "Telnet"},			// 7: Telnet-style comms with HAB on 434
+	{IMPLICIT_MODE, ERROR_CODING_4_5, BANDWIDTH_62K5, SPREADING_6,  0,  4500, "SSDV Repeater"}		// 8: Fast (SSDV) repeater network	
 };
 
 struct TConfig Config;
@@ -1032,8 +1033,7 @@ void ProcessTelnetMessage(int Channel, char *Message, int Bytes)
 	// Store header details which are used in next Tx
 	Config.LoRaDevices[Channel].HABConnected = (FirstByte & 0x80) ? 1 : 0;
 	Config.LoRaDevices[Channel].HABAck = (FirstByte & 0x40) ? 1 : 0;
-	
-	// Pass any data on from HAB to local telnet client
+
 	if (Bytes > 2)
 	{
 		strcpy(Config.LoRaDevices[Channel].ToTelnetBuffer, Message+2);
@@ -1340,6 +1340,16 @@ void DIO0_Interrupt( int Channel )
 				
                 ProcessSSDVMessage( Channel, Message, Repeated);
             }
+            else if ( Message[1] == 0x00)
+            {
+				time_t now;
+				struct tm *tm;
+
+				now = time( 0 );
+				tm = localtime( &now );
+				
+				LogMessage("%02d:%02d:%02d Ch%d: Null uplink packet\n", tm->tm_hour, tm->tm_min, tm->tm_sec, Channel);
+            }
             else
             {
                 LogMessage("Unknown packet type is %02Xh, RSSI %d\n", Message[1], PacketRSSI(Channel));
@@ -1643,6 +1653,7 @@ void LoadConfigFile(void)
             Config.LoRaDevices[Channel].UplinkMode = -1;
             Config.LoRaDevices[Channel].UplinkTime = -1;
             Config.LoRaDevices[Channel].UplinkCycle = -1;
+			Config.LoRaDevices[Channel].IdleUplink = FALSE;
 
             LogMessage( "Channel %d frequency set to %.3lfMHz\n", Channel, Config.LoRaDevices[Channel].Frequency);
             Config.LoRaDevices[Channel].InUse = 1;
@@ -1660,12 +1671,21 @@ void LoadConfigFile(void)
 			{
 				LogMessage( "Channel %d UplinkTime %d Uplink Cycle %d\n", Channel, Config.LoRaDevices[Channel].UplinkTime, Config.LoRaDevices[Channel].UplinkCycle);
 
-
 				RegisterConfigInteger(MainSection, Channel, "Power", &Config.LoRaDevices[Channel].Power, NULL);
 
 
 				LogMessage( "Channel %d power set to %02Xh\n", Channel, Config.LoRaDevices[Channel].Power );
+				
 				RegisterConfigBoolean(MainSection, Channel, "SSDVUplink", &Config.LoRaDevices[Channel].SSDVUplink, NULL);
+				if (Config.LoRaDevices[Channel].SSDVUplink)
+				{
+					LogMessage( "Channel %d SSDV Uplink Enabled\n", Channel);
+				}
+				RegisterConfigBoolean(MainSection, Channel, "IdleUplink", &Config.LoRaDevices[Channel].IdleUplink, NULL);
+				if (Config.LoRaDevices[Channel].IdleUplink)
+				{
+					LogMessage( "Channel %d Idle Uplink Enabled\n", Channel);
+				}
 			}
 
 			RegisterConfigInteger(MainSection, Channel, "Power", &Config.LoRaDevices[Channel].Power, NULL);
@@ -2097,13 +2117,14 @@ void SendTelnetMessage(int Channel, struct TServerInfo *TelnetInfo, int TimedOut
 	else
 	{
 		Length = sprintf(Message, "+%c", FirstByte);
-		// LogMessage("Sending +[%02X]\n", FirstByte);
+		LogMessage("SENDING +[%02X]\n", FirstByte);
 	}
 	
 	Config.LoRaDevices[Channel].HABAck = 0;
 		
 	SendLoRaData(Channel, Message, Length);
 }
+
 void SendUplinkMessage( int Channel )
 {
     char Message[512];
@@ -2114,13 +2135,17 @@ void SendUplinkMessage( int Channel )
 		SendLoRaData(Channel, Config.LoRaDevices[Channel].UplinkMessage, strlen(Config.LoRaDevices[Channel].UplinkMessage)+1);
 		*Config.LoRaDevices[Channel].UplinkMessage = 0;
 	}
-    else if ( GetTextMessageToUpload( Channel, Message ) )
+    else if (GetTextMessageToUpload( Channel, Message))
     {
-        SendLoRaData( Channel, Message, 255 );
+        SendLoRaData(Channel, Message, 255);
     }
-    else if ( GetExternalListOfMissingSSDVPackets( Channel, Message ) )
+    else if (GetExternalListOfMissingSSDVPackets( Channel, Message))
     {
-        SendLoRaData( Channel, Message, 255 );
+        SendLoRaData(Channel, Message, 255);
+    }
+    else if (Config.LoRaDevices[Channel].IdleUplink)
+    {
+        SendLoRaData(Channel, "", 1);
     }
 }
 
@@ -2483,17 +2508,17 @@ int main( int argc, char **argv )
                     }					
 
 					// Uplink cycle time ?
-                    if ((Config.LoRaDevices[Channel].UplinkTime > 0) && (Config.LoRaDevices[Channel].UplinkCycle > 0))
+                    if ((Config.LoRaDevices[Channel].UplinkTime >= 0) && (Config.LoRaDevices[Channel].UplinkCycle > 0))
                     {
                         long CycleSeconds;
 
                         CycleSeconds = (tm->tm_hour * 3600 + tm->tm_min * 60 + tm->tm_sec ) % Config.LoRaDevices[Channel].UplinkCycle;
 
-                        if ( CycleSeconds == Config.LoRaDevices[Channel].UplinkTime )
+                        if (CycleSeconds == Config.LoRaDevices[Channel].UplinkTime)
                         {
                             LogMessage("%02d:%02d:%02d - Time to send uplink message\n", tm->tm_hour, tm->tm_min, tm->tm_sec);
 
-                            SendUplinkMessage( Channel );
+                            SendUplinkMessage(Channel);
                         }
                     }
 

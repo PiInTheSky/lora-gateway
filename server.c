@@ -68,11 +68,16 @@ void ProcessJSONClientLine(int connfd, char *line)
 		
 		if (strcasecmp(command, "send") == 0)
 		{
-			LogMessage("Message '%s' to send\n", value);
-	
-			EncryptMessage(Config.UplinkCode, value+1);		// +1 so we don't encode the key byt at the start of the message
+			int channel;
 			
-			strcpy(Config.LoRaDevices[1].UplinkMessage, value);
+			channel = *value != '0';
+			value++;
+			
+			LogMessage("LoRa[%d]: To send '%s'\n", channel, value);
+	
+			EncryptMessage(Config.UplinkCode, value);
+			
+			strcpy(Config.LoRaDevices[channel].UplinkMessage, value);
 		}
 	}
 	else
@@ -264,6 +269,7 @@ void *ServerLoop( void *some_void_ptr )
 						{
 							ServerInfo->Connected = 0;
 						}
+						ms = 0;
 					}
 				}
 				else

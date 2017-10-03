@@ -224,6 +224,18 @@ Many thanks to David Brooke for coding this feature and the AFC.
 Change History
 ==============
 
+01/10/2017 - V1.8.12
+--------------------
+
+    Added null uplink option
+
+    Test for incoming null uplink message
+
+21/09/2017 - V1.8.11
+--------------------
+
+    Added mode 8 (fastest settings for 62k 10% section of IR2030), for SSDV repeater network
+
 11/09/2017 - V1.8.10
 --------------------
 
