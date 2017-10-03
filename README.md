@@ -224,6 +224,25 @@ Many thanks to David Brooke for coding this feature and the AFC.
 Change History
 ==============
 
+11/09/2017 - V1.8.10
+--------------------
+
+    Fixed issue introduced in V1.8.8 which broke processing of repeated telemetry packets (those beginning with a "%" to show repeated)
+
+01/09/2017 - V1.8.9
+-------------------
+
+    Added mode 7 for Telnet uplink
+
+    Incorporated changes to support Telnet-style terminal to HAB
+
+28/08/2017 - V1.8.8
+-------------------
+
+    Do not assume telemetry sentence has a LF at the end
+
+    Do not assume telemetry has 2 $ signs at beginning
+
 18/04/2017 - V1.8.7
 -------------------
 
