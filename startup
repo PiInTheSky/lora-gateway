@@ -1,0 +1,5 @@
+#!/bin/bash
+cd /home/pi/lora-gateway
+sudo python3 /home/pi/lora-gateway/ssdv_resend.py ZL1AB1 &
+sudo python /home/pi/lora-gateway/uploadsensor.py &
+sudo /home/pi/lora-gateway/gateway 

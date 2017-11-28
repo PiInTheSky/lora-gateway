@@ -1,0 +1,10 @@
+[Unit]
+Description=Gateway Service
+ 
+[Service]
+ExecStart=/home/pi/lora-gateway/startup
+StandardOutput=null
+ 
+[Install]
+WantedBy=multi-user.target
+Alias=gateway.service
