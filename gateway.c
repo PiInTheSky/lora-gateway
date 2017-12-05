@@ -2052,7 +2052,7 @@ GetExternalListOfMissingSSDVPackets( int Channel, char *Message )
 
     return 0;
 }
-
+int
 GetExternalCommand( int Channel, char *Message )
 {
     // First, create request file
@@ -2096,7 +2096,7 @@ GetExternalCommand( int Channel, char *Message )
 void SendTelnetMessage(int Channel, struct TServerInfo *TelnetInfo, int TimedOut)
 {
 	// Send message regardless of if we have content to send
-	// This is so that that HAB gets a chance to send anything it needs (further replies from earlier messages, telemetry, etc)
+	// This is so thamt that HAB gets a chance to send anything it needs (further replies from earlier messages, telemetry, etc)
 	char Message[256], FirstByte;
 	int Length;
 	
