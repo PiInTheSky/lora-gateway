@@ -1,5 +1,40 @@
 #!/bin/bash
 cd /home/pi/lora-gateway
-sudo python3 /home/pi/lora-gateway/ssdv_resend.py ZL1AB1 &
-sudo python /home/pi/lora-gateway/uploadsensor.py &
-sudo /home/pi/lora-gateway/gateway 
+
+#force correct time
+sudo ntpdate -s time.nist.gov
+
+while :
+do
+
+    gateway=`ps aux | grep -i "/home/pi/lora-gateway/gateway" | grep -v "grep" | wc -l`
+    if [ $gateway -ge 1 ]
+       then
+            echo "gateway is running"
+       else
+            echo "gateway is not running, restarting"
+            /home/pi/lora-gateway/gateway > /dev/null &
+    fi
+
+
+    python=`ps aux | grep -i "python " | grep -v "grep" | wc -l`
+    if [ $python -ge 1 ]
+       then
+            echo "python is running"
+       else
+            echo "python is not running, restarting"
+            python /home/pi/lora-gateway/uploadsensor.py  > /dev/null &
+    fi
+
+    python3=`ps aux | grep -i "python3" | grep -v "grep" | wc -l`
+    if [ $python3 -ge 1 ]
+       then
+            echo "python3 is running"
+       else
+            echo "python3 is not running, restarting"
+            python3 /home/pi/lora-gateway/ssdv_resend.py ZL1AB1  > /dev/null &
+    fi
+
+
+    sleep 30
+done

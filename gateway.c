@@ -2053,6 +2053,45 @@ GetExternalListOfMissingSSDVPackets( int Channel, char *Message )
     return 0;
 }
 
+GetExternalCommand( int Channel, char *Message )
+{
+    // First, create request file
+    FILE *fp;
+
+	if (Config.LoRaDevices[Channel].SSDVUplink)
+    {
+        int i;
+
+        // Now wait for uplink.txt file to appear.
+        // Timeout before the end of our Tx slot if no file appears
+
+        for ( i = 0; i < 20; i++ )
+        {
+            if ( ( fp = fopen( "command.txt", "r" ) ) )
+            {
+                Message[0] = '\0';
+                fgets( Message, 256, fp );
+
+                fclose( fp );
+
+                LogMessage( "Got command.txt %d bytes\n", strlen( Message ) );
+
+                // remove("get_list.txt");
+                remove( "command.txt" );
+
+                return strlen( Message );
+            }
+
+            usleep( 100000 );
+        }
+
+        // LogMessage("Timed out waiting for file\n");
+        // remove("get_list.txt");
+    }
+
+    return 0;
+}
+
 
 void SendTelnetMessage(int Channel, struct TServerInfo *TelnetInfo, int TimedOut)
 {
@@ -2136,6 +2175,10 @@ void SendUplinkMessage( int Channel )
         SendLoRaData(Channel, Message, 255);
     }
     else if (GetExternalListOfMissingSSDVPackets( Channel, Message))
+    {
+        SendLoRaData(Channel, Message, 255);
+    }
+    else if (GetExternalCommand( Channel, Message))
     {
         SendLoRaData(Channel, Message, 255);
     }
