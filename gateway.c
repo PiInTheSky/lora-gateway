@@ -2052,6 +2052,7 @@ GetExternalListOfMissingSSDVPackets( int Channel, char *Message )
 
     return 0;
 }
+
 int
 GetExternalCommand( int Channel, char *Message )
 {
@@ -2174,14 +2175,15 @@ void SendUplinkMessage( int Channel )
     {
         SendLoRaData(Channel, Message, 255);
     }
-    else if (GetExternalListOfMissingSSDVPackets( Channel, Message))
-    {
-        SendLoRaData(Channel, Message, 255);
-    }
     else if (GetExternalCommand( Channel, Message))
     {
         SendLoRaData(Channel, Message, 255);
     }
+    else if (GetExternalListOfMissingSSDVPackets( Channel, Message))
+    {
+        SendLoRaData(Channel, Message, 255);
+    }
+
     else if (Config.LoRaDevices[Channel].IdleUplink)
     {
         SendLoRaData(Channel, "", 1);
