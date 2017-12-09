@@ -312,10 +312,11 @@ void LogTelemetryPacket(char *Telemetry)
 
             now = time( 0 );
             tm = localtime( &now );
-
+            if (strstr((char *)Telemetry, "ZL1AB") != NULL )
+            {
             fprintf( fp, "%02d:%02d:%02d - %s\n", tm->tm_hour, tm->tm_min,
                      tm->tm_sec, Telemetry );
-
+            }
             fclose( fp );
         }
     }
