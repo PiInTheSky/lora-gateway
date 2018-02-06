@@ -27,13 +27,13 @@ WINDOW *create_help_win(int height, int width, int starty, int startx)
     sprintf( buffer, "Channel 1 commands are upper case (A-Z)");
     mvaddstr( 4, ( 80 - strlen( buffer ) ) / 2, buffer );
 
-    sprintf( buffer, "A = +100kHz    Z= -100kHz");
+    sprintf( buffer, "a/A = +100kHz    z/Z= -100kHz");
     mvaddstr( 6, ( 80 - strlen( buffer ) ) / 2, buffer );
 
-    sprintf( buffer, "S = +10kHz     X= -10kHz ");
+    sprintf( buffer, "s/S = +10kHz     x/X= -10kHz ");
     mvaddstr( 7, ( 80 - strlen( buffer ) ) / 2, buffer );
 
-    sprintf( buffer, "D = +1kHz      C= -1kHz  ");
+    sprintf( buffer, "d/D = +1kHz      c/C= -1kHz  ");
     mvaddstr( 8, ( 80 - strlen( buffer ) ) / 2, buffer );
 
     sprintf( buffer, "F = Toggle AFC ");
