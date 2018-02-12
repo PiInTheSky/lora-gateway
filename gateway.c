@@ -36,7 +36,7 @@
 #include "gui.h"
 #include "listener.h"
 
-#define VERSION	"V1.8.12"
+#define VERSION	"V1.8.14"
 bool run = TRUE;
 
 // RFM98

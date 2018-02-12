@@ -30,14 +30,7 @@ Enable SPI in raspi-config.
 
 Install the dependencies:
 
-	sudo apt-get install git wiringpi libcurl4-openssl-dev libncurses5-dev 
-
-Install SSDV so you can view locally downloaded images.  If you skip this section then the gateway will still work but SSDV data will not be decoded into JPG files locally (but can still be viewed online).
-
-	1. cd
-	2. git clone https://github.com/fsphil/ssdv.git
-	3. cd ssdv
-	4. sudo make install
+	sudo apt-get install git wiringpi libcurl4-openssl-dev libncurses5-dev ssdv
 
 Install the LoRa gateway
 
@@ -97,6 +90,12 @@ The global options are:
 	CallingTimeout=<seconds>.  Sets a timeout for returning to calling mode after a period with no received packets.
 	
 	ServerPort=<port>.  Opens a server socket which can have 1 client connected.  Sends JSON telemetry and status information to that client.
+
+	HABPort=<port>.  Opens a server socket which can have 1 client connected.  Port is a raw data stream between gateway and HAB (e.g. for Telnet-like communications).  Note: The corresponding functionality at the tracker end has not been published.
+	
+	HABTimeout=<ms>.  Timeout in case of no response from HAB to raw data uplink.
+	
+	HABChannel=<channel>.  Specifies LoRa channel (0 or 1) used for telnet-style communications.
 	
 	Latitude=<decimal position>
 	Longitude=<decimal position>.  These let you tell the gateway your position, for uploading to habitat, so your listener icon appears on the map in the correct position.
@@ -224,6 +223,19 @@ Many thanks to David Brooke for coding this feature and the AFC.
 Change History
 ==============
 
+12/02/2018 - V1.8.14
+--------------------
+
+    By Phil Crump:
+	
+		Added separate thread for listener telemetry/information upload (Listener telemetry is uploaded every 30 minutes to maintain map marker)
+	
+		Corrected incremental tuning units 'MHz' -> 'kHz', and added lowercase letters in tuning lookup table
+		
+	By me:
+	
+		Added config description to this file for telnet-like HAB communications link
+	
 01/10/2017 - V1.8.12
 --------------------
 
