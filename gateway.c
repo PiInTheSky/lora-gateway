@@ -34,6 +34,7 @@
 #include "gateway.h"
 #include "config.h"
 #include "gui.h"
+#include "listener.h"
 
 #define VERSION	"V1.8.12"
 bool run = TRUE;
@@ -721,97 +722,6 @@ void ProcessCallingMessage(int Channel, char *Message)
         Config.LoRaDevices[Channel].InCallingMode = 1;
 
         // ChannelPrintf(Channel, 1, 1, "Channel %d %7.3lfMHz              ", Channel, Frequency);
-    }
-}
-
-size_t write_data( void *buffer, size_t size, size_t nmemb, void *userp )
-{
-    return size * nmemb;
-}
-
-void UploadListenerTelemetry( char *callsign, float gps_lat, float gps_lon, char *antenna )
-{
-    int time_epoch = ( int ) time( NULL );
-    if ( Config.EnableHabitat )
-    {
-        CURL *curl;
-        CURLcode res;
-        char PostFields[300];
-        char JsonData[200];
-
-        /* In windows, this will init the winsock stuff */
-
-        /* get a curl handle */
-        curl = curl_easy_init(  );
-        if ( curl )
-        {
-            // So that the response to the curl POST doesn;'t mess up my finely crafted display!
-            curl_easy_setopt( curl, CURLOPT_WRITEFUNCTION, write_data );
-
-            // Set the URL that is about to receive our POST
-            curl_easy_setopt( curl, CURLOPT_URL,
-                              "http://habitat.habhub.org/transition/listener_telemetry" );
-
-            // Now specify the POST data
-            sprintf( JsonData, "{\"latitude\": %f, \"longitude\": %f}",
-                     gps_lat, gps_lon );
-            sprintf( PostFields, "callsign=%s&time=%d&data=%s", callsign,
-                     time_epoch, JsonData );
-            curl_easy_setopt( curl, CURLOPT_POSTFIELDS, PostFields );
-
-            // Perform the request, res will get the return code
-            res = curl_easy_perform( curl );
-
-            // Check for errors
-            if ( res == CURLE_OK )
-            {
-                LogMessage( "Uploaded listener %s position %f,%f\n",
-                            Config.Tracker, Config.latitude,
-                            Config.longitude );
-            }
-            else
-            {
-                LogMessage( "curl_easy_perform() failed: %s\n",
-                            curl_easy_strerror( res ) );
-            }
-
-            // always cleanup
-            curl_easy_cleanup( curl );
-        }
-
-        /* In windows, this will init the winsock stuff */
-
-        /* get a curl handle */
-        curl = curl_easy_init(  );
-        if ( curl )
-        {
-            // So that the response to the curl POST doesn;'t mess up my finely crafted display!
-            curl_easy_setopt( curl, CURLOPT_WRITEFUNCTION, write_data );
-
-            // Set the URL that is about to receive our POST
-            curl_easy_setopt( curl, CURLOPT_URL,
-                              "http://habitat.habhub.org/transition/listener_information" );
-
-            // Now specify the POST data
-            sprintf( JsonData, "{\"radio\": \"%s\", \"antenna\": \"%s\"}",
-                     "LoRa RFM98W", antenna );
-            sprintf( PostFields, "callsign=%s&time=%d&data=%s", Config.Tracker, time_epoch, JsonData );
-            curl_easy_setopt( curl, CURLOPT_POSTFIELDS, PostFields );
-
-            // Perform the request, res will get the return code
-            res = curl_easy_perform( curl );
-
-            // Check for errors
-            if ( res != CURLE_OK )
-            {
-                LogMessage( "curl_easy_perform() failed: %s\n",
-                            curl_easy_strerror( res ) );
-            }
-
-            // always cleanup
-            curl_easy_cleanup( curl );
-        }
-
     }
 }
 
@@ -2243,7 +2153,7 @@ int main( int argc, char **argv )
     int ch;
     int LoopPeriod, MSPerLoop;
 	int Channel;
-    pthread_t SSDVThread, FTPThread, NetworkThread, HabitatThread, ServerThread, TelnetThread;
+    pthread_t SSDVThread, FTPThread, NetworkThread, HabitatThread, ServerThread, TelnetThread, ListenerThread;
 	struct TServerInfo JSONInfo, TelnetInfo;
 
 	atexit(bye);
@@ -2383,8 +2293,11 @@ int main( int argc, char **argv )
 
     if ( ( Config.latitude > -90 ) && ( Config.longitude > -90 ) )
     {
-        UploadListenerTelemetry( Config.Tracker, Config.latitude,
-                                 Config.longitude, Config.antenna );
+        if ( pthread_create( &ListenerThread, NULL, ListenerLoop, NULL ) )
+        {
+            fprintf( stderr, "Error creating Listener thread\n" );
+            return 1;
+        }
     }
 
     char buffer[300];
