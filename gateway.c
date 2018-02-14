@@ -64,6 +64,7 @@ uint8_t currentMode = 0x81;
 #define REG_FREQ_ERROR				0x28
 #define REG_DETECT_OPT				0x31
 #define	REG_DETECTION_THRESHOLD		0x37
+#define	REG_VERSION					0x42
 
 // MODES
 #define RF98_MODE_RX_CONTINUOUS     0x85
@@ -1313,6 +1314,12 @@ void setupRFM98( int Channel )
         if ( wiringPiSPISetup( Channel, 500000 ) < 0 )
         {
             exit_error("Failed to open SPI port.  Try loading spi library with 'gpio load spi'" );
+        }
+
+        if ( readRegister( Channel, REG_VERSION ) == 0x00 )
+        {
+            LogMessage("Error: RFM not found on channel %d, Disabling.\n", Channel);
+            Config.LoRaDevices[Channel].InUse = false;
         }
 
         // LoRa mode 
