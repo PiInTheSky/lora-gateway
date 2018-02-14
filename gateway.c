@@ -1308,6 +1308,13 @@ void setupRFM98( int Channel )
         pinMode( Config.LoRaDevices[Channel].DIO0, INPUT );
         pinMode( Config.LoRaDevices[Channel].DIO5, INPUT );
 
+        if( digitalRead( Config.LoRaDevices[Channel].DIO5 ) == 0 )
+        {
+            LogMessage("Warning: DIO5 pin is misconfigured on channel %d, Disabling.\n", Channel);
+            Config.LoRaDevices[Channel].InUse = false;
+            return;
+        }
+
         wiringPiISR( Config.LoRaDevices[Channel].DIO0, INT_EDGE_RISING,
                      Channel > 0 ? &DIO0_Interrupt_1 : &DIO0_Interrupt_0 );
 
