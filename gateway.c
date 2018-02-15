@@ -1308,13 +1308,6 @@ void setupRFM98( int Channel )
         pinMode( Config.LoRaDevices[Channel].DIO0, INPUT );
         pinMode( Config.LoRaDevices[Channel].DIO5, INPUT );
 
-        if( digitalRead( Config.LoRaDevices[Channel].DIO5 ) == 0 )
-        {
-            LogMessage("Error: DIO5 pin is misconfigured on Channel %d, Disabling.\n", Channel);
-            Config.LoRaDevices[Channel].InUse = 0;
-            return;
-        }
-
         wiringPiISR( Config.LoRaDevices[Channel].DIO0, INT_EDGE_RISING,
                      Channel > 0 ? &DIO0_Interrupt_1 : &DIO0_Interrupt_0 );
 
@@ -1326,6 +1319,13 @@ void setupRFM98( int Channel )
         if ( readRegister( Channel, REG_VERSION ) == 0x00 )
         {
             LogMessage("Error: RFM not found on Channel %d, Disabling.\n", Channel);
+            Config.LoRaDevices[Channel].InUse = 0;
+            return;
+        }
+
+        if( digitalRead( Config.LoRaDevices[Channel].DIO5 ) == 0 )
+        {
+            LogMessage("Error: DIO5 pin is misconfigured on Channel %d, Disabling.\n", Channel);
             Config.LoRaDevices[Channel].InUse = 0;
             return;
         }
