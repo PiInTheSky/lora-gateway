@@ -1,11 +1,12 @@
 #ifndef _H_Gateway
 #define _H_Gateway
 
-int receiveMessage( int Channel, char *message );
+#include "global.h"
+
+int receiveMessage( int Channel, char *message, rx_metadata_t *Metadata );
 void hexdump_buffer( const char *title, const char *buffer,
                      const int len_buffer );
-void LogPacket( int Channel, int8_t SNR, int RSSI, double FreqError,
-                int Bytes, unsigned char MessageType );
+void LogPacket( rx_metadata_t *Metadata, int Bytes, unsigned char MessageType );
 void LogTelemetryPacket( char *Telemetry );
 void LogMessage( const char *format, ... );
 void ChannelPrintf( int Channel, int row, int column, const char *format,
