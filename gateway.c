@@ -2055,78 +2055,6 @@ void SendUplinkMessage( int Channel )
     }
 }
 
-void
-rjh_post_message( int Channel, char *buffer )
-{
-    if ( Config.LoRaDevices[Channel].Sending )
-    {
-        Config.LoRaDevices[Channel].Sending = 0;
-        // LogMessage("Ch%d: End of Tx\n", Channel);
-
-        setLoRaMode( Channel );
-        SetDefaultLoRaParameters( Channel );
-        startReceiving( Channel );
-    }
-    else
-    {
-        int Bytes;
-        char Message[257];
-
-        memcpy( Message + 1, buffer, 256 );
-
-        // hexdump_buffer ("RJH Raw Data", Message, 257);
-
-        Bytes = strlen( buffer );
-
-        if ( Bytes > 0 )
-        {
-            if ( Config.LoRaDevices[Channel].ActivityLED >= 0 )
-            {
-                digitalWrite( Config.LoRaDevices[Channel].ActivityLED, 1 );
-                LEDCounts[Channel] = 5;
-            }
-
-            if ( Message[1] == '!' )
-            {
-                ProcessUploadMessage( Channel, Message + 1 );
-            }
-            else if ( Message[1] == '^' )
-            {
-                ProcessCallingMessage( Channel, Message + 1 );
-            }
-            else if ( Message[1] == '$' )
-            {
-                //LogMessage("Ch %d: Uploaded message %s\n", Channel, Message+1);
-                ProcessTelemetryMessage( Channel, Message + 1 );
-            }
-            else if ( Message[1] == '>' )
-            {
-                LogMessage( "Flight Controller message %d bytes = %s", Bytes,
-                            Message + 1 );
-            }
-            else if ( Message[1] == '*' )
-            {
-                LogMessage( "Uplink Command message %d bytes = %s", Bytes,
-                            Message + 1 );
-            }
-            else if ( Message[1] == 0x66 || Message[1] == 0x68 )
-            {
-                ProcessSSDVMessage( Channel, Message, 0);
-            }
-            else
-            {
-                LogMessage( "Unknown packet type is %02Xh, RSSI %d\n", Message[1], PacketRSSI(Channel));
-                ChannelPrintf( Channel, 3, 1, "Unknown Packet %d, %d bytes", Message[0], Bytes);
-                Config.LoRaDevices[Channel].UnknownCount++;
-            }
-
-            // Config.LoRaDevices[Channel].LastPacketAt = time( NULL );
-
-            ShowPacketCounts( Channel );
-        }
-    }
-}
-
 void displayChannel (int Channel) {
 
     displayFrequency ( Channel, Config.LoRaDevices[Channel].Frequency );
@@ -2254,8 +2182,6 @@ int main( int argc, char **argv )
 		}
     }
 
-    // RJH close (telem_pipe_fd[0]); // Close the read side of the pipe as we are writing here
-
     if (Config.ServerPort > 0)
     {
 		JSONInfo.Port = Config.ServerPort;
@@ -2300,51 +2226,15 @@ int main( int argc, char **argv )
         }
     }
 
-    char buffer[300];
-    char ssdv_buff[257];
-    int message_count = 0;
-
-    char fileName[20] = "telem.txt";
-    FILE *file_telem = fopen( fileName, "r" );
-
-    char fileName_ssdv[20] = "ssdv.bin";
-    FILE *file_ssdv = fopen( fileName_ssdv, "rb" );
-
     LogMessage( "Starting now ...\n" );
 
-    while ( run )               //  && message_count< 9) // RJH Used for debug
+    while ( run )
     {
 		// Keypress tests
         if ((ch = getch()) != ERR )
         {
             ProcessKeyPress( ch );
         }
-
-        // RJH Test mode
-        if ( message_count % 10 == 9 )
-        {
-            if ( file_telem )
-            {
-                if ( fgets( buffer, sizeof( buffer ), file_telem ) )
-                {
-                    rjh_post_message( 1, buffer );
-                }
-            }
-            message_count++;    // We need to increment this here or we will lock
-        }
-        else
-        {
-            if ( file_ssdv )
-            {
-                if ( fread( ssdv_buff, 256, 1, file_ssdv ) )
-                {
-                    ssdv_buff[256] = '\0';
-                    rjh_post_message( 1, &ssdv_buff[1] );
-                }
-            }
-            message_count++;    // We need to increment this here or we will lock
-        }
-
 
 		// Telnet uplink to HAB
 		if (Config.HABPort > 0)
@@ -2481,8 +2371,6 @@ int main( int argc, char **argv )
     // CloseDisplay( mainwin );
 
     pthread_mutex_destroy( &var );
-
-    // sleep (3);
 
     curl_global_cleanup(  );    // RJH thread safe
 
