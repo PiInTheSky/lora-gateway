@@ -214,8 +214,6 @@ void *HabitatLoop( void *vars )
 
                 ChannelPrintf( t.Metadata.Channel, 6, 1, "Habitat" );
 
-                LogTelemetryPacket( t.Telemetry );
-
                 UploadTelemetryPacket( &t );
 
                 ChannelPrintf( t.Metadata.Channel, 6, 1, "       " );
