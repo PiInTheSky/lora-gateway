@@ -285,11 +285,33 @@ void LogPacket( rx_metadata_t *Metadata, int Bytes, unsigned char MessageType )
             struct tm *tm;
             tm = localtime( &Metadata->Timestamp );
 
-            /* TODO: Expand this from Metadata as per Issue #5 */
             fprintf( fp,
-                     "%02d:%02d:%02d - Ch %d, SNR %d, RSSI %d, FreqErr %.1lf, Bytes %d, Type %02Xh\n",
-                     tm->tm_hour, tm->tm_min, tm->tm_sec, Metadata->Channel, Metadata->SNR, Metadata->RSSI,
-                     Metadata->FrequencyError*1000, Bytes, MessageType );
+                     "%02d:%02d:%02d"
+                     " - Ch %d"
+                     ", SNR %d"
+                     ", RSSI %d"
+                     ", Freq %.1lf"
+                     ", FreqErr %.1lf"
+                     ", BW %.2lf"
+                     ", EC 4:%d"
+                     ", SF %d"
+                     ", LDRO %d"
+                     ", Impl %d"
+                     ", Bytes %d"
+                     ", Type %02Xh\n",
+                     tm->tm_hour, tm->tm_min, tm->tm_sec,
+                     Metadata->Channel,
+                     Metadata->SNR,
+                     Metadata->RSSI,
+                     Metadata->Frequency*1000, /* NB: in KHz */
+                     Metadata->FrequencyError*1000, /* NB: in KHz */
+                     Metadata->Bandwidth,
+                     Metadata->ErrorCoding,
+                     Metadata->SpreadingFactor,
+                     Metadata->LowDataRateOptimize,
+                     Metadata->ImplicitOrExplicit,
+                     Bytes,
+                     MessageType );
 
             fclose( fp );
         }
