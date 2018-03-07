@@ -286,7 +286,8 @@ void LogPacket( rx_metadata_t *Metadata, int Bytes, unsigned char MessageType )
             tm = localtime( &Metadata->Timestamp );
 
             fprintf( fp,
-                     "%02d:%02d:%02d"
+                     "%04d-%02d-%02d"
+                     " %02d:%02d:%02d"
                      " - Ch %d"
                      ", SNR %d"
                      ", RSSI %d"
@@ -299,6 +300,7 @@ void LogPacket( rx_metadata_t *Metadata, int Bytes, unsigned char MessageType )
                      ", Impl %d"
                      ", Bytes %d"
                      ", Type %02Xh\n",
+                     (tm->tm_year + 1900), (tm->tm_mon + 1), tm->tm_mday,
                      tm->tm_hour, tm->tm_min, tm->tm_sec,
                      Metadata->Channel,
                      Metadata->SNR,
