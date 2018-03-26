@@ -76,6 +76,10 @@ struct TPayload
 	int HABUplinkCount;
 	int GotHABReply;
 	int GotReply;	
+	
+	// Local data packets
+	int LocalDataCount;
+	char LocalDataBuffer[255];
 };
  struct TConfig  {   	char Tracker[16];				// Callsign or name of receiver
 	double latitude, longitude;		// Receiver's location
@@ -97,6 +101,7 @@ struct TPayload
 	int HABPort;				// Telnet style port for comms with HAB
 	int HABTimeout;				// Timeout in ms for telnet uplink
 	int HABChannel;				// LoRa Channel for uplink
+	int DataPort;				// Raw received data packet port
 	char SMSFolder[64];
 	char antenna[64];
 	int EnableDev;

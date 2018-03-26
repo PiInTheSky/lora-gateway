@@ -161,6 +161,7 @@ int SendJSON(int connfd)
 
 void *ServerLoop( void *some_void_ptr )
 {
+	static char *ChannelName[3] = {"HAB", "JSON", "DATA"};
     struct sockaddr_in serv_addr;
 	struct TServerInfo *ServerInfo;
 	
@@ -173,7 +174,7 @@ void *ServerLoop( void *some_void_ptr )
     serv_addr.sin_addr.s_addr = htonl( INADDR_ANY );
     serv_addr.sin_port = htons(ServerInfo->Port);
 
-    LogMessage( "Listening on %s port %d\n", ServerInfo->ServerIndex ? "HAB" : "JSON", ServerInfo->Port);
+    LogMessage( "Listening on %s port %d\n", ChannelName[ServerInfo->ServerIndex], ServerInfo->Port);
 
     if (setsockopt(ServerInfo->sockfd, SOL_SOCKET, SO_REUSEADDR, &(int){1}, sizeof(int)) < 0)
 	{
@@ -190,6 +191,7 @@ void *ServerLoop( void *some_void_ptr )
 	
     while (run)
     {
+		static char *ChannelName[3] = {"HAB", "JSON", "DATA"};
 		int SendEveryMS = 1000;
 		int MSPerLoop=100;
         int ms=0;
@@ -201,7 +203,7 @@ void *ServerLoop( void *some_void_ptr )
 
         connfd = accept(ServerInfo->sockfd, ( struct sockaddr * ) NULL, NULL );	// Wait for connection
 
-        LogMessage( "Connected to %s client\n", ServerInfo->ServerIndex ? "HAB" : "JSON");
+        LogMessage( "Connected to %s client\n", ChannelName[ServerInfo->ServerIndex]);
 		ServerInfo->Connected = 1;
 
 		fcntl(connfd, F_SETFL, fcntl(ServerInfo->sockfd, F_GETFL) | O_NONBLOCK);	// Non-blocking, so we don't block on receiving any commands from client
@@ -238,7 +240,7 @@ void *ServerLoop( void *some_void_ptr )
 					ServerInfo->Connected = 0;
 				}
 			}
-			else
+			else if (ServerInfo->ServerIndex == 1)
 			{
 				char RxByte;
 				
@@ -246,6 +248,15 @@ void *ServerLoop( void *some_void_ptr )
 				{
 					Config.LoRaDevices[Config.HABChannel].FromTelnetBuffer[Config.LoRaDevices[Config.HABChannel].FromTelnetBufferCount++] = RxByte;
 					LogMessage("KEYB BUFFER %d BYTES\n", Config.LoRaDevices[Config.HABChannel].FromTelnetBufferCount);
+				}
+			}
+			else if (ServerInfo->ServerIndex == 2)
+			{
+				char RxByte;
+				
+				while ((bytecount = recv(connfd, &RxByte, 1, 0)) > 0)
+				{
+					// Nothing as we are only sending
 				}
 			}
 			
@@ -272,7 +283,7 @@ void *ServerLoop( void *some_void_ptr )
 						ms = 0;
 					}
 				}
-				else
+				else if (ServerInfo->ServerIndex == 1)
 				{
 					int Channel;
 					
@@ -286,7 +297,21 @@ void *ServerLoop( void *some_void_ptr )
 						}
 
 					}
+				}
+				else if (ServerInfo->ServerIndex == 2)
+				{
+					int Channel;
+					
+					for (Channel=0; Channel<=1; Channel++)
 
+					{
+						if (Config.LoRaDevices[Channel].LocalDataCount > 0)
+						{
+							send(connfd, Config.LoRaDevices[Channel].LocalDataBuffer, Config.LoRaDevices[Channel].LocalDataCount, 0);
+							Config.LoRaDevices[Channel].LocalDataCount = 0;
+						}
+
+					}
 				}
 			}
 			

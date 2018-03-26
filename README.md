@@ -93,6 +93,8 @@ The global options are:
 
 	HABPort=<port>.  Opens a server socket which can have 1 client connected.  Port is a raw data stream between gateway and HAB (e.g. for Telnet-like communications).  Note: The corresponding functionality at the tracker end has not been published.
 	
+	DataPort=<port>.  Opens a server socket which can have 1 client connected.  Sends raw telemetry (i.e. $$payload,....) to that client.
+
 	HABTimeout=<ms>.  Timeout in case of no response from HAB to raw data uplink.
 	
 	HABChannel=<channel>.  Specifies LoRa channel (0 or 1) used for telnet-style communications.
@@ -142,6 +144,8 @@ and the channel-specific options are:
 Lines are commented out with "#" at the start.
 
 If the frequency_n line is commented out, then that channel is disabled.
+
+The program now performs some checks to determine if each selected LoRa module is present or not.  If you see a message "RFM not found on Channel" then check the SPI settings/wiring for that channel.  If you see "DIO5 pin is misconfigured on Channel" then check the DIO5 setting/wiring.  There is no current check for DIO0; any problems with that pin will result in packets not being received. 
 
 
 Uplinks
@@ -222,6 +226,33 @@ Many thanks to David Brooke for coding this feature and the AFC.
 
 Change History
 ==============
+
+26/03/2018 - V1.18.15
+---------------------
+
+    By Phil Crump:
+	
+		Detect if DIO5 isn't correctly mapped (default level != high), warn and disables the channel.
+
+		Detect if the RFM isn't responding (reg 0x42 == 0x00), warn and disables the channel.
+
+		Warn if both receivers are disabled or unconfigured.	
+
+		Removed message queue test code - functionality was behind that of the main code path, and would have required updating for the other changes in this set.
+
+		Added storage of at-time-of-receive-configuration in rx_metadata_t struct. This is copied into the queued telemetry_t structure when a Telemetry Packet is processed.
+
+		Added upload of receiver frequency (with detected offset) to Habitat with payload telemetry ( Issue #15 ). Mostly ported from Pull Req #28 which has been tested by @dbrooke .
+
+		Added logging of additional metadata parameters in packet.log (Issue #5 )
+
+		Removed duplicate 'LogTelemetryPacket()' call in habitat thread. (Already called in ProcessTelemetryMessage)
+		
+	By me:
+	
+		Added "Dataport" server socket for raw data (like port 7322 in dl-fldigi)
+		Added "<" sentence type, for telemetry that is not to be uploaded to Habitat.
+
 
 12/02/2018 - V1.8.14
 --------------------

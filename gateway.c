@@ -1,4 +1,5 @@
 #include <features.h>
+#include <features.h>
 #define __USE_XOPEN
 #include <stdio.h>
 #include <stdio.h>
@@ -36,7 +37,7 @@
 #include "gui.h"
 #include "listener.h"
 
-#define VERSION	"V1.8.14"
+#define VERSION	"V1.8.15"
 bool run = TRUE;
 
 // RFM98
@@ -1236,10 +1237,18 @@ void DIO0_Interrupt( int Channel )
             {
                 ProcessTelemetryMessage(Channel, Message + 1, &Metadata);
                 TestMessageForSMSAcknowledgement( Channel, Message + 1);
+				strcpy(Config.LoRaDevices[Channel].LocalDataBuffer, Message+1);
+				Config.LoRaDevices[Channel].LocalDataCount = Bytes+1;
             }
             else if ( Message[1] == '>' )
             {
                 LogMessage( "Flight Controller message %d bytes = %s\n", Bytes, Message + 1 );
+            }
+            else if ( Message[1] == '<' )
+            {
+                LogMessage("Local Data %d bytes = %s", Bytes, Message+1);
+				strcpy(Config.LoRaDevices[Channel].LocalDataBuffer, Message+1);
+				Config.LoRaDevices[Channel].LocalDataCount = Bytes;
             }
             else if ( Message[1] == '*' )
             {
@@ -1539,9 +1548,10 @@ void LoadConfigFile(void)
     RegisterConfigInteger(MainSection, -1, "ActivityLED_0", &Config.LoRaDevices[0].ActivityLED, NULL);
     RegisterConfigInteger(MainSection, -1, "ActivityLED_1", &Config.LoRaDevices[1].ActivityLED, NULL);
 
-    // Socket
+    // Sockets
     RegisterConfigInteger(MainSection, -1, "ServerPort", &Config.ServerPort, NULL);		// JSON server
     RegisterConfigInteger(MainSection, -1, "HABPort", &Config.HABPort, NULL);			// Telnet server
+    RegisterConfigInteger(MainSection, -1, "DataPort", &Config.DataPort, NULL);			// Raw data server
 	
 	// Timeout for HAB Telnet uplink
 	Config.HABTimeout = 4000;
@@ -2124,8 +2134,8 @@ int main( int argc, char **argv )
     int ch;
     int LoopPeriod, MSPerLoop;
 	int Channel;
-    pthread_t SSDVThread, FTPThread, NetworkThread, HabitatThread, ServerThread, TelnetThread, ListenerThread;
-	struct TServerInfo JSONInfo, TelnetInfo;
+    pthread_t SSDVThread, FTPThread, NetworkThread, HabitatThread, ServerThread, TelnetThread, ListenerThread, DataportThread;
+	struct TServerInfo JSONInfo, TelnetInfo, DataportInfo;
 
 	atexit(bye);
 	
@@ -2252,6 +2262,19 @@ int main( int argc, char **argv )
         if (pthread_create(&TelnetThread, NULL, ServerLoop, (void *)(&TelnetInfo)))
         {
             fprintf( stderr, "Error creating HAB server thread\n" );
+            return 1;
+        }
+    }
+	
+    if (Config.DataPort > 0)
+    {
+		DataportInfo.Port = Config.DataPort;
+		DataportInfo.ServerIndex = 2;
+		DataportInfo.Connected = 0;
+		
+        if (pthread_create(&DataportThread, NULL, ServerLoop, (void *)(&DataportInfo)))
+        {
+            fprintf( stderr, "Error creating DATA server thread\n" );
             return 1;
         }
     }
