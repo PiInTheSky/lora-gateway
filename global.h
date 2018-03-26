@@ -1,3 +1,6 @@
+#ifndef _H_Global
+#define _H_Global
+
 #include <curses.h>
 
 #define RUNNING 1               // The main program is running
@@ -105,9 +108,23 @@ struct TPayload
 } thread_shared_vars_t;
 
 typedef struct {
+    /* Rx Metadata */
     short int Channel;
+    time_t Timestamp;
+    double Frequency;
+    double FrequencyError;
+    int ImplicitOrExplicit;
+    double Bandwidth;
+    int ErrorCoding;
+    int SpreadingFactor;
+    int LowDataRateOptimize;
+    int SNR;
+    int RSSI;
+} rx_metadata_t;
+
+typedef struct {
     char Telemetry[257];
-    int Packet_Number;
+    rx_metadata_t Metadata;
 } telemetry_t;
 
 typedef struct {
@@ -128,3 +145,5 @@ extern struct TConfig Config;
 extern int SSDVSendArrayIndex;
 extern pthread_mutex_t ssdv_mutex;
  void LogMessage( const char *format, ... );
+
+#endif /* _H_Global */

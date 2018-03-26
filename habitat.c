@@ -62,18 +62,22 @@ void UploadTelemetryPacket( telemetry_t * t )
         SHA256_CTX ctx;
         unsigned char hash[32];
         char doc_id[100];
-        char json[1000], now[32];
+        char json[1000], now[32], doc_time[32];
         char Sentence[512];
         struct curl_slist *headers = NULL;
         time_t rawtime;
-        struct tm *tm;
+        struct tm *tm, *doc_tm;
 		int retries;
 		long int http_resp;
 
-        // Get formatted timestamp
+        // Get formatted timestamp for now
         time( &rawtime );
         tm = gmtime( &rawtime );
         strftime( now, sizeof( now ), "%Y-%0m-%0dT%H:%M:%SZ", tm );
+
+        // Get formatted timestamp for doc timestamp
+        doc_tm = gmtime( &t->Metadata.Timestamp );
+        strftime( doc_time, sizeof( doc_time ), "%Y-%0m-%0dT%H:%M:%SZ", doc_tm );
 
         // So that the response to the curl PUT doesn't mess up my finely crafted display!
         curl_easy_setopt( curl, CURLOPT_WRITEFUNCTION, habitat_write_data );
@@ -102,13 +106,10 @@ void UploadTelemetryPacket( telemetry_t * t )
         sha256_final( &ctx, hash );
         hash_to_hex( hash, doc_id );
 
-        char counter[10];
-        sprintf( counter, "%d", t->Packet_Number );
-
         // Create json with the base64 data in hex, the tracker callsign and the current timestamp
         sprintf( json,
-                 "{\"data\": {\"_raw\": \"%s\"},\"receivers\": {\"%s\": {\"time_created\": \"%s\",\"time_uploaded\": \"%s\"}}}",
-                 base64_data, Config.Tracker, now, now );
+                 "{\"data\": {\"_raw\": \"%s\"},\"receivers\": {\"%s\": {\"time_created\": \"%s\",\"time_uploaded\": \"%s\",\"rig_info\": {\"frequency\":%.0f}}}}",
+                 base64_data, Config.Tracker, doc_time, now, (t->Metadata.Frequency + t->Metadata.FrequencyError) * 1000000 );
 
         // LogTelemetryPacket(json);
 
@@ -211,13 +212,11 @@ void *HabitatLoop( void *vars )
             {
                 // LogMessage ("%s\n", t.Telemetry);
 
-                ChannelPrintf( t.Channel, 6, 1, "Habitat" );
-
-                LogTelemetryPacket( t.Telemetry );
+                ChannelPrintf( t.Metadata.Channel, 6, 1, "Habitat" );
 
                 UploadTelemetryPacket( &t );
 
-                ChannelPrintf( t.Channel, 6, 1, "       " );
+                ChannelPrintf( t.Metadata.Channel, 6, 1, "       " );
 
                 total_packets++;
 

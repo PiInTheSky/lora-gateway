@@ -195,8 +195,6 @@ thread_shared_vars_t htsv;
 // GLOBAL AS CALLED FROM INTERRRUPT
 thread_shared_vars_t stsv;
 
-int habitate_telem_packets = 0;
-
 WINDOW *mainwin=NULL;		// Curses window
 
 void CloseDisplay( WINDOW * mainwin )
@@ -277,7 +275,7 @@ readRegister( int Channel, uint8_t reg )
     return val;
 }
 
-void LogPacket( int Channel, int8_t SNR, int RSSI, double FreqError, int Bytes, unsigned char MessageType )
+void LogPacket( rx_metadata_t *Metadata, int Bytes, unsigned char MessageType )
 {
     if ( Config.EnablePacketLogging )
     {
@@ -285,16 +283,38 @@ void LogPacket( int Channel, int8_t SNR, int RSSI, double FreqError, int Bytes, 
 
         if ( ( fp = fopen( "packets.txt", "at" ) ) != NULL )
         {
-            time_t now;
             struct tm *tm;
-
-            now = time( 0 );
-            tm = localtime( &now );
+            tm = localtime( &Metadata->Timestamp );
 
             fprintf( fp,
-                     "%02d:%02d:%02d - Ch %d, SNR %d, RSSI %d, FreqErr %.1lf, Bytes %d, Type %02Xh\n",
-                     tm->tm_hour, tm->tm_min, tm->tm_sec, Channel, SNR, RSSI,
-                     FreqError, Bytes, MessageType );
+                     "%04d-%02d-%02d"
+                     " %02d:%02d:%02d"
+                     " - Ch %d"
+                     ", SNR %d"
+                     ", RSSI %d"
+                     ", Freq %.1lf"
+                     ", FreqErr %.1lf"
+                     ", BW %.2lf"
+                     ", EC 4:%d"
+                     ", SF %d"
+                     ", LDRO %d"
+                     ", Impl %d"
+                     ", Bytes %d"
+                     ", Type %02Xh\n",
+                     (tm->tm_year + 1900), (tm->tm_mon + 1), tm->tm_mday,
+                     tm->tm_hour, tm->tm_min, tm->tm_sec,
+                     Metadata->Channel,
+                     Metadata->SNR,
+                     Metadata->RSSI,
+                     Metadata->Frequency*1000, /* NB: in KHz */
+                     Metadata->FrequencyError*1000, /* NB: in KHz */
+                     Metadata->Bandwidth,
+                     Metadata->ErrorCoding,
+                     Metadata->SpreadingFactor,
+                     Metadata->LowDataRateOptimize,
+                     Metadata->ImplicitOrExplicit,
+                     Bytes,
+                     MessageType );
 
             fclose( fp );
         }
@@ -849,7 +869,7 @@ void ProcessLine(int Channel, char *Line)
 }
 
 
-void ProcessTelemetryMessage(int Channel, char *Message)
+void ProcessTelemetryMessage(int Channel, char *Message, rx_metadata_t *Metadata)
 {
     if (strlen(Message + 1) < 250)
     {
@@ -870,10 +890,6 @@ void ProcessTelemetryMessage(int Channel, char *Message)
         while ( endmessage != NULL )
         {
 			int Repeated;
-			
-            habitate_telem_packets++;
-
-            time_t now;
             struct tm *tm;
 
             *endmessage = '\0';
@@ -889,8 +905,7 @@ void ProcessTelemetryMessage(int Channel, char *Message)
 
             ProcessLine(Channel, startmessage);
 
-            now = time( 0 );
-            tm = localtime( &now );
+            tm = localtime( &Metadata->Timestamp );
 
 
             if ( Config.EnableHabitat )
@@ -898,9 +913,8 @@ void ProcessTelemetryMessage(int Channel, char *Message)
 
                 // Create a telemetry packet
                 telemetry_t t;
-                t.Channel = Channel;
-                t.Packet_Number = habitate_telem_packets;
                 memcpy( t.Telemetry, startmessage, strlen( startmessage ) + 1 );
+                memcpy( &t.Metadata, Metadata, sizeof( rx_metadata_t ) );
 
                 // Add the telemetry packet to the pipe
                 int result = write( telem_pipe_fd[1], &t, sizeof( t ) );
@@ -926,7 +940,7 @@ void ProcessTelemetryMessage(int Channel, char *Message)
 			endmessage = strchr( startmessage, '\n' );
         }
 
-        Config.LoRaDevices[Channel].LastTelemetryPacketAt = time( NULL );
+        Config.LoRaDevices[Channel].LastTelemetryPacketAt = Metadata->Timestamp;
     }
 }
 
@@ -1194,8 +1208,11 @@ void DIO0_Interrupt( int Channel )
     {
         int Bytes;
         char Message[257];
+        rx_metadata_t Metadata;
 
-        Bytes = receiveMessage( Channel, Message + 1 );
+        Metadata.Channel = Channel;
+
+        Bytes = receiveMessage( Channel, Message + 1, &Metadata );
 		
 		Config.LoRaDevices[Channel].GotReply = 1;		
 
@@ -1217,7 +1234,7 @@ void DIO0_Interrupt( int Channel )
             }
             else if ((Message[1] == '$') || (Message[1] == '%'))
             {
-                ProcessTelemetryMessage(Channel, Message + 1);
+                ProcessTelemetryMessage(Channel, Message + 1, &Metadata);
                 TestMessageForSMSAcknowledgement( Channel, Message + 1);
             }
             else if ( Message[1] == '>' )
@@ -1358,7 +1375,7 @@ double FrequencyError( int Channel )
 }
 
 int
-receiveMessage( int Channel, char *message )
+receiveMessage( int Channel, char *message, rx_metadata_t *Metadata )
 {
     int i, Bytes, currentAddr, x;
     unsigned char data[257];
@@ -1388,7 +1405,9 @@ receiveMessage( int Channel, char *message )
         currentAddr = readRegister( Channel, REG_FIFO_RX_CURRENT_ADDR );
         Bytes = readRegister( Channel, REG_RX_NB_BYTES );
 
-        ChannelPrintf( Channel, 10, 1, "Packet SNR = %d, RSSI = %d      ", PacketSNR(Channel), PacketRSSI(Channel));
+        Metadata->SNR = PacketSNR(Channel);
+        Metadata->RSSI = PacketRSSI(Channel);
+        ChannelPrintf( Channel, 10, 1, "Packet SNR = %d, RSSI = %d      ", Metadata->SNR, Metadata->RSSI);
 
         FreqError = FrequencyError( Channel ) / 1000;
         ChannelPrintf( Channel, 11, 1, "Freq. Error = %5.1lfkHz ", FreqError);
@@ -1404,7 +1423,16 @@ receiveMessage( int Channel, char *message )
 
         message[Bytes] = '\0';
 
-        LogPacket(Channel, PacketSNR(Channel), PacketRSSI(Channel), FreqError, Bytes, message[1]);
+        Metadata->Timestamp = time( NULL );
+        Metadata->Frequency = Config.LoRaDevices[Channel].activeFreq;
+        Metadata->FrequencyError =  FreqError / 1000;
+        Metadata->ImplicitOrExplicit = Config.LoRaDevices[Channel].ImplicitOrExplicit;
+        Metadata->Bandwidth = Config.LoRaDevices[Channel].CurrentBandwidth;
+        Metadata->ErrorCoding = Config.LoRaDevices[Channel].ErrorCoding;
+        Metadata->SpreadingFactor = Config.LoRaDevices[Channel].SpreadingFactor;
+        Metadata->LowDataRateOptimize = Config.LoRaDevices[Channel].LowDataRateOptimize;
+
+        LogPacket(Metadata, Bytes, message[1]);
 
         if (Config.LoRaDevices[Channel].AFC && (fabs( FreqError ) > 0.5))
         {
@@ -2070,78 +2098,6 @@ void SendUplinkMessage( int Channel )
     }
 }
 
-void
-rjh_post_message( int Channel, char *buffer )
-{
-    if ( Config.LoRaDevices[Channel].Sending )
-    {
-        Config.LoRaDevices[Channel].Sending = 0;
-        // LogMessage("Ch%d: End of Tx\n", Channel);
-
-        setLoRaMode( Channel );
-        SetDefaultLoRaParameters( Channel );
-        startReceiving( Channel );
-    }
-    else
-    {
-        int Bytes;
-        char Message[257];
-
-        memcpy( Message + 1, buffer, 256 );
-
-        // hexdump_buffer ("RJH Raw Data", Message, 257);
-
-        Bytes = strlen( buffer );
-
-        if ( Bytes > 0 )
-        {
-            if ( Config.LoRaDevices[Channel].ActivityLED >= 0 )
-            {
-                digitalWrite( Config.LoRaDevices[Channel].ActivityLED, 1 );
-                LEDCounts[Channel] = 5;
-            }
-
-            if ( Message[1] == '!' )
-            {
-                ProcessUploadMessage( Channel, Message + 1 );
-            }
-            else if ( Message[1] == '^' )
-            {
-                ProcessCallingMessage( Channel, Message + 1 );
-            }
-            else if ( Message[1] == '$' )
-            {
-                //LogMessage("Ch %d: Uploaded message %s\n", Channel, Message+1);
-                ProcessTelemetryMessage( Channel, Message + 1 );
-            }
-            else if ( Message[1] == '>' )
-            {
-                LogMessage( "Flight Controller message %d bytes = %s", Bytes,
-                            Message + 1 );
-            }
-            else if ( Message[1] == '*' )
-            {
-                LogMessage( "Uplink Command message %d bytes = %s", Bytes,
-                            Message + 1 );
-            }
-            else if ( Message[1] == 0x66 || Message[1] == 0x68 )
-            {
-                ProcessSSDVMessage( Channel, Message, 0);
-            }
-            else
-            {
-                LogMessage( "Unknown packet type is %02Xh, RSSI %d\n", Message[1], PacketRSSI(Channel));
-                ChannelPrintf( Channel, 3, 1, "Unknown Packet %d, %d bytes", Message[0], Bytes);
-                Config.LoRaDevices[Channel].UnknownCount++;
-            }
-
-            // Config.LoRaDevices[Channel].LastPacketAt = time( NULL );
-
-            ShowPacketCounts( Channel );
-        }
-    }
-}
-
 void displayChannel (int Channel) {
 
     displayFrequency ( Channel, Config.LoRaDevices[Channel].Frequency );
@@ -2274,8 +2230,6 @@ int main( int argc, char **argv )
 		}
     }
 
-    // RJH close (telem_pipe_fd[0]); // Close the read side of the pipe as we are writing here
-
     if (Config.ServerPort > 0)
     {
 		JSONInfo.Port = Config.ServerPort;
@@ -2320,51 +2274,15 @@ int main( int argc, char **argv )
         }
     }
 
-    char buffer[300];
-    char ssdv_buff[257];
-    int message_count = 0;
-
-    char fileName[20] = "telem.txt";
-    FILE *file_telem = fopen( fileName, "r" );
-
-    char fileName_ssdv[20] = "ssdv.bin";
-    FILE *file_ssdv = fopen( fileName_ssdv, "rb" );
-
     LogMessage( "Starting now ...\n" );
 
-    while ( run )               //  && message_count< 9) // RJH Used for debug
+    while ( run )
     {
 		// Keypress tests
         if ((ch = getch()) != ERR )
         {
             ProcessKeyPress( ch );
         }
-
-        // RJH Test mode
-        if ( message_count % 10 == 9 )
-        {
-            if ( file_telem )
-            {
-                if ( fgets( buffer, sizeof( buffer ), file_telem ) )
-                {
-                    rjh_post_message( 1, buffer );
-                }
-            }
-            message_count++;    // We need to increment this here or we will lock
-        }
-        else
-        {
-            if ( file_ssdv )
-            {
-                if ( fread( ssdv_buff, 256, 1, file_ssdv ) )
-                {
-                    ssdv_buff[256] = '\0';
-                    rjh_post_message( 1, &ssdv_buff[1] );
-                }
-            }
-            message_count++;    // We need to increment this here or we will lock
-        }
-
 
 		// Telnet uplink to HAB
 		if (Config.HABPort > 0)
@@ -2501,8 +2419,6 @@ int main( int argc, char **argv )
     // CloseDisplay( mainwin );
 
     pthread_mutex_destroy( &var );
-
-    // sleep (3);
 
     curl_global_cleanup(  );    // RJH thread safe
 
