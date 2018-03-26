@@ -64,6 +64,7 @@ uint8_t currentMode = 0x81;
 #define REG_FREQ_ERROR				0x28
 #define REG_DETECT_OPT				0x31
 #define	REG_DETECTION_THRESHOLD		0x37
+#define	REG_VERSION					0x42
 
 // MODES
 #define RF98_MODE_RX_CONTINUOUS     0x85
@@ -1315,6 +1316,20 @@ void setupRFM98( int Channel )
             exit_error("Failed to open SPI port.  Try loading spi library with 'gpio load spi'" );
         }
 
+        if ( readRegister( Channel, REG_VERSION ) == 0x00 )
+        {
+            LogMessage("Error: RFM not found on Channel %d, Disabling.\n", Channel);
+            Config.LoRaDevices[Channel].InUse = 0;
+            return;
+        }
+
+        if( digitalRead( Config.LoRaDevices[Channel].DIO5 ) == 0 )
+        {
+            LogMessage("Error: DIO5 pin is misconfigured on Channel %d, Disabling.\n", Channel);
+            Config.LoRaDevices[Channel].InUse = 0;
+            return;
+        }
+
         // LoRa mode 
         setLoRaMode( Channel );
 
@@ -2212,6 +2227,11 @@ int main( int argc, char **argv )
 
     setupRFM98( 0 );
     setupRFM98( 1 );
+
+    if(Config.LoRaDevices[0].InUse == 0 && Config.LoRaDevices[1].InUse == 0)
+    {
+        LogMessage("Warning: No Receiver Channels enabled!\n");
+    }
 
     ShowPacketCounts( 0 );
     ShowPacketCounts( 1 );
