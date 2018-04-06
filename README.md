@@ -227,6 +227,14 @@ Many thanks to David Brooke for coding this feature and the AFC.
 Change History
 ==============
 
+
+06/04/2018 - V1.8.16
+--------------------
+
+    Added raw output of $$... sentences to specified port (UDPPort=xx in gateway.txt)
+    Added OziMux format output (TELEMETRY,time,lat,lon,alt) to specified port (OziPort=xx)
+
+
 26/03/2018 - V1.18.15
 ---------------------
 

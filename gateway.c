@@ -36,8 +36,9 @@
 #include "config.h"
 #include "gui.h"
 #include "listener.h"
+#include "udpclient.h"
 
-#define VERSION	"V1.8.15"
+#define VERSION	"V1.8.16"
 bool run = TRUE;
 
 // RFM98
@@ -835,7 +836,7 @@ void DoPositionCalcs(int PayloadIndex)
 void ProcessLine(int Channel, char *Line)
 {
 	int PayloadIndex;
-	char Payload[32];
+	char Payload[32], OziSentence[200];
 
 	// Find free position for this payload
 	sscanf(Line + 2, "%31[^,]", Payload);
@@ -867,6 +868,17 @@ void ProcessLine(int Channel, char *Line)
                   Config.Payloads[PayloadIndex].Latitude,
                   Config.Payloads[PayloadIndex].Longitude,
                   Config.Payloads[PayloadIndex].Altitude);	
+				  
+	// Send out to any OziMux clients
+	if (Config.OziPort > 0)
+	{
+		sprintf(OziSentence, "TELEMETRY,%s,%lf,%lf,%u\n", 
+							 Config.Payloads[PayloadIndex].Time,
+							 Config.Payloads[PayloadIndex].Latitude,
+							 Config.Payloads[PayloadIndex].Longitude,
+							 Config.Payloads[PayloadIndex].Altitude);	
+		UDPSend(OziSentence, Config.OziPort);
+	}
 }
 
 
@@ -1239,6 +1251,7 @@ void DIO0_Interrupt( int Channel )
                 TestMessageForSMSAcknowledgement( Channel, Message + 1);
 				strcpy(Config.LoRaDevices[Channel].LocalDataBuffer, Message+1);
 				Config.LoRaDevices[Channel].LocalDataCount = Bytes+1;
+				UDPSend(Message + 1, Config.UDPPort);
             }
             else if ( Message[1] == '>' )
             {
@@ -1552,6 +1565,11 @@ void LoadConfigFile(void)
     RegisterConfigInteger(MainSection, -1, "ServerPort", &Config.ServerPort, NULL);		// JSON server
     RegisterConfigInteger(MainSection, -1, "HABPort", &Config.HABPort, NULL);			// Telnet server
     RegisterConfigInteger(MainSection, -1, "DataPort", &Config.DataPort, NULL);			// Raw data server
+    RegisterConfigInteger(MainSection, -1, "UDPPort", &Config.UDPPort, NULL);			// UDP Broadcast socket (raw data)
+    RegisterConfigInteger(MainSection, -1, "OziPort", &Config.OziPort, NULL);			// UDP Broadcast socket (OziMux format)
+	
+	if (Config.UDPPort > 0) LogMessage("UDP Broadcast of raw packets on port %d\n", Config.UDPPort);
+	if (Config.OziPort > 0) LogMessage("UDP Broadcast of OziMux packets on port %d\n", Config.OziPort);
 	
 	// Timeout for HAB Telnet uplink
 	Config.HABTimeout = 4000;

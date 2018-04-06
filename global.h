@@ -97,7 +97,9 @@ struct TPayload
 	struct TPayload Payloads[MAX_PAYLOADS];
 	int NetworkLED;
 	int InternetLED;
-	int ServerPort;					// JSON port for telemetry, settings
+	int ServerPort;				// JSON port for telemetry, settings
+	int UDPPort;				// UDP Broadcast port for raw received data packets
+	int OziPort;				// UDP Broadcast port for OziMux formatted packets
 	int HABPort;				// Telnet style port for comms with HAB
 	int HABTimeout;				// Timeout in ms for telnet uplink
 	int HABChannel;				// LoRa Channel for uplink
