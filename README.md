@@ -228,6 +228,16 @@ Change History
 ==============
 
 
+10/04/2018 - V1.8.17
+--------------------
+
+    JSON port only sends telemetry as it is received, instead of repeatedly
+    Append \r\n to sentences sent to data port
+	JSON port now accepts commands split over multiple packets (e.g. typed commands)
+	When saving to gateway.txt, permissions are set to RW/RW/RW, and owner/group are maintained
+	Added Sockets.md to document the available sockets. 
+
+
 06/04/2018 - V1.8.16
 --------------------
 

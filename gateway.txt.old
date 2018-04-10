@@ -1,0 +1,110 @@
+tracker=M0RPI
+EnableHabitat=N
+EnableSSDV=N
+JPGFolder=ssdv
+LogTelemetry=Y
+CallingTimeout=60
+ServerPort=6004
+DataPort=6006
+UDPPort=55671
+OziPort=55672
+
+# Telnet settings
+# HABPort=6005
+# HABChannel=1
+
+Latitude=51.950230
+Longitude=-2.544500
+Antenna=Sigma X-30
+#SMSFolder=./
+# UplinkCode=DAVE
+
+#NetworkLED=21
+#InternetLED=22
+#ActivityLED_0=23
+#ActivityLED_1=24
+
+#----------------- HARDWARE
+DIO0_0=31
+DIO5_0=26
+
+DIO0_1=6
+DIO5_1=5
+
+#----------------- CHANNEL 0
+
+# Standard Fast SSDV
+# frequency_0=869.850
+mode_0=3
+AFC_0=N
+
+# UplinkTime_0=1
+# UplinkCycle_0=60
+# UplinkFrequency_0=869.5
+# UplinkMode_0=2
+# Power_0=143
+# SSDVUplink_0=Y
+
+# ----------------- CHANNEL 1
+
+# BUZZ
+# frequency_1=434.450
+# mode_1=2
+# AFC_1=N
+
+# RTLS1
+frequency_1=434.450000
+mode_1=2
+SF_1=7
+AFC_1=N
+
+# RTLS2 / 3
+# frequency_1=434.225
+# mode_1=2
+# AFC_1=N
+
+# BRUCE
+# frequency_1=434.231
+# mode_1=1
+# AFC_1=Y
+
+# X0
+# frequency_1=434.410
+# mode_1=0
+
+# WB-L
+# frequency_1=434.454
+# mode_1=1
+# AFC_1=Y
+
+# Testing
+# frequency_1=434.455
+# mode_1=1
+
+# TDM settings
+# frequency_1=433.705
+# mode_1=2
+# UplinkTime_1=0
+# UplinkCycle_1=10
+# IdleUplink_1=Y
+
+# SSDV Repeating settings
+# frequency_1=434.231
+# mode_1=8
+
+# Telnet settings
+# frequency_1=434.228
+# mode_1=7
+
+# RTLS settings
+# frequency_1=434.228
+# mode_1=2
+
+# BOUY settings
+# frequency_1=434.4543
+# mode_1=1
+
+#AFC_1=N
+#UplinkTime_1=0
+#UplinkCycle_1=10
+#SSDVUplink=Y

@@ -81,11 +81,9 @@ void ProcessJSONClientLine(int connfd, char *line)
 		}
 	}
 	else
-
 	{
 		// single-word request
-
-		
+	
 		if (strcasecmp(line, "settings") == 0)
 		{
 			int Index;
@@ -131,7 +129,7 @@ int SendJSON(int connfd)
 	
 	for (PayloadIndex=0; PayloadIndex<MAX_PAYLOADS; PayloadIndex++)
 	{
-		if (Config.Payloads[PayloadIndex].InUse)
+		if (Config.Payloads[PayloadIndex].InUse && Config.Payloads[PayloadIndex].SendToClients)
 		{
 			sprintf(sendBuff, "{\"class\":\"POSN\",\"index\":%d,\"channel\":%d,\"payload\":\"%s\",\"time\":\"%s\",\"lat\":%.5lf,\"lon\":%.5lf,\"alt\":%d,\"rate\":%.1lf,\"sentence\":\"%s\"}\r\n",
 					PayloadIndex,
@@ -144,14 +142,18 @@ int SendJSON(int connfd)
 					Config.Payloads[PayloadIndex].AscentRate,
 					Config.Payloads[PayloadIndex].Telemetry);
 
-			if ( !run )
+			if (!run)
 			{
 				port_closed = 1;
 			}
-			else if ( send(connfd, sendBuff, strlen(sendBuff), MSG_NOSIGNAL ) <= 0 )
+			else if (send(connfd, sendBuff, strlen(sendBuff), MSG_NOSIGNAL ) <= 0)
 			{
 				LogMessage( "Disconnected from client\n" );
 				port_closed = 1;
+			}
+			else
+			{
+				Config.Payloads[PayloadIndex].SendToClients = 0;
 			}
 		}
 	}
@@ -192,7 +194,6 @@ void *ServerLoop( void *some_void_ptr )
     while (run)
     {
 		static char *ChannelName[3] = {"HAB", "JSON", "DATA"};
-		int SendEveryMS = 1000;
 		int MSPerLoop=100;
         int ms=0;
 		int connfd;
@@ -218,20 +219,27 @@ void *ServerLoop( void *some_void_ptr )
 			bytecount = -1;
 			if (ServerInfo->ServerIndex == 0)
 			{
+				static char lines[4096];
 				char packet[4096];
 				
 				while ((bytecount = recv(connfd, packet, sizeof(packet), 0)) > 0)
 				{
-					char *line, *saveptr;
+					// JSON server
+					char *lf;
 				
 					packet[bytecount] = 0;
+					strcat(lines, packet);
 					
-					// JSON server
-					line = strtok_r(packet, "\n", &saveptr);
-					while (line)
+					while ((lf = strchr(lines, '\n')) != NULL)
 					{
-						ProcessJSONClientLine(connfd, line);
-						line = strtok_r( NULL, "\n", &saveptr);
+						// Terminate string
+						*lf = '\0';
+						
+						// Process this line
+						ProcessJSONClientLine(connfd, lines);
+						
+						// Shift any other lines over
+						strcpy(lines, lf+1);
 					}
 				}
 				if (bytecount == 0)
@@ -274,17 +282,14 @@ void *ServerLoop( void *some_void_ptr )
 				if (ServerInfo->ServerIndex == 0)
 				{
 					// Send to JSON client
-					if (ms >= SendEveryMS)
+					if (SendJSON(connfd))
 					{
-						if (SendJSON(connfd))
-						{
-							ServerInfo->Connected = 0;
-						}
-						ms = 0;
+						ServerInfo->Connected = 0;
 					}
 				}
 				else if (ServerInfo->ServerIndex == 1)
 				{
+					// Telnet port (provides Telnet-like connection to HAB)
 					int Channel;
 					
 					for (Channel=0; Channel<=1; Channel++)
@@ -300,17 +305,16 @@ void *ServerLoop( void *some_void_ptr )
 				}
 				else if (ServerInfo->ServerIndex == 2)
 				{
+					// Direct telemetry port
 					int Channel;
 					
 					for (Channel=0; Channel<=1; Channel++)
-
 					{
 						if (Config.LoRaDevices[Channel].LocalDataCount > 0)
 						{
 							send(connfd, Config.LoRaDevices[Channel].LocalDataBuffer, Config.LoRaDevices[Channel].LocalDataCount, 0);
 							Config.LoRaDevices[Channel].LocalDataCount = 0;
 						}
-
 					}
 				}
 			}

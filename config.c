@@ -4,7 +4,11 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <unistd.h>
+#include <sys/stat.h>
+
 #include "config.h"
+
 
 #define MAX_SECTIONS	16
 #define SECTION_LENGTH	21
@@ -264,6 +268,7 @@ void SaveConfigFile(void)
 	char *TempFileName="gateway.txt.tmp";
 	char *SavedFileName="gateway.txt.old";
 	int SettingIndex;
+	struct stat sb;
 
     if ((src = fopen(ConfigFilename, "r" ) ) != NULL)
     {
@@ -317,9 +322,14 @@ void SaveConfigFile(void)
 			fclose(dest);
 			
 			// Now save original file and replace with new one
+			stat(ConfigFilename, &sb);			
+			
 			remove(SavedFileName);
 			rename(ConfigFilename, SavedFileName);
 			rename(TempFileName, ConfigFilename);
+			
+			chmod(ConfigFilename, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
+			chown(ConfigFilename, sb.st_uid, sb.st_gid);
 		}
 		fclose(src);
     }

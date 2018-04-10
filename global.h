@@ -11,6 +11,7 @@
 struct TPayload
 {
 	int InUse;
+	int SendToClients;
 	int Channel;
 	
 	time_t LastPacketAt;

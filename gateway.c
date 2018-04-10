@@ -38,7 +38,7 @@
 #include "listener.h"
 #include "udpclient.h"
 
-#define VERSION	"V1.8.16"
+#define VERSION	"V1.8.17"
 bool run = TRUE;
 
 // RFM98
@@ -859,7 +859,10 @@ void ProcessLine(int Channel, char *Line)
 
 	// Mark when this was received, so we can time-out old payloads
 	Config.Payloads[PayloadIndex].LastPacketAt = time(NULL);
-
+	
+	// Mark for server socket to send to client
+	Config.Payloads[PayloadIndex].SendToClients = 1;
+	
 	// Ascent rate
     DoPositionCalcs(PayloadIndex);
 	
@@ -1250,6 +1253,7 @@ void DIO0_Interrupt( int Channel )
                 ProcessTelemetryMessage(Channel, Message + 1, &Metadata);
                 TestMessageForSMSAcknowledgement( Channel, Message + 1);
 				strcpy(Config.LoRaDevices[Channel].LocalDataBuffer, Message+1);
+				strcat(Config.LoRaDevices[Channel].LocalDataBuffer, "\r\n");
 				Config.LoRaDevices[Channel].LocalDataCount = Bytes+1;
 				UDPSend(Message + 1, Config.UDPPort);
             }
@@ -1261,7 +1265,8 @@ void DIO0_Interrupt( int Channel )
             {
                 LogMessage("Local Data %d bytes = %s", Bytes, Message+1);
 				strcpy(Config.LoRaDevices[Channel].LocalDataBuffer, Message+1);
-				Config.LoRaDevices[Channel].LocalDataCount = Bytes;
+				strcat(Config.LoRaDevices[Channel].LocalDataBuffer, "\r\n");
+				Config.LoRaDevices[Channel].LocalDataCount = Bytes+1;
             }
             else if ( Message[1] == '*' )
             {
