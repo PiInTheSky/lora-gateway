@@ -38,7 +38,7 @@
 #include "listener.h"
 #include "udpclient.h"
 
-#define VERSION	"V1.8.17"
+#define VERSION	"V1.8.18"
 bool run = TRUE;
 
 // RFM98
@@ -490,13 +490,11 @@ void displayFrequency ( int Channel, double Frequency )
 
 void setLoRaMode( int Channel )
 {
-    // LogMessage("Setting LoRa Mode\n");
     setMode( Channel, RF98_MODE_SLEEP );
     writeRegister( Channel, REG_OPMODE, 0x80 );
 
     setMode( Channel, RF98_MODE_SLEEP );
 
-    // LogMessage("Set Default Frequency\n");
     setFrequency( Channel, Config.LoRaDevices[Channel].Frequency);
 }
 
@@ -1438,6 +1436,10 @@ receiveMessage( int Channel, char *message, rx_metadata_t *Metadata )
 
         FreqError = FrequencyError( Channel ) / 1000;
         ChannelPrintf( Channel, 11, 1, "Freq. Error = %5.1lfkHz ", FreqError);
+		
+		Config.LoRaDevices[Channel].PacketSNR = Metadata->SNR;
+		Config.LoRaDevices[Channel].PacketRSSI = Metadata->RSSI;
+		Config.LoRaDevices[Channel].FrequencyError = FreqError;
 
         writeRegister( Channel, REG_FIFO_ADDR_PTR, currentAddr );
 
@@ -1496,6 +1498,20 @@ void RemoveTrailingSlash(char *Value)
 			Value[Len-1] = '\0';
 		}
 	}
+}
+
+void LoRaCallback(int Index)
+{
+	setLoRaMode(Index);
+
+    SetDefaultLoRaParameters(Index);
+
+    startReceiving(Index);
+}
+
+void MiscCallback(int Index)
+{
+	displayChannel(Index);
 }
 
 void LoadConfigFile(void)
@@ -1621,7 +1637,7 @@ void LoadConfigFile(void)
 
     for (Channel = 0; Channel <= 1; Channel++)
     {
-		RegisterConfigDouble(MainSection, Channel, "frequency", &Config.LoRaDevices[Channel].Frequency, NULL);
+		RegisterConfigDouble(MainSection, Channel, "frequency", &Config.LoRaDevices[Channel].Frequency, LoRaCallback);
         if (Config.LoRaDevices[Channel].Frequency > 100)
         {
 			// Defaults
@@ -1697,26 +1713,26 @@ void LoadConfigFile(void)
 			Config.LoRaDevices[Channel].LowDataRateOptimize = LowOptToInt(LoRaModes[Config.LoRaDevices[Channel].SpeedMode].LowDataRateOptimize);
 
 			// Overrides
-			if (RegisterConfigInteger(MainSection, Channel, "sf", &Config.LoRaDevices[Channel].SpreadingFactor, NULL))
+			if (RegisterConfigInteger(MainSection, Channel, "sf", &Config.LoRaDevices[Channel].SpreadingFactor, LoRaCallback))
 			{
                 LogMessage( "Setting SF=%d\n", Config.LoRaDevices[Channel].SpreadingFactor);
             }
 
-			if (RegisterConfigDouble(MainSection, Channel, "bandwidth", &Config.LoRaDevices[Channel].Bandwidth, NULL))
+			if (RegisterConfigDouble(MainSection, Channel, "bandwidth", &Config.LoRaDevices[Channel].Bandwidth, LoRaCallback))
             {
                 LogMessage( "Setting Bandwidth=%.2lfkHz\n", Config.LoRaDevices[Channel].Bandwidth);
             }
 
-			RegisterConfigBoolean(MainSection, Channel, "implicit", &Config.LoRaDevices[Channel].ImplicitOrExplicit, NULL);
+			RegisterConfigBoolean(MainSection, Channel, "implicit", &Config.LoRaDevices[Channel].ImplicitOrExplicit, LoRaCallback);
 
-			if (RegisterConfigInteger(MainSection, Channel, "coding", &Config.LoRaDevices[Channel].ErrorCoding, NULL))
+			if (RegisterConfigInteger(MainSection, Channel, "coding", &Config.LoRaDevices[Channel].ErrorCoding, LoRaCallback))
 			{
                 LogMessage( "Setting Error Coding=%d\n", Config.LoRaDevices[Channel].ErrorCoding);
             }
 
-			RegisterConfigBoolean(MainSection, Channel, "lowopt", &Config.LoRaDevices[Channel].LowDataRateOptimize, NULL);
+			RegisterConfigBoolean(MainSection, Channel, "lowopt", &Config.LoRaDevices[Channel].LowDataRateOptimize, LoRaCallback);
 
-			RegisterConfigBoolean(MainSection, Channel, "AFC", &Config.LoRaDevices[Channel].AFC, NULL);
+			RegisterConfigBoolean(MainSection, Channel, "AFC", &Config.LoRaDevices[Channel].AFC, MiscCallback);
 			if (Config.LoRaDevices[Channel].AFC)
 			{
                 ChannelPrintf( Channel, 11, 24, "AFC" );
@@ -2357,11 +2373,12 @@ int main( int argc, char **argv )
 
             for (Channel=0; Channel<=1; Channel++)
             {
-                if ( Config.LoRaDevices[Channel].InUse )
+                if (Config.LoRaDevices[Channel].InUse)
                 {
                     ShowPacketCounts( Channel );
 
-                    ChannelPrintf( Channel, 12, 1, "Current RSSI = %4d   ", CurrentRSSI(Channel));
+					Config.LoRaDevices[Channel].CurrentRSSI = CurrentRSSI(Channel);
+                    ChannelPrintf( Channel, 12, 1, "Current RSSI = %4d   ", Config.LoRaDevices[Channel].CurrentRSSI);
 
 					// Calling mode timeout?
                     if ( Config.LoRaDevices[Channel].InCallingMode

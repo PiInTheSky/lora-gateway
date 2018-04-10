@@ -21,6 +21,7 @@
 #include "server.h"
 #include "config.h"
 #include "global.h"
+#include "gateway.h"
 
 extern bool run;
 
@@ -121,40 +122,63 @@ void ProcessJSONClientLine(int connfd, char *line)
 
 int SendJSON(int connfd)
 {
-	int PayloadIndex, port_closed;
-    char sendBuff[1025];
+	int Channel, PayloadIndex, port_closed;
+    char sendBuff[4000], line[400];
 	
 	port_closed = 0;
-    memset( sendBuff, '0', sizeof( sendBuff ) );
+	sendBuff[0] = '\0';
 	
+	// Send any packets that we've not sent yet
 	for (PayloadIndex=0; PayloadIndex<MAX_PAYLOADS; PayloadIndex++)
 	{
 		if (Config.Payloads[PayloadIndex].InUse && Config.Payloads[PayloadIndex].SendToClients)
 		{
-			sprintf(sendBuff, "{\"class\":\"POSN\",\"index\":%d,\"channel\":%d,\"payload\":\"%s\",\"time\":\"%s\",\"lat\":%.5lf,\"lon\":%.5lf,\"alt\":%d,\"rate\":%.1lf,\"sentence\":\"%s\"}\r\n",
+			Channel = Config.Payloads[PayloadIndex].Channel;
+				
+			sprintf(line, "{\"class\":\"POSN\",\"index\":%d,\"channel\":%d,\"payload\":\"%s\",\"time\":\"%s\",\"lat\":%.5lf,\"lon\":%.5lf,\"alt\":%d,\"rate\":%.1lf,\"snr\":%d,\"rssi\":%d,\"ferr\":%.1lf,\"sentence\":\"%s\"}\r\n",
 					PayloadIndex,
-					Config.Payloads[PayloadIndex].Channel,
+					Channel,
 					Config.Payloads[PayloadIndex].Payload,
 					Config.Payloads[PayloadIndex].Time,
 					Config.Payloads[PayloadIndex].Latitude,
 					Config.Payloads[PayloadIndex].Longitude,
 					Config.Payloads[PayloadIndex].Altitude,
 					Config.Payloads[PayloadIndex].AscentRate,
+					Config.LoRaDevices[Channel].PacketSNR,
+					Config.LoRaDevices[Channel].PacketRSSI,
+					Config.LoRaDevices[Channel].FrequencyError,
 					Config.Payloads[PayloadIndex].Telemetry);
 
-			if (!run)
-			{
-				port_closed = 1;
-			}
-			else if (send(connfd, sendBuff, strlen(sendBuff), MSG_NOSIGNAL ) <= 0)
-			{
-				LogMessage( "Disconnected from client\n" );
-				port_closed = 1;
-			}
-			else
-			{
-				Config.Payloads[PayloadIndex].SendToClients = 0;
-			}
+			strcat(sendBuff, line);
+			
+			Config.Payloads[PayloadIndex].SendToClients = 0;
+		}
+	}
+	
+	// Send Channel Status (RSSI only at present)
+	
+	for (Channel=0; Channel<=1; Channel++)
+	{
+		if (Config.LoRaDevices[Channel].InUse)
+		{
+			sprintf(line, "{\"class\":\"STATS\",\"index\":%d,\"rssi\":%d}\r\n",
+					Channel,
+					Config.LoRaDevices[Channel].CurrentRSSI);
+			
+			strcat(sendBuff, line);
+		}
+	}
+	
+	if (!run)
+	{
+		port_closed = 1;
+	}
+	else if (sendBuff[0])
+	{
+		if (send(connfd, sendBuff, strlen(sendBuff), MSG_NOSIGNAL ) <= 0)
+		{
+			LogMessage( "Disconnected from client\n" );
+			port_closed = 1;
 		}
 	}
 	

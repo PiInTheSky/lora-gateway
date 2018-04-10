@@ -81,6 +81,11 @@ struct TPayload
 	// Local data packets
 	int LocalDataCount;
 	char LocalDataBuffer[255];
+	
+	// Status
+	int CurrentRSSI;
+	int PacketSNR, PacketRSSI;
+	double FrequencyError;
 };
  struct TConfig  {   	char Tracker[16];				// Callsign or name of receiver
 	double latitude, longitude;		// Receiver's location

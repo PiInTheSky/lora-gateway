@@ -91,7 +91,7 @@ int RegisterConfigDouble(int SectionIndex, int Index, char *Name, double *Double
 			strcpy(Settings[SettingIndex].ValueName, Name);
 			Settings[SettingIndex].SettingType = stDouble;
 			Settings[SettingIndex].DoubleValuePtr = DoubleValuePtr;
-			// Settings[SettingIndex].Callback = Callback;
+			Settings[SettingIndex].Callback = Callback;
 			
 			ReadConfigValue(SettingIndex);
 		}
@@ -113,7 +113,7 @@ int RegisterConfigInteger(int SectionIndex, int Index, char *Name, int *IntValue
 			strcpy(Settings[SettingIndex].ValueName, Name);
 			Settings[SettingIndex].SettingType = stInteger;
 			Settings[SettingIndex].IntValuePtr = IntValuePtr;
-			// Settings[SettingIndex].Callback = Callback;
+			Settings[SettingIndex].Callback = Callback;
 			
 			return ReadConfigValue(SettingIndex);
 		}
@@ -135,7 +135,7 @@ int RegisterConfigBoolean(int SectionIndex, int Index, char *Name, int *BoolValu
 			strcpy(Settings[SettingIndex].ValueName, Name);
 			Settings[SettingIndex].SettingType = stBoolean;
 			Settings[SettingIndex].IntValuePtr = BoolValuePtr;
-			// Settings[SettingIndex].Callback = Callback;
+			Settings[SettingIndex].Callback = Callback;
 			
 			return ReadConfigValue(SettingIndex);
 		}
@@ -144,7 +144,7 @@ int RegisterConfigBoolean(int SectionIndex, int Index, char *Name, int *BoolValu
 	return 0;
 }
 
-int RegisterConfigString(int SectionIndex, int Index, char *Name, char *StringValuePtr, int MaxValueLength, void (Callback)(int))
+int RegisterConfigString(int SectionIndex, int Index, char *Name, char *StringValuePtr, int MaxValueLength, void (*Callback)(int))
 {
 	if ((SectionIndex >= 0) && (SectionIndex < SectionCount))
 	{
@@ -158,7 +158,7 @@ int RegisterConfigString(int SectionIndex, int Index, char *Name, char *StringVa
 			Settings[SettingIndex].SettingType = stString;
 			Settings[SettingIndex].StringValuePtr = StringValuePtr;
 			Settings[SettingIndex].MaxValueLength = MaxValueLength;
-			// Settings[SettingIndex].Callback = Callback;
+			Settings[SettingIndex].Callback = Callback;
 			
 			return ReadConfigValue(SettingIndex);
 		}
@@ -362,6 +362,11 @@ void SetConfigValue(char *Setting, char *Value)
 			case stNone:
 			break;
 		}
+		
+		if (Settings[SettingIndex].Callback != NULL)
+		{
+			Settings[SettingIndex].Callback(Settings[SettingIndex].Index);
+		}
 	}
 }
 
@@ -402,3 +407,4 @@ int SettingAsString(int SettingIndex, char *SettingName, int SettingNameSize, ch
 	
 	return 0;
 }
+

@@ -228,10 +228,20 @@ Change History
 ==============
 
 
+11/04/2018 - V1.8.18
+--------------------
+
+	JSON port now sends packet SNR, RSSI and frequency error
+	Implemented callbacks for when settings are changed
+	Reprogram LoRa module when frequency, bandwidth etc are changed via JSON port
+	Update display when frequency, bandwidth, AFC etc are changed via JSON port
+
+
 10/04/2018 - V1.8.17
 --------------------
 
     JSON port only sends telemetry as it is received, instead of repeatedly
+    JSON port now sends current RSSI
     Append \r\n to sentences sent to data port
 	JSON port now accepts commands split over multiple packets (e.g. typed commands)
 	When saving to gateway.txt, permissions are set to RW/RW/RW, and owner/group are maintained
