@@ -38,7 +38,7 @@
 #include "listener.h"
 #include "udpclient.h"
 
-#define VERSION	"V1.8.18"
+#define VERSION	"V1.8.19"
 bool run = TRUE;
 
 // RFM98
@@ -1365,12 +1365,12 @@ void setupRFM98( int Channel )
             return;
         }
 
-        if( digitalRead( Config.LoRaDevices[Channel].DIO5 ) == 0 )
-        {
-            LogMessage("Error: DIO5 pin is misconfigured on Channel %d, Disabling.\n", Channel);
-            Config.LoRaDevices[Channel].InUse = 0;
-            return;
-        }
+        // if( digitalRead( Config.LoRaDevices[Channel].DIO5 ) == 0 )
+        // {
+            // LogMessage("Error: DIO5 pin is misconfigured on Channel %d, Disabling.\n", Channel);
+            // Config.LoRaDevices[Channel].InUse = 0;
+            // return;
+        // }
 
         // LoRa mode 
         setLoRaMode( Channel );

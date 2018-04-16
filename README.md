@@ -228,6 +228,11 @@ Change History
 ==============
 
 
+16/04/2018 - V1.8.19
+--------------------
+
+	Disabled DIO5 check for now as it sometimes disabled use of a working device.
+
 11/04/2018 - V1.8.18
 --------------------
 
