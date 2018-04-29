@@ -173,7 +173,7 @@ int help_win_displayed = 0;
 
 pthread_mutex_t var = PTHREAD_MUTEX_INITIALIZER;
 
-#pragma pack(1)
+#pragma pack(push,1)
 
 struct TBinaryPacket {
     uint8_t PayloadIDs;
@@ -183,6 +183,8 @@ struct TBinaryPacket {
     float Longitude;
     uint16_t Altitude;
 };
+
+#pragma pack(pop)
 
 // Create pipes for inter proces communication 
 // GLOBAL AS CALLED FROM INTERRRUPT
