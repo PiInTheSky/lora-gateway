@@ -46,7 +46,7 @@ void hash_to_hex( unsigned char *hash, char *line )
     line[64] = '\0';
 }
 
-void UploadTelemetryPacket( telemetry_t * t )
+void UploadTelemetryPacket( received_t * t )
 {
     CURL *curl;
     CURLcode res;
@@ -93,7 +93,7 @@ void UploadTelemetryPacket( telemetry_t * t )
         curl_easy_setopt( curl, CURLOPT_NOSIGNAL, 1 );
 
         // Grab current telemetry string and append a linefeed
-        sprintf( Sentence, "%s\n", t->Telemetry );
+        sprintf( Sentence, "%s\n", t->UKHASstring );
 
         // Convert sentence to base64
         base64_encode( Sentence, strlen( Sentence ), &base64_length,
@@ -174,7 +174,7 @@ void *HabitatLoop( void *vars )
     {
         thread_shared_vars_t *htsv;
         htsv = vars;
-        telemetry_t t;
+        received_t t;
         int packets = 0;
         unsigned long total_packets = 0;
 
