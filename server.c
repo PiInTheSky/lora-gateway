@@ -52,7 +52,7 @@ void ProcessJSONClientLine(int connfd, char *line)
 	if (strchr(line, '=') != NULL)
 	{
 		// Setting
-		char *setting, *value, *saveptr;
+		char *setting, *value, *saveptr = NULL;
 	
 		setting = strtok_r(line, "=", &saveptr);
 		value = strtok_r( NULL, "\n", &saveptr);
@@ -62,7 +62,7 @@ void ProcessJSONClientLine(int connfd, char *line)
 	else if (strchr(line, ':') != NULL)
 	{
 		// Command with parameters
-		char *command, *value, *saveptr;
+		char *command, *value, *saveptr = NULL;
 	
 		command = strtok_r(line, ":", &saveptr);
 		value = strtok_r(NULL, "\n", &saveptr);
