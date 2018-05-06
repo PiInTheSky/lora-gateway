@@ -301,6 +301,65 @@ void Habpack_Telem_UKHAS_String(received_t *Received, char *ukhas_string, uint32
     );
 }
 
+void Habpack_Telem_JSON(received_t *Received, char *json_string, uint32_t max_length)
+{
+    uint32_t str_index;
+    habpack_telem_linklist_entry_t *walk_ptr;
+
+    str_index = snprintf(
+        json_string,
+        max_length,
+        "{\"type\":\"PAYLOAD_TELEMETRY\""
+    );
+
+    /* All other fields */
+    walk_ptr = Received->Telemetry.habpack_extra;
+    while(walk_ptr != NULL)
+    {
+        str_index += snprintf(
+            &json_string[str_index],
+            (max_length - str_index),
+            ",\"%s\":",
+            walk_ptr->name
+        );
+        if(walk_ptr->value_type == HB_VALUE_INTEGER)
+        {
+            str_index += snprintf(
+                &json_string[str_index],
+                (max_length - str_index),
+                "%"PRId64,
+                walk_ptr->value.integer
+            );
+        }
+        else if(walk_ptr->value_type == HB_VALUE_REAL)
+        {
+            str_index += snprintf(
+                &json_string[str_index],
+                (max_length - str_index),
+                "%f",
+                walk_ptr->value.real
+            );
+        }
+        else if(walk_ptr->value_type == HB_VALUE_STRING)
+        {
+            str_index += snprintf(
+                &json_string[str_index],
+                (max_length - str_index),
+                "\"%s\"",
+                walk_ptr->value.string
+            );
+        }
+
+        walk_ptr = walk_ptr->next;
+    }
+
+    str_index += snprintf(
+        &json_string[str_index],
+        (max_length - str_index),
+        "}"
+    );
+}
+
 void Habpack_Telem_Destroy(received_t *Received)
 {
     habpack_telem_linklist_entry_t *walk_ptr, *last_ptr;

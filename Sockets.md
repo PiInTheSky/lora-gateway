@@ -6,6 +6,7 @@ The LoRa Gateway provides some socket interfaces, configurable in gateway.txt:
 - DataPort - TCP/IP server socket, allowing a single client.  Sends raw telemetry packets (e.g. $$...).
 - UDPPort - UDP client broadcast socket, sending raw telemetry.
 - OziPlotterPort - UDP client broadcast socket, sending basic telemetry reformatted as OziPlotter CSV format.
+- OziMuxPort - UDP client broadcast socket, sending basic telemetry reformatted as OziMux JSON format.
 
 
 

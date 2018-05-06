@@ -979,6 +979,14 @@ void ProcessLineHABpack(int Channel, received_t *Received)
                              Config.Payloads[PayloadIndex].Altitude);   
         UDPSend(OziSentence, Config.OziPlotterPort);
     }
+
+    // Send out to any OziMux clients
+    if (Config.OziMuxPort > 0)
+    {
+        char OziSentence[512];
+        Habpack_Telem_JSON(Received, OziSentence, 511);  
+        UDPSend(OziSentence, Config.OziMuxPort);
+    }
 }
 
 
@@ -1697,9 +1705,11 @@ void LoadConfigFile(void)
     RegisterConfigInteger(MainSection, -1, "DataPort", &Config.DataPort, NULL);			// Raw data server
     RegisterConfigInteger(MainSection, -1, "UDPPort", &Config.UDPPort, NULL);			// UDP Broadcast socket (raw data)
     RegisterConfigInteger(MainSection, -1, "OziPlotterPort", &Config.OziPlotterPort, NULL);			// UDP Broadcast socket (OziPlotter format)
+    RegisterConfigInteger(MainSection, -1, "OziMuxPort", &Config.OziMuxPort, NULL);         // UDP Broadcast socket (OziMux format)
 	
 	if (Config.UDPPort > 0) LogMessage("UDP Broadcast of raw packets on port %d\n", Config.UDPPort);
 	if (Config.OziPlotterPort > 0) LogMessage("UDP Broadcast of OziPlotter packets on port %d\n", Config.OziPlotterPort);
+    if (Config.OziMuxPort > 0) LogMessage("UDP Broadcast of OziMux packets on port %d\n", Config.OziMuxPort);
 	
 	// Timeout for HAB Telnet uplink
 	Config.HABTimeout = 4000;

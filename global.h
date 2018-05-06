@@ -117,6 +117,7 @@ struct TConfig
 	int ServerPort;				// JSON port for telemetry, settings
 	int UDPPort;				// UDP Broadcast port for raw received data packets
 	int OziPlotterPort;			// UDP Broadcast port for OziPlotter formatted packets
+	int OziMuxPort;				// UDP Broadcast port for OziMux formatted packets
 	int HABPort;				// Telnet style port for comms with HAB
 	int HABTimeout;				// Timeout in ms for telnet uplink
 	int HABChannel;				// LoRa Channel for uplink
