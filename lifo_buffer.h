@@ -22,9 +22,11 @@ typedef struct
 
 /** Common functions **/
 void lifo_buffer_init(lifo_buffer_t *buf, uint32_t length);
+uint32_t lifo_buffer_queued(lifo_buffer_t *buf);
 void lifo_buffer_push(lifo_buffer_t *buf, void *data_ptr);
 void *lifo_buffer_pop(lifo_buffer_t *buf);
 void *lifo_buffer_waitpop(lifo_buffer_t *buf);
 void lifo_buffer_quitwait(lifo_buffer_t *buf);
+bool lifo_buffer_requeue(lifo_buffer_t *buf, void *data_ptr);
 
 #endif /* __LIFO_BUFFER_H__*/

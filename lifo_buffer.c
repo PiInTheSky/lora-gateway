@@ -20,6 +20,26 @@ void lifo_buffer_init(lifo_buffer_t *buf, uint32_t length)
     pthread_mutex_unlock(&buf->Mutex);
 }
 
+uint32_t lifo_buffer_queued(lifo_buffer_t *buf)
+{
+    uint32_t result;
+
+    pthread_mutex_lock(&buf->Mutex);
+
+    if(buf->Head >= buf->Tail)
+    {
+        result = buf->Head - buf->Tail;
+    }
+    else
+    {
+        result = buf->Head + (buf->Length - buf->Tail);
+    }
+
+    pthread_mutex_unlock(&buf->Mutex);
+
+    return result;
+}
+
 /* Lossy when buffer is full */
 void lifo_buffer_push(lifo_buffer_t *buf, void *data_ptr)
 {
@@ -112,4 +132,34 @@ void lifo_buffer_quitwait(lifo_buffer_t *buf)
     pthread_cond_signal(&buf->Signal);
 
     pthread_mutex_unlock(&buf->Mutex);
+}
+/* Puts it on the bottom to avoid clogging by packet data problems, lossy when buffer is full */
+bool lifo_buffer_requeue(lifo_buffer_t *buf, void *data_ptr)
+{
+    bool result;
+
+    pthread_mutex_lock(&buf->Mutex);
+
+    /* If no space, ignore */
+    if(buf->Head!=(buf->Tail-1) && !(buf->Head==(buf->Length-1) && buf->Tail==0))
+    {
+        buf->Data[buf->Tail] = data_ptr;
+
+        if(buf->Tail==0)
+            buf->Tail=(buf->Length-1);
+        else
+            buf->Tail--;
+    
+        pthread_cond_signal(&buf->Signal);
+
+        result = true;
+    }
+    else
+    {
+        result = false;
+    }
+
+    pthread_mutex_unlock(&buf->Mutex);
+
+    return result;
 }
