@@ -932,6 +932,26 @@ void ProcessLineUKHAS(int Channel, char *Line)
                              Config.Payloads[PayloadIndex].Altitude);   
         UDPSend(OziSentence, Config.OziPlotterPort);
     }
+
+    // Send out to any OziMux clients
+    if (Config.OziMuxPort > 0)
+    {
+        char OziSentence[512];
+        snprintf(OziSentence, 511,
+            "{\"type\":\"PAYLOAD_TELEMETRY\""
+            ",\"callsign\":\"%s\""
+            ",\"time_string\":\"%s\""
+            ",\"latitude\":\"%lf\""
+            ",\"longitude\":\"%lf\""
+            ",\"altitude\":\"%d\"}",
+            Config.Payloads[PayloadIndex].Payload,
+            Config.Payloads[PayloadIndex].Time,
+            Config.Payloads[PayloadIndex].Latitude,
+            Config.Payloads[PayloadIndex].Longitude,
+            Config.Payloads[PayloadIndex].Altitude
+        );
+        UDPSend(OziSentence, Config.OziMuxPort);
+    }
 }
 
 void ProcessLineHABpack(int Channel, received_t *Received)
