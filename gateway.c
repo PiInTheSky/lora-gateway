@@ -921,8 +921,8 @@ void ProcessLineUKHAS(int Channel, char *Line)
                   Config.Payloads[PayloadIndex].Longitude,
                   Config.Payloads[PayloadIndex].Altitude);
 
-    // Send out to any OziMux clients
-    if (Config.OziPort > 0)
+    // Send out to any OziPlotter clients
+    if (Config.OziPlotterPort > 0)
     {
         char OziSentence[200];
         sprintf(OziSentence, "TELEMETRY,%s,%lf,%lf,%d\n", 
@@ -930,7 +930,7 @@ void ProcessLineUKHAS(int Channel, char *Line)
                              Config.Payloads[PayloadIndex].Latitude,
                              Config.Payloads[PayloadIndex].Longitude,
                              Config.Payloads[PayloadIndex].Altitude);   
-        UDPSend(OziSentence, Config.OziPort);
+        UDPSend(OziSentence, Config.OziPlotterPort);
     }
 }
 
@@ -968,8 +968,8 @@ void ProcessLineHABpack(int Channel, received_t *Received)
                   Config.Payloads[PayloadIndex].Longitude,
                   Config.Payloads[PayloadIndex].Altitude);
 
-    // Send out to any OziMux clients
-    if (Config.OziPort > 0)
+    // Send out to any OziPlotter clients
+    if (Config.OziPlotterPort > 0)
     {
         char OziSentence[200];
         sprintf(OziSentence, "TELEMETRY,%s,%lf,%lf,%d\n", 
@@ -977,7 +977,7 @@ void ProcessLineHABpack(int Channel, received_t *Received)
                              Config.Payloads[PayloadIndex].Latitude,
                              Config.Payloads[PayloadIndex].Longitude,
                              Config.Payloads[PayloadIndex].Altitude);   
-        UDPSend(OziSentence, Config.OziPort);
+        UDPSend(OziSentence, Config.OziPlotterPort);
     }
 }
 
@@ -1696,10 +1696,10 @@ void LoadConfigFile(void)
     RegisterConfigInteger(MainSection, -1, "HABPort", &Config.HABPort, NULL);			// Telnet server
     RegisterConfigInteger(MainSection, -1, "DataPort", &Config.DataPort, NULL);			// Raw data server
     RegisterConfigInteger(MainSection, -1, "UDPPort", &Config.UDPPort, NULL);			// UDP Broadcast socket (raw data)
-    RegisterConfigInteger(MainSection, -1, "OziPort", &Config.OziPort, NULL);			// UDP Broadcast socket (OziMux format)
+    RegisterConfigInteger(MainSection, -1, "OziPlotterPort", &Config.OziPlotterPort, NULL);			// UDP Broadcast socket (OziPlotter format)
 	
 	if (Config.UDPPort > 0) LogMessage("UDP Broadcast of raw packets on port %d\n", Config.UDPPort);
-	if (Config.OziPort > 0) LogMessage("UDP Broadcast of OziMux packets on port %d\n", Config.OziPort);
+	if (Config.OziPlotterPort > 0) LogMessage("UDP Broadcast of OziPlotter packets on port %d\n", Config.OziPlotterPort);
 	
 	// Timeout for HAB Telnet uplink
 	Config.HABTimeout = 4000;
