@@ -3,6 +3,7 @@
 #include <stdbool.h>
 #include <string.h>
 #include <time.h>
+#include <inttypes.h>
 
 #include "habpack.h"
 #include "global.h"
@@ -85,7 +86,7 @@ static uint16_t CRC16(unsigned char *ptr)
 
 #define TRY_PARSE_STRING(processing)    \
     if(cmp_object_is_str(&item) \
-        && cmp_object_to_str(&cmp, &item, &temp[temp_ptr], (uint32_t)(temp_remaining))) \
+        && cmp_object_to_str(&cmp, &item, str, str_max_length)) \
     { \
         processing \
     }
@@ -146,17 +147,27 @@ static uint16_t CRC16(unsigned char *ptr)
         processing \
     }
 
-void Habpack_telem_store_field(habpack_telem_linklist_entry_t *initial_entry, uint64_t map_id, char *field_name, int64_t *ptr_integer, double *ptr_real)
+void Habpack_telem_store_field(received_t *Received, uint64_t map_id, char *field_name, int64_t *ptr_integer, double *ptr_real, char *ptr_string)
 {
-    habpack_telem_linklist_entry_t *walk_ptr;
+    habpack_telem_linklist_entry_t *walk_ptr, *last_ptr;
 
-    walk_ptr = initial_entry;
-    while(walk_ptr != NULL)
+    if(Received->Telemetry.habpack_extra == NULL)
     {
-        walk_ptr = walk_ptr->next;
+        /* First entry */
+        Received->Telemetry.habpack_extra = malloc(sizeof(habpack_telem_linklist_entry_t));
+        walk_ptr = Received->Telemetry.habpack_extra;
     }
-
-    walk_ptr = malloc(sizeof(habpack_telem_linklist_entry_t));
+    else
+    {
+        /* Not first entry, so walk */
+        last_ptr = Received->Telemetry.habpack_extra;
+        while(last_ptr->next != NULL)
+        {
+            last_ptr = last_ptr->next;
+        }
+        last_ptr->next = malloc(sizeof(habpack_telem_linklist_entry_t));
+        walk_ptr = last_ptr->next;
+    }
 
     walk_ptr->type = map_id;
     strncpy(walk_ptr->name, field_name, 31);
@@ -170,6 +181,11 @@ void Habpack_telem_store_field(habpack_telem_linklist_entry_t *initial_entry, ui
         walk_ptr->value_type = HB_VALUE_REAL;
         walk_ptr->value.real = *ptr_real;
     }
+    else if(ptr_string != NULL)
+    {
+        walk_ptr->value_type = HB_VALUE_STRING;
+        walk_ptr->value.string = strdup(ptr_string);
+    }
     walk_ptr->next = NULL;
 }
 
@@ -177,22 +193,113 @@ void Habpack_telem_store_field(habpack_telem_linklist_entry_t *initial_entry, ui
 #define HABPACK_TELEM_STORE_AS_INT64(value) \
     ts64 = (int64_t)value; \
     Habpack_telem_store_field( \
-        Received->Telemetry.habpack_extra, \
+        Received, \
         map_id, \
         field_name, \
         &ts64, \
-        NULL \
+        NULL, \
+        NULL  \
     )
 
 #define HABPACK_TELEM_STORE_AS_DOUBLE(value) \
     tf64 = (double)value; \
     Habpack_telem_store_field( \
-        Received->Telemetry.habpack_extra, \
+        Received, \
         map_id, \
         field_name, \
         NULL, \
-        &tf64 \
+        &tf64, \
+        NULL  \
     )
+
+#define HABPACK_TELEM_STORE_AS_STRING(value) \
+    Habpack_telem_store_field( \
+        Received, \
+        map_id, \
+        field_name, \
+        NULL, \
+        NULL, \
+        value  \
+    )
+
+void Habpack_Telem_UKHAS_String(received_t *Received, char *ukhas_string, uint32_t max_length)
+{
+    uint16_t crc;
+    uint32_t str_index;
+    habpack_telem_linklist_entry_t *walk_ptr;
+
+    /* $,CALLSIGN */
+    str_index = snprintf(
+        ukhas_string,
+        max_length,
+        "$$"
+    );
+
+    /* All other fields */
+    walk_ptr = Received->Telemetry.habpack_extra;
+    while(walk_ptr != NULL)
+    {
+        if(walk_ptr->value_type == HB_VALUE_INTEGER)
+        {
+            if(strcmp(walk_ptr->name, "time") == 0)
+            {
+                /* Convert time, urgh */
+                uint64_t temp;
+                temp = walk_ptr->value.integer % SECONDS_IN_A_DAY;
+                int hours = temp/(60*60);
+                temp -= (hours*60*60);
+                int mins = (temp/60);
+                int secs = temp-mins*60;
+
+                str_index += snprintf(
+                    &ukhas_string[str_index],
+                    (max_length - str_index),
+                    "%02d:%02d:%02d,",
+                    hours,mins,secs
+                );
+            }
+            else
+            {
+                str_index += snprintf(
+                    &ukhas_string[str_index],
+                    (max_length - str_index),
+                    "%"PRId64",",
+                    walk_ptr->value.integer
+                );
+            }
+        }
+        else if(walk_ptr->value_type == HB_VALUE_REAL)
+        {
+            str_index += snprintf(
+                &ukhas_string[str_index],
+                (max_length - str_index),
+                "%f,",
+                walk_ptr->value.real
+            );
+        }
+        else if(walk_ptr->value_type == HB_VALUE_STRING)
+        {
+            str_index += snprintf(
+                &ukhas_string[str_index],
+                (max_length - str_index),
+                "%s,",
+                walk_ptr->value.string
+            );
+        }
+
+        walk_ptr = walk_ptr->next;
+    }
+
+    /* Replace last comma with null */
+    ukhas_string[--str_index] = '\0';
+
+    crc = CRC16((unsigned char *)&ukhas_string[2]);
+    snprintf(&ukhas_string[str_index],
+        (max_length - str_index),
+        "*%04x\n",
+        crc
+    );
+}
 
 void Habpack_Telem_Destroy(received_t *Received)
 {
@@ -201,6 +308,11 @@ void Habpack_Telem_Destroy(received_t *Received)
     walk_ptr = Received->Telemetry.habpack_extra;
     while(walk_ptr != NULL)
     {
+        if(walk_ptr->value_type == HB_VALUE_STRING)
+        {
+            free(walk_ptr->value.string);
+        }
+
         last_ptr = walk_ptr;
         walk_ptr = walk_ptr->next;
 
@@ -212,6 +324,7 @@ void Habpack_Telem_Destroy(received_t *Received)
 int Habpack_Process_Message(received_t *Received)
 {
     cmp_ctx_t cmp;
+    cmp_object_t item;
     uint32_t map_size;
     uint32_t array_size,array_size2;
     uint32_t i,j,k;
@@ -221,20 +334,9 @@ int Habpack_Process_Message(received_t *Received)
     int64_t ts64;
     float tf32;
     double tf64;
+    uint32_t str_max_length = 255;
+    char str[255];
     char field_name[32];
-    
-    //When converting habpack to $$uhkas, the habpack fields should be ordered.
-    //This stores the output prior to reordering
-    char temp[1024];
-    memset(temp,0,sizeof(char)*1024);
-    int temp_ptr = 0;
-    int temp_remaining = 1024-temp_ptr;
-    int out_ptr = 0;
-    
-    uint8_t keys[128];
-    uint16_t key_val[128];
-    uint8_t key_ptr = 0;
-    cmp_object_t item;
     
     cmp_init(&cmp, (void*)Received->Message, file_reader, file_skipper, file_writer);
 
@@ -262,52 +364,40 @@ int Habpack_Process_Message(received_t *Received)
         switch(map_id)
         {
             case HABPACK_CALLSIGN:
-                key_val[key_ptr] = temp_ptr;                
-                keys[key_ptr++] = map_id;
-
-                temp_remaining = 1024-temp_ptr;
+                strncpy(field_name, "callsign", 31);
 
                 TRY_PARSE_STRING(
-                    strncpy(Received->Telemetry.Callsign, &temp[temp_ptr], 31);
-
-                    while(temp[temp_ptr])
-                        temp_ptr++;
+                    strncpy(Received->Telemetry.Callsign, str, 31);
+                    HABPACK_TELEM_STORE_AS_STRING(str);
                 )
                 else TRY_PARSE_UNSIGNED_INTEGER(
                     snprintf(Received->Telemetry.Callsign, 31, "%lld", tu64);
-
-                    temp_remaining = 1024-temp_ptr;
-                    temp_ptr += snprintf(&temp[temp_ptr],temp_remaining,"%lld",tu64);
+                    HABPACK_TELEM_STORE_AS_INT64(tu64);
                 )
                 else return 0;
                 
-                temp_ptr++;
                 break;
 
             case HABPACK_SENTENCE_ID:
-                key_val[key_ptr] = temp_ptr;
-                keys[key_ptr++] = map_id;
+                strncpy(field_name, "sentence_id", 31);
                 
                 TRY_PARSE_UNSIGNED_INTEGER(
                     Received->Telemetry.SentenceId = tu64;
-
-                    temp_remaining = 1024-temp_ptr;
-                    temp_ptr += snprintf(&temp[temp_ptr],temp_remaining,"%lld",tu64);
+                    HABPACK_TELEM_STORE_AS_INT64(tu64);
                 )
                 else return 0;
 
-                temp_ptr++;
                 break;
 
             case HABPACK_TIME:
-                key_val[key_ptr] = temp_ptr;            
-                keys[key_ptr++] = map_id;    
+                strncpy(field_name, "time", 31);  
                 
                 TRY_PARSE_UNSIGNED_INTEGER(
                     if(tu64 > SECONDS_IN_A_DAY)
                     {
                         /* Larger than 1 day, so must be unix epoch time */
                         Received->Telemetry.Time = tu64;
+                        HABPACK_TELEM_STORE_AS_INT64(tu64);
 
                         /* Strip out date information. TODO: Find a good way of including this in the UKHAS ASCII */
                         tu64 -= (uint64_t)(tu64 / SECONDS_IN_A_DAY) * SECONDS_IN_A_DAY;
@@ -315,7 +405,10 @@ int Habpack_Process_Message(received_t *Received)
                     else
                     {
                         /* Smaller than 1 day, either we've gone over 88mph, or it's seconds since midnight today */
-                        Received->Telemetry.Time = tu64 + (uint64_t)((uint64_t)time(NULL) / SECONDS_IN_A_DAY) * SECONDS_IN_A_DAY;
+                        uint64_t unix_epoch_time;
+                        unix_epoch_time = tu64 + (uint64_t)((uint64_t)time(NULL) / SECONDS_IN_A_DAY) * SECONDS_IN_A_DAY;
+                        Received->Telemetry.Time = unix_epoch_time;
+                        HABPACK_TELEM_STORE_AS_INT64(unix_epoch_time);
                     }
 
                     int hours = tu64/(60*60);
@@ -324,19 +417,12 @@ int Habpack_Process_Message(received_t *Received)
                     int secs = tu64-mins*60;
 
                     snprintf(Received->Telemetry.TimeString, 9, "%02d:%02d:%02d",hours,mins,secs);
-
-                    temp_remaining = 1024-temp_ptr;
-                    temp_ptr += snprintf(&temp[temp_ptr],temp_remaining,"%02d:%02d:%02d",hours,mins,secs);
                 )
                 else return 0;
 
-                temp_ptr++;
                 break;
 
             case HABPACK_POSITION:
-                key_val[key_ptr] = temp_ptr;
-                keys[key_ptr++] = map_id;
-                
                 TRY_PARSE_ARRAY_AT_ONCE(
                     /* Check size of the array */
                     if(array_size == 2 || array_size == 3)
@@ -348,9 +434,8 @@ int Habpack_Process_Message(received_t *Received)
                         }
 
                         Received->Telemetry.Latitude = (double)ts64 / 10e6;
-
-                        temp_remaining = 1024-temp_ptr;
-                        temp_ptr += snprintf(&temp[temp_ptr],temp_remaining,"%lld,",ts64);
+                        strncpy(field_name, "latitude", 31);
+                        HABPACK_TELEM_STORE_AS_DOUBLE((double)ts64 / 10e6);
                         
                         /* Longitude - Signed Integer */
                         if (!(cmp_read_sinteger(&cmp, &ts64)))
@@ -359,9 +444,8 @@ int Habpack_Process_Message(received_t *Received)
                         }
 
                         Received->Telemetry.Longitude = (double)ts64 / 10e6;
-
-                        temp_remaining = 1024-temp_ptr;
-                        temp_ptr += snprintf(&temp[temp_ptr],temp_remaining,"%lld,",ts64);
+                        strncpy(field_name, "longitude", 31);
+                        HABPACK_TELEM_STORE_AS_DOUBLE((double)ts64 / 10e6);
 
                         /* Altitude (optional) - Signed Integer */
                         Received->Telemetry.Altitude = 0.0;
@@ -373,408 +457,232 @@ int Habpack_Process_Message(received_t *Received)
                             }
 
                             Received->Telemetry.Altitude = ts64;
-
-                            temp_remaining = 1024-temp_ptr;
-                            temp_ptr += snprintf(&temp[temp_ptr],temp_remaining,"%lld",ts64);
+                            strncpy(field_name, "altitude", 31);
+                            HABPACK_TELEM_STORE_AS_INT64(ts64);
                         }
                     }
                     else return 0;
                 )
                 else return 0;
 
-                temp_ptr++;
                 break;
 
             case HABPACK_GNSS_SATELLITES:
-                key_val[key_ptr] = temp_ptr;
-                keys[key_ptr++] = map_id;
                 strncpy(field_name, "gnss_satellites", 31);
                 
                 TRY_PARSE_UNSIGNED_INTEGER(
-                    temp_remaining = 1024-temp_ptr;
-                    temp_ptr += snprintf(&temp[temp_ptr],temp_remaining,"%lld",tu64);
-
                     HABPACK_TELEM_STORE_AS_INT64(tu64);
                 )
                 else return 0;
 
-                temp_ptr++;
                 break;
 
             case HABPACK_GNSS_LOCK:
-                key_val[key_ptr] = temp_ptr;
-                keys[key_ptr++] = map_id;
                 strncpy(field_name, "gnss_lock_type", 31);
                 
                 TRY_PARSE_UNSIGNED_INTEGER(
-                    temp_remaining = 1024-temp_ptr;
-                    temp_ptr += snprintf(&temp[temp_ptr],temp_remaining,"%lld",tu64);
-
                     HABPACK_TELEM_STORE_AS_INT64(tu64);
                 )
                 else return 0;
 
-                temp_ptr++;
                 break;
 
             case HABPACK_VOLTAGE:
-                key_val[key_ptr] = temp_ptr;
-                keys[key_ptr++] = map_id;
                 strncpy(field_name, "voltage", 31);
 
                 TRY_PARSE_FLOAT(
-                    temp_remaining = 1024-temp_ptr;
-                    temp_ptr += snprintf(&temp[temp_ptr],temp_remaining,"%f",tf32);
-
                     HABPACK_TELEM_STORE_AS_DOUBLE(tf32);
                 )
                 else TRY_PARSE_DOUBLE(
-                    temp_remaining = 1024-temp_ptr;
-                    temp_ptr += snprintf(&temp[temp_ptr],temp_remaining,"%f",tf64);
-
                     HABPACK_TELEM_STORE_AS_DOUBLE(tf64);
                 )
                 else TRY_PARSE_UNSIGNED_INTEGER(
-                    temp_remaining = 1024-temp_ptr;
-                    temp_ptr += snprintf(&temp[temp_ptr],temp_remaining,"%lld",tu64);
-
                     HABPACK_TELEM_STORE_AS_DOUBLE((double)tu64 / 1000.0); // Scale for mV
                 )
                 else TRY_PARSE_SIGNED_INTEGER(
-                    temp_remaining = 1024-temp_ptr;
-                    temp_ptr += snprintf(&temp[temp_ptr],temp_remaining,"%lld",ts64);
-
                     HABPACK_TELEM_STORE_AS_DOUBLE((double)ts64 / 1000.0); // Scale for mV
                 )
                 else TRY_PARSE_ARRAY(
                     snprintf(field_name, 31, "voltage%d", j);
 
                     TRY_PARSE_FLOAT(
-                        temp_remaining = 1024-temp_ptr;
-                        temp_ptr += snprintf(&temp[temp_ptr],temp_remaining,"%f",tf32);
-
                         HABPACK_TELEM_STORE_AS_DOUBLE(tf32);
                     )
                     else TRY_PARSE_DOUBLE(
-                        temp_remaining = 1024-temp_ptr;
-                        temp_ptr += snprintf(&temp[temp_ptr],temp_remaining,"%f",tf64);
-
                         HABPACK_TELEM_STORE_AS_DOUBLE(tf64);
                     )
                     else TRY_PARSE_UNSIGNED_INTEGER(
-                        temp_remaining = 1024-temp_ptr;
-                        temp_ptr += snprintf(&temp[temp_ptr],temp_remaining,"%lld",tu64);
-
                         HABPACK_TELEM_STORE_AS_DOUBLE((double)tu64 / 1000.0); // Scale for mV
                     )
                     TRY_PARSE_SIGNED_INTEGER(
-                        temp_remaining = 1024-temp_ptr;
-                        temp_ptr += snprintf(&temp[temp_ptr],temp_remaining,"%lld",ts64);
-
                         HABPACK_TELEM_STORE_AS_DOUBLE((double)ts64 / 1000.0); // Scale for mV
                     )
                     else return 0;
-
-                    temp_remaining = 1024-temp_ptr;
-                    temp_ptr += snprintf(&temp[temp_ptr],temp_remaining,",");
                 )
                 else return 0;
 
-                temp_ptr++;
                 break;
 
             case HABPACK_INTERNAL_TEMPERATURE:
-                key_val[key_ptr] = temp_ptr;
-                keys[key_ptr++] = map_id;
                 strncpy(field_name, "internal_temperature", 31);
                 
                 TRY_PARSE_FLOAT(
-                    temp_remaining = 1024-temp_ptr;
-                    temp_ptr += snprintf(&temp[temp_ptr],temp_remaining,"%f",tf32);
-
                     HABPACK_TELEM_STORE_AS_DOUBLE(tf32);
                 )
                 else TRY_PARSE_DOUBLE(
-                    temp_remaining = 1024-temp_ptr;
-                    temp_ptr += snprintf(&temp[temp_ptr],temp_remaining,"%f",tf64);
-
                     HABPACK_TELEM_STORE_AS_DOUBLE(tf64);
                 )
                 else TRY_PARSE_UNSIGNED_INTEGER(
-                    temp_remaining = 1024-temp_ptr;
-                    temp_ptr += snprintf(&temp[temp_ptr],temp_remaining,"%lld",tu64);
-
                     HABPACK_TELEM_STORE_AS_DOUBLE((double)tu64 / 1000.0); // Scale for milli-degrees
                 )
                 else TRY_PARSE_SIGNED_INTEGER(
-                    temp_remaining = 1024-temp_ptr;
-                    temp_ptr += snprintf(&temp[temp_ptr],temp_remaining,"%lld",ts64);
-
                     HABPACK_TELEM_STORE_AS_DOUBLE((double)ts64 / 1000.0); // Scale for milli-degrees
                 )
                 else TRY_PARSE_ARRAY(
                     snprintf(field_name, 31, "internal_temperature%d", j);
 
                     TRY_PARSE_FLOAT(
-                        temp_remaining = 1024-temp_ptr;
-                        temp_ptr += snprintf(&temp[temp_ptr],temp_remaining,"%f",tf32);
-
                         HABPACK_TELEM_STORE_AS_DOUBLE(tf32);
                     )
                     else TRY_PARSE_DOUBLE(
-                        temp_remaining = 1024-temp_ptr;
-                        temp_ptr += snprintf(&temp[temp_ptr],temp_remaining,"%f",tf64);
-
                         HABPACK_TELEM_STORE_AS_DOUBLE(tf64);
                     )
                     else TRY_PARSE_UNSIGNED_INTEGER(
-                        temp_remaining = 1024-temp_ptr;
-                        temp_ptr += snprintf(&temp[temp_ptr],temp_remaining,"%lld",tu64);
-
                         HABPACK_TELEM_STORE_AS_DOUBLE((double)tu64 / 1000.0); // Scale for milli-degrees
                     )
                     TRY_PARSE_SIGNED_INTEGER(
-                        temp_remaining = 1024-temp_ptr;
-                        temp_ptr += snprintf(&temp[temp_ptr],temp_remaining,"%lld",ts64);
-
                         HABPACK_TELEM_STORE_AS_DOUBLE((double)ts64 / 1000.0); // Scale for milli-degrees
                     )
                     else return 0;
-
-                    temp_remaining = 1024-temp_ptr;
-                    temp_ptr += snprintf(&temp[temp_ptr],temp_remaining,",");
                 )
                 else return 0;
 
-                temp_ptr++;
                 break;
 
             case HABPACK_EXTERNAL_TEMPERATURE:
-                key_val[key_ptr] = temp_ptr;
-                keys[key_ptr++] = map_id;
                 strncpy(field_name, "external_temperature", 31);
                 
                 TRY_PARSE_FLOAT(
-                    temp_remaining = 1024-temp_ptr;
-                    temp_ptr += snprintf(&temp[temp_ptr],temp_remaining,"%f",tf32);
-
                     HABPACK_TELEM_STORE_AS_DOUBLE(tf32);
                 )
                 else TRY_PARSE_DOUBLE(
-                    temp_remaining = 1024-temp_ptr;
-                    temp_ptr += snprintf(&temp[temp_ptr],temp_remaining,"%f",tf64);
-
                     HABPACK_TELEM_STORE_AS_DOUBLE(tf64);
                 )
                 else TRY_PARSE_UNSIGNED_INTEGER(
-                    temp_remaining = 1024-temp_ptr;
-                    temp_ptr += snprintf(&temp[temp_ptr],temp_remaining,"%lld",tu64);
-
                     HABPACK_TELEM_STORE_AS_DOUBLE((double)tu64 / 1000.0); // Scale for milli-degrees
                 )
                 else TRY_PARSE_SIGNED_INTEGER(
-                    temp_remaining = 1024-temp_ptr;
-                    temp_ptr += snprintf(&temp[temp_ptr],temp_remaining,"%lld",ts64);
-
                     HABPACK_TELEM_STORE_AS_DOUBLE((double)ts64 / 1000.0); // Scale for milli-degrees
                 )
                 else TRY_PARSE_ARRAY(
                     snprintf(field_name, 31, "external_temperature%d", j);
 
                     TRY_PARSE_FLOAT(
-                        temp_remaining = 1024-temp_ptr;
-                        temp_ptr += snprintf(&temp[temp_ptr],temp_remaining,"%f",tf32);
-
                         HABPACK_TELEM_STORE_AS_DOUBLE(tf32);
                     )
                     else TRY_PARSE_DOUBLE(
-                        temp_remaining = 1024-temp_ptr;
-                        temp_ptr += snprintf(&temp[temp_ptr],temp_remaining,"%f",tf64);
-
                         HABPACK_TELEM_STORE_AS_DOUBLE(tf64);
                     )
                     else TRY_PARSE_UNSIGNED_INTEGER(
-                        temp_remaining = 1024-temp_ptr;
-                        temp_ptr += snprintf(&temp[temp_ptr],temp_remaining,"%lld",tu64);
-
                         HABPACK_TELEM_STORE_AS_DOUBLE((double)tu64 / 1000.0); // Scale for milli-degrees
                     )
                     TRY_PARSE_SIGNED_INTEGER(
-                        temp_remaining = 1024-temp_ptr;
-                        temp_ptr += snprintf(&temp[temp_ptr],temp_remaining,"%lld",ts64);
-
                         HABPACK_TELEM_STORE_AS_DOUBLE((double)ts64 / 1000.0); // Scale for milli-degrees
                     )
                     else return 0;
-
-                    temp_remaining = 1024-temp_ptr;
-                    temp_ptr += snprintf(&temp[temp_ptr],temp_remaining,",");
                 )
                 else return 0;
 
-                temp_ptr++;
                 break;
 
             case HABPACK_PRESSURE:
-                key_val[key_ptr] = temp_ptr;
-                keys[key_ptr++] = map_id;
                 strncpy(field_name, "pressure", 31);
                 
                 TRY_PARSE_FLOAT(
-                    temp_remaining = 1024-temp_ptr;
-                    temp_ptr += snprintf(&temp[temp_ptr],temp_remaining,"%f",tf32);
-
                     HABPACK_TELEM_STORE_AS_DOUBLE(tf32);
                 )
                 else TRY_PARSE_DOUBLE(
-                    temp_remaining = 1024-temp_ptr;
-                    temp_ptr += snprintf(&temp[temp_ptr],temp_remaining,"%f",tf64);
-
                     HABPACK_TELEM_STORE_AS_DOUBLE(tf64);
                 )
                 else TRY_PARSE_UNSIGNED_INTEGER(
-                    temp_remaining = 1024-temp_ptr;
-                    temp_ptr += snprintf(&temp[temp_ptr],temp_remaining,"%lld",tu64);
-
                     HABPACK_TELEM_STORE_AS_DOUBLE((double)tu64 / 1000.0); // Scale for milli-bar
                 )
                 else TRY_PARSE_ARRAY(
                     snprintf(field_name, 31, "pressure%d", j);
 
                     TRY_PARSE_FLOAT(
-                        temp_remaining = 1024-temp_ptr;
-                        temp_ptr += snprintf(&temp[temp_ptr],temp_remaining,"%f",tf32);
-
                         HABPACK_TELEM_STORE_AS_DOUBLE(tf32);
                     )
                     else TRY_PARSE_DOUBLE(
-                        temp_remaining = 1024-temp_ptr;
-                        temp_ptr += snprintf(&temp[temp_ptr],temp_remaining,"%f",tf64);
-
                         HABPACK_TELEM_STORE_AS_DOUBLE(tf64);
                     )
                     TRY_PARSE_UNSIGNED_INTEGER(
-                        temp_remaining = 1024-temp_ptr;
-                        temp_ptr += snprintf(&temp[temp_ptr],temp_remaining,"%lld",tu64);
-
                         HABPACK_TELEM_STORE_AS_DOUBLE((double)tu64 / 1000.0); // Scale for milli-bar
                     )
                     else return 0;
-
-                    temp_remaining = 1024-temp_ptr;
-                    temp_ptr += snprintf(&temp[temp_ptr],temp_remaining,",");
                 )
                 else return 0;
 
-                temp_ptr++;
                 break;
 
             case HABPACK_RELATIVE_HUMIDITY:
-                key_val[key_ptr] = temp_ptr;
-                keys[key_ptr++] = map_id;
                 strncpy(field_name, "relative_humidity", 31);
                 
                 TRY_PARSE_FLOAT(
-                    temp_remaining = 1024-temp_ptr;
-                    temp_ptr += snprintf(&temp[temp_ptr],temp_remaining,"%f",tf32);
-
                     HABPACK_TELEM_STORE_AS_DOUBLE(tf32);
                 )
                 else TRY_PARSE_DOUBLE(
-                    temp_remaining = 1024-temp_ptr;
-                    temp_ptr += snprintf(&temp[temp_ptr],temp_remaining,"%f",tf64);
-
                     HABPACK_TELEM_STORE_AS_DOUBLE(tf64);
                 )
                 else TRY_PARSE_UNSIGNED_INTEGER(
-                    temp_remaining = 1024-temp_ptr;
-                    temp_ptr += snprintf(&temp[temp_ptr],temp_remaining,"%lld",tu64);
-
                     HABPACK_TELEM_STORE_AS_DOUBLE(tu64);
                 )
                 else TRY_PARSE_ARRAY(
                     snprintf(field_name, 31, "relative_humidity%d", j);
 
                     TRY_PARSE_FLOAT(
-                        temp_remaining = 1024-temp_ptr;
-                        temp_ptr += snprintf(&temp[temp_ptr],temp_remaining,"%f",tf32);
-
                         HABPACK_TELEM_STORE_AS_DOUBLE(tf32);
                     )
                     else TRY_PARSE_DOUBLE(
-                        temp_remaining = 1024-temp_ptr;
-                        temp_ptr += snprintf(&temp[temp_ptr],temp_remaining,"%f",tf64);
-
                         HABPACK_TELEM_STORE_AS_DOUBLE(tf64);
                     )
                     TRY_PARSE_UNSIGNED_INTEGER(
-                        temp_remaining = 1024-temp_ptr;
-                        temp_ptr += snprintf(&temp[temp_ptr],temp_remaining,"%lld",tu64);
-
                         HABPACK_TELEM_STORE_AS_DOUBLE(tu64);
                     )
                     else return 0;
-
-                    temp_remaining = 1024-temp_ptr;
-                    temp_ptr += snprintf(&temp[temp_ptr],temp_remaining,",");
                 )
                 else return 0;
 
-                temp_ptr++;
                 break;
 
             case HABPACK_ABSOLUTE_HUMIDITY:
-                key_val[key_ptr] = temp_ptr;
-                keys[key_ptr++] = map_id;
                 strncpy(field_name, "absolute_humidity", 31);
                 
                 TRY_PARSE_FLOAT(
-                    temp_remaining = 1024-temp_ptr;
-                    temp_ptr += snprintf(&temp[temp_ptr],temp_remaining,"%f",tf32);
-
                     HABPACK_TELEM_STORE_AS_DOUBLE(tf32);
                 )
                 else TRY_PARSE_DOUBLE(
-                    temp_remaining = 1024-temp_ptr;
-                    temp_ptr += snprintf(&temp[temp_ptr],temp_remaining,"%f",tf64);
-
                     HABPACK_TELEM_STORE_AS_DOUBLE(tf64);
                 )
                 else TRY_PARSE_UNSIGNED_INTEGER(
-                    temp_remaining = 1024-temp_ptr;
-                    temp_ptr += snprintf(&temp[temp_ptr],temp_remaining,"%lld",tu64);
-
                     HABPACK_TELEM_STORE_AS_DOUBLE((double)tu64 / 1000.0); // Scale for milli-grams / m^3
                 )
                 else TRY_PARSE_ARRAY(
                     snprintf(field_name, 31, "absolute_humidity%d", j);
 
                     TRY_PARSE_FLOAT(
-                        temp_remaining = 1024-temp_ptr;
-                        temp_ptr += snprintf(&temp[temp_ptr],temp_remaining,"%f",tf32);
-
                         HABPACK_TELEM_STORE_AS_DOUBLE(tf32);
                     )
                     else TRY_PARSE_DOUBLE(
-                        temp_remaining = 1024-temp_ptr;
-                        temp_ptr += snprintf(&temp[temp_ptr],temp_remaining,"%f",tf64);
-
                         HABPACK_TELEM_STORE_AS_DOUBLE(tf64);
                     )
                     TRY_PARSE_UNSIGNED_INTEGER(
-                        temp_remaining = 1024-temp_ptr;
-                        temp_ptr += snprintf(&temp[temp_ptr],temp_remaining,"%lld",tu64);
-
                         HABPACK_TELEM_STORE_AS_DOUBLE((double)tu64 / 1000.0); // Scale for milli-grams / m^3
                     )
                     else return 0;
-
-                    temp_remaining = 1024-temp_ptr;
-                    temp_ptr += snprintf(&temp[temp_ptr],temp_remaining,",");
                 )
                 else return 0;
 
-                temp_ptr++;
                 break;
 
             case HABPACK_DOWNLINK_FREQUENCY:
@@ -788,7 +696,6 @@ int Habpack_Process_Message(received_t *Received)
                 )
                 else return 0;
 
-                temp_ptr++;
                 break;
 
             case HABPACK_DOWNLINK_LORA_MODE:
@@ -801,7 +708,6 @@ int Habpack_Process_Message(received_t *Received)
                 )
                 else return 0;
 
-                temp_ptr++;
                 break;
 
             case HABPACK_DOWNLINK_LORA_IMPLICIT:
@@ -815,7 +721,6 @@ int Habpack_Process_Message(received_t *Received)
                 )
                 else return 0;
 
-                temp_ptr++;
                 break;
 
             case HABPACK_DOWNLINK_LORA_ERRORCODING:
@@ -829,7 +734,6 @@ int Habpack_Process_Message(received_t *Received)
                 )
                 else return 0;
 
-                temp_ptr++;
                 break;
 
             case HABPACK_DOWNLINK_LORA_BANDWIDTH:
@@ -880,7 +784,6 @@ int Habpack_Process_Message(received_t *Received)
                 )
                 else return 0;
 
-                temp_ptr++;
                 break;
 
             case HABPACK_DOWNLINK_LORA_SPREADING:
@@ -894,7 +797,6 @@ int Habpack_Process_Message(received_t *Received)
                 )
                 else return 0;
 
-                temp_ptr++;
                 break;
 
             case HABPACK_DOWNLINK_LORA_LDO:
@@ -908,28 +810,19 @@ int Habpack_Process_Message(received_t *Received)
                 )
                 else return 0;
 
-                temp_ptr++;
                 break;
 
             case HABPACK_UPLINK_COUNT:
-                key_val[key_ptr] = temp_ptr;
-                keys[key_ptr++] = map_id;
                 strncpy(field_name, "uplink_count", 31);
                 
                 TRY_PARSE_UNSIGNED_INTEGER(
-                    temp_remaining = 1024-temp_ptr;
-                    temp_ptr += snprintf(&temp[temp_ptr],temp_remaining,"%lld",tu64);
-
                     HABPACK_TELEM_STORE_AS_INT64(tu64);
                 )
                 else return 0;
 
-                temp_ptr++;
                 break;
 
             case HABPACK_PREDICTED_LANDING_TIME:
-                key_val[key_ptr] = temp_ptr;            
-                keys[key_ptr++] = map_id;  
                 strncpy(field_name, "predicted_landing_time", 31);  
                 
                 TRY_PARSE_UNSIGNED_INTEGER(
@@ -946,24 +839,12 @@ int Habpack_Process_Message(received_t *Received)
                         /* Smaller than 1 day, either we've gone over 88mph, or it's seconds since midnight today */
                         HABPACK_TELEM_STORE_AS_INT64(tu64 + (uint64_t)((uint64_t)time(NULL) / SECONDS_IN_A_DAY) * SECONDS_IN_A_DAY);
                     }
-
-                    int hours = tu64/(60*60);
-                    tu64 = tu64 - (hours*60*60);
-                    int mins = (tu64/60);
-                    int secs = tu64-mins*60;
-
-                    temp_remaining = 1024-temp_ptr;
-                    temp_ptr += snprintf(&temp[temp_ptr],temp_remaining,"%02d:%02d:%02d",hours,mins,secs);
                 )
                 else return 0;
 
-                temp_ptr++;
                 break;
 
-            case HABPACK_PREDICTED_LANDING_POSITION:
-                key_val[key_ptr] = temp_ptr;
-                keys[key_ptr++] = map_id;
-                
+            case HABPACK_PREDICTED_LANDING_POSITION:                
                 TRY_PARSE_ARRAY_AT_ONCE(
                     /* Check size of the array */
                     if(array_size == 2 || array_size == 3)
@@ -973,8 +854,6 @@ int Habpack_Process_Message(received_t *Received)
                         {
                             return 0;
                         }
-                        temp_remaining = 1024-temp_ptr;
-                        temp_ptr += snprintf(&temp[temp_ptr],temp_remaining,"%lld,",ts64);
 
                         strncpy(field_name, "predicted_landing_latitude", 31);
                         HABPACK_TELEM_STORE_AS_DOUBLE((double)ts64 / 10e6);
@@ -984,8 +863,6 @@ int Habpack_Process_Message(received_t *Received)
                         {
                             return 0;
                         }
-                        temp_remaining = 1024-temp_ptr;
-                        temp_ptr += snprintf(&temp[temp_ptr],temp_remaining,"%lld,",ts64);
 
                         strncpy(field_name, "predicted_landing_longitude", 31);
                         HABPACK_TELEM_STORE_AS_DOUBLE((double)ts64 / 10e6);
@@ -997,8 +874,6 @@ int Habpack_Process_Message(received_t *Received)
                             {
                                 return 0;
                             }
-                            temp_remaining = 1024-temp_ptr;
-                            temp_ptr += snprintf(&temp[temp_ptr],temp_remaining,"%lld",ts64);
 
                             strncpy(field_name, "predicted_landing_altitude", 31);
                             HABPACK_TELEM_STORE_AS_INT64(ts64);
@@ -1008,74 +883,35 @@ int Habpack_Process_Message(received_t *Received)
                 )
                 else return 0;
 
-                temp_ptr++;
                 break;
 
             default: // Unknown 
                 TRY_PARSE_STRING(
-                    key_val[key_ptr] = temp_ptr;                
-                    keys[key_ptr++] = map_id;
+                    snprintf(field_name, 31, "%lld", map_id);
 
-                    temp_remaining = 1024-temp_ptr;
-                    while(temp[temp_ptr])
-                        temp_ptr++;
-
-                    /* TODO: Store in habpack data list */
-
-                    temp_ptr++;
+                    HABPACK_TELEM_STORE_AS_STRING(str);
                 )
                 else TRY_PARSE_UNSIGNED_INTEGER(
-                    key_val[key_ptr] = temp_ptr;
-                    keys[key_ptr++] = map_id;
-
-                    temp_remaining = 1024-temp_ptr;
-                    temp_ptr += snprintf(&temp[temp_ptr],temp_remaining,"%lld",tu64);
-
                     snprintf(field_name, 31, "%lld", map_id);
-                    HABPACK_TELEM_STORE_AS_INT64(tu64);
 
-                    temp_ptr++;
+                    HABPACK_TELEM_STORE_AS_INT64(tu64);
                 )
                 else TRY_PARSE_SIGNED_INTEGER(
-                    key_val[key_ptr] = temp_ptr;
-                    keys[key_ptr++] = map_id;
-
-                    temp_remaining = 1024-temp_ptr;
-                    temp_ptr += snprintf(&temp[temp_ptr],temp_remaining,"%lld",ts64);
-
                     snprintf(field_name, 31, "%lld", map_id);
-                    HABPACK_TELEM_STORE_AS_INT64(ts64);
 
-                    temp_ptr++;
+                    HABPACK_TELEM_STORE_AS_INT64(ts64);
                 )
                 else TRY_PARSE_FLOAT(
-                    key_val[key_ptr] = temp_ptr;
-                    keys[key_ptr++] = map_id;
-
-                    temp_remaining = 1024-temp_ptr;
-                    temp_ptr += snprintf(&temp[temp_ptr],temp_remaining,"%f",tf32);
-
                     snprintf(field_name, 31, "%lld", map_id);
-                    HABPACK_TELEM_STORE_AS_DOUBLE(tf32);
 
-                    temp_ptr++;
+                    HABPACK_TELEM_STORE_AS_DOUBLE(tf32);
                 )
                 else TRY_PARSE_DOUBLE(
-                    key_val[key_ptr] = temp_ptr;
-                    keys[key_ptr++] = map_id;
-
-                    temp_remaining = 1024-temp_ptr;
-                    temp_ptr += snprintf(&temp[temp_ptr],temp_remaining,"%f",tf64);
-
                     snprintf(field_name, 31, "%lld", map_id);
-                    HABPACK_TELEM_STORE_AS_DOUBLE(tf64);
 
-                    temp_ptr++;
+                    HABPACK_TELEM_STORE_AS_DOUBLE(tf64);
                 )
                 else TRY_PARSE_ARRAY_AT_ONCE(
-                    key_val[key_ptr] = temp_ptr;
-                    keys[key_ptr++] = map_id;
-
                     for (j = 0; j < array_size; j++)
                     {
                         /* Read array element */
@@ -1083,35 +919,28 @@ int Habpack_Process_Message(received_t *Received)
                             return 0;
 
                         TRY_PARSE_STRING(
-                            while(temp[temp_ptr])
-                                temp_ptr++;
+                            snprintf(field_name, 31, "%lld.%d", map_id, j);
+                            
+                            HABPACK_TELEM_STORE_AS_STRING(str);
                         )
                         else TRY_PARSE_UNSIGNED_INTEGER(
-                            temp_remaining = 1024-temp_ptr;
-                            temp_ptr += snprintf(&temp[temp_ptr],temp_remaining,"%lld",tu64);
-
                             snprintf(field_name, 31, "%lld.%d", map_id, j);
+
                             HABPACK_TELEM_STORE_AS_INT64(tu64);
                         )
                         else TRY_PARSE_SIGNED_INTEGER(
-                            temp_remaining = 1024-temp_ptr;
-                            temp_ptr += snprintf(&temp[temp_ptr],temp_remaining,"%lld",ts64);
-
                             snprintf(field_name, 31, "%lld.%d", map_id, j);
+
                             HABPACK_TELEM_STORE_AS_INT64(ts64);
                         )
                         else TRY_PARSE_FLOAT(
-                            temp_remaining = 1024-temp_ptr;
-                            temp_ptr += snprintf(&temp[temp_ptr],temp_remaining,"%f",tf32);
-
                             snprintf(field_name, 31, "%lld.%d", map_id, j);
+
                             HABPACK_TELEM_STORE_AS_DOUBLE(tf32);
                         )
                         else TRY_PARSE_DOUBLE(
-                            temp_remaining = 1024-temp_ptr;
-                            temp_ptr += snprintf(&temp[temp_ptr],temp_remaining,"%f",tf64);
-
                             snprintf(field_name, 31, "%lld.%d", map_id, j);
+
                             HABPACK_TELEM_STORE_AS_DOUBLE(tf64);
                         )
                         else TRY_PARSE_ARRAY_AT_ONCE_NESTED(
@@ -1122,96 +951,41 @@ int Habpack_Process_Message(received_t *Received)
                                     return 0;
 
                                 TRY_PARSE_STRING(
-                                    while(temp[temp_ptr])
-                                        temp_ptr++;
+                                    snprintf(field_name, 31, "%lld.%d.%d", map_id, j, k);
+                                    
+                                    HABPACK_TELEM_STORE_AS_STRING(str);
                                 )
                                 else TRY_PARSE_UNSIGNED_INTEGER(
-                                    temp_remaining = 1024-temp_ptr;
-                                    temp_ptr += snprintf(&temp[temp_ptr],temp_remaining,"%lld",tu64);
-
                                     snprintf(field_name, 31, "%lld.%d.%d", map_id, j, k);
+
                                     HABPACK_TELEM_STORE_AS_INT64(tu64);
                                 )
                                 else TRY_PARSE_SIGNED_INTEGER(
-                                    temp_remaining = 1024-temp_ptr;
-                                    temp_ptr += snprintf(&temp[temp_ptr],temp_remaining,"%lld",ts64);
-
                                     snprintf(field_name, 31, "%lld.%d.%d", map_id, j, k);
+
                                     HABPACK_TELEM_STORE_AS_INT64(ts64);
                                 )
                                 else TRY_PARSE_FLOAT(
-                                    temp_remaining = 1024-temp_ptr;
-                                    temp_ptr += snprintf(&temp[temp_ptr],temp_remaining,"%f",tf32);
-
                                     snprintf(field_name, 31, "%lld.%d.%d", map_id, j, k);
+
                                     HABPACK_TELEM_STORE_AS_DOUBLE(tf32);
                                 )
                                 else TRY_PARSE_DOUBLE(
-                                    temp_remaining = 1024-temp_ptr;
-                                    temp_ptr += snprintf(&temp[temp_ptr],temp_remaining,"%f",tf64);
-
                                     snprintf(field_name, 31, "%lld.%d.%d", map_id, j, k);
+
                                     HABPACK_TELEM_STORE_AS_DOUBLE(tf64);
                                 )
                                 else return 0;
-
-                                temp_remaining = 1024-temp_ptr;
-                                temp_ptr += snprintf(&temp[temp_ptr],temp_remaining,",");
                             }
-
-                            /* Replace last comma with null */
-                            temp[temp_ptr] = '\0';
                         )
                         else return 0;
-
-                        temp_remaining = 1024-temp_ptr;
-                        temp_ptr += snprintf(&temp[temp_ptr],temp_remaining,",");
                     }
-
-                    /* Replace last comma with null */
-                    temp[temp_ptr] = '\0';
                 )
                 break;
         }
     }
-    
-    uint16_t crc;
 
-    if (key_ptr == 0)
-        return 0;
-    
-    out_ptr += snprintf(Received->UKHASstring,UKHASstring_length,"$$");
-    
-    //now order the items into the output string
-    
-    int copy_ptr = 0;
-    
-    for (i=0; i < 128; i++) {
-        for (j=0; j < key_ptr; j++) {
-            if (keys[j] == i){
-                copy_ptr = key_val[j];
-                if (temp[copy_ptr]){
-                    while((out_ptr < UKHASstring_length-1) && (temp[copy_ptr])){
-                        Received->UKHASstring[out_ptr++] = temp[copy_ptr++];
-                    }
-                    Received->UKHASstring[out_ptr++] = ',';
-                }
-            }
-        }
-    }
-    out_ptr--;    
-    Received->UKHASstring[out_ptr] = '\0';
-    
-    /* Base64 encoding of original packet - TODO: Flag?
-    size_t out_len;
-    base64_encode(Received->Message, Received->Bytes, &out_len, &Received->UKHASstring[out_ptr]);
-    out_ptr += out_len;
-    Received->UKHASstring[out_ptr] = '\0';
-    */
-    
-    // add checksum to keep everything happy 
-    crc = CRC16((unsigned char *)&Received->UKHASstring[2]);
-    snprintf(&Received->UKHASstring[out_ptr],UKHASstring_length-out_ptr-7,"*%04x\n",crc);
+    Habpack_Telem_UKHAS_String(Received, Received->UKHASstring, 255);
     
     return 1;
 }
