@@ -38,6 +38,7 @@
 #include "listener.h"
 #include "habpack.h"
 #include "udpclient.h"
+#include "lifo_buffer.h"
 
 #define VERSION	"V1.8.19"
 bool run = TRUE;
@@ -187,14 +188,11 @@ struct TBinaryPacket {
 
 #pragma pack(pop)
 
+lifo_buffer_t Habitat_Upload_Buffer;
+
 // Create pipes for inter proces communication 
 // GLOBAL AS CALLED FROM INTERRRUPT
-int telem_pipe_fd[2];
 int ssdv_pipe_fd[2];
-
-// Create a structure to share some variables with the habitat child process
-// GLOBAL AS CALLED FROM INTERRRUPT
-thread_shared_vars_t htsv;
 
 // Create a structure to share some variables with the ssdv child process
 // GLOBAL AS CALLED FROM INTERRRUPT
@@ -1019,19 +1017,15 @@ void ProcessTelemetryMessage(int Channel, received_t *Received)
 
             if ( Config.EnableHabitat )
             {
-                // Add the telemetry packet to the pipe
-                int result = write( telem_pipe_fd[1], Received, sizeof( *Received ) );
-                if ( result == -1 )
+                // Add to Habitat upload queue
+                received_t *queueReceived = malloc(sizeof(received_t));
+                if(queueReceived != NULL)
                 {
-                    exit_error("Error writing to the telemetry pipe\n");
-                }
-                if ( result == 0 )
-                {
-                    LogMessage( "Nothing written to telemetry pipe \n" );
-                }
-                if ( result > 1 )
-                {
-                    htsv.packet_count++;
+                    /* WARNING: Doesn't copy linked-list :/ */
+                    memcpy(queueReceived, Received, sizeof(received_t));
+
+                    /* Push pointer onto upload queue */
+                    lifo_buffer_push(&Habitat_Upload_Buffer, (void *)queueReceived);
                 }
             }
 			
@@ -2318,12 +2312,6 @@ int main( int argc, char **argv )
 
     int result;
 
-    result = pipe( telem_pipe_fd );
-    if ( result < 0 )
-    {
-        exit_error("Error creating telemetry pipe\n");
-    }
-
     result = pipe( ssdv_pipe_fd );
     if ( result < 0 )
     {
@@ -2373,15 +2361,11 @@ int main( int argc, char **argv )
 		return 1;
 	}
 
-
-    // Initialise the vars
-    htsv.parent_status = RUNNING;
-    htsv.packet_count = 0;
-
-
     if (Config.EnableHabitat)
 	{
-		if ( pthread_create (&HabitatThread, NULL, HabitatLoop, ( void * ) &htsv))
+        lifo_buffer_init(&Habitat_Upload_Buffer, 1024);
+
+		if ( pthread_create (&HabitatThread, NULL, HabitatLoop, NULL))
 		{
 			fprintf( stderr, "Error creating Habitat thread\n" );
 			return 1;
@@ -2565,14 +2549,11 @@ int main( int argc, char **argv )
     LogMessage( "Closing SSDV pipe\n" );
     close( ssdv_pipe_fd[1] );
 
-    LogMessage( "Closing Habitat pipe\n" );
-    close( telem_pipe_fd[1] );
-
     LogMessage( "Stopping SSDV thread\n" );
     stsv.parent_status = STOPPED;
 
 	LogMessage( "Stopping Habitat thread\n" );
-	htsv.parent_status = STOPPED;
+	lifo_buffer_quitwait(&Habitat_Upload_Buffer);
 
     if (Config.EnableSSDV)
 	{
