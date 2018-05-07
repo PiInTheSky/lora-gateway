@@ -1021,8 +1021,9 @@ void ProcessTelemetryMessage(int Channel, received_t *Received)
                 received_t *queueReceived = malloc(sizeof(received_t));
                 if(queueReceived != NULL)
                 {
-                    /* WARNING: Doesn't copy linked-list :/ */
                     memcpy(queueReceived, Received, sizeof(received_t));
+                    /* We haven't copied the linked list, this'll be free()ed later, so remove pointer */
+                    queueReceived->Telemetry.habpack_extra = NULL;
 
                     /* Push pointer onto upload queue */
                     lifo_buffer_push(&Habitat_Upload_Buffer, (void *)queueReceived);
