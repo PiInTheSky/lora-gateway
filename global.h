@@ -148,7 +148,7 @@ typedef struct {
 } rx_metadata_t;
 
 /* HABpack Telemetry Storage */
-typedef enum { HB_VALUE_INTEGER, HB_VALUE_REAL } HB_Value_Type;
+typedef enum { HB_VALUE_INTEGER, HB_VALUE_REAL, HB_VALUE_STRING } HB_Value_Type;
 typedef struct habpack_telem_linklist_entry {
     uint32_t type;
     char name[32];
@@ -156,6 +156,7 @@ typedef struct habpack_telem_linklist_entry {
     union {
         int64_t integer;
         double real;
+        char *string;
     } value;
     struct habpack_telem_linklist_entry *next;
 } habpack_telem_linklist_entry_t;
