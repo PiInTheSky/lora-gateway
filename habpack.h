@@ -45,4 +45,6 @@
 int Habpack_Process_Message(received_t *Received);
 void Habpack_Telem_Destroy(received_t *Received);
 
+void Habpack_Telem_JSON(received_t *Received, char *json_string, uint32_t max_length);
+
 #endif /* __HABPACK_H__ */
