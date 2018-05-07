@@ -23,6 +23,9 @@
 #include "sha256.h"
 #include "wiringPi.h"
 #include "gateway.h"
+#include "lifo_buffer.h"
+
+extern lifo_buffer_t Habitat_Upload_Buffer;
 
 extern int telem_pipe_fd[2];
 extern pthread_mutex_t var;
@@ -46,7 +49,7 @@ void hash_to_hex( unsigned char *hash, char *line )
     line[64] = '\0';
 }
 
-void UploadTelemetryPacket( received_t * t )
+bool UploadTelemetryPacket( received_t * t )
 {
     CURL *curl;
     CURLcode res;
@@ -56,6 +59,7 @@ void UploadTelemetryPacket( received_t * t )
     curl = curl_easy_init(  );
     if ( curl )
     {
+        bool result;
         char url[200];
         char base64_data[1000];
         size_t base64_length;
@@ -79,19 +83,6 @@ void UploadTelemetryPacket( received_t * t )
         doc_tm = gmtime( &t->Metadata.Timestamp );
         strftime( doc_time, sizeof( doc_time ), "%Y-%0m-%0dT%H:%M:%SZ", doc_tm );
 
-        // So that the response to the curl PUT doesn't mess up my finely crafted display!
-        curl_easy_setopt( curl, CURLOPT_WRITEFUNCTION, habitat_write_data );
-
-        // Set the timeout
-        curl_easy_setopt( curl, CURLOPT_TIMEOUT, 15 );
-
-        // RJH capture http errors and report
-        // curl_easy_setopt( curl, CURLOPT_FAILONERROR, 1 );
-        curl_easy_setopt( curl, CURLOPT_ERRORBUFFER, curl_error );
-
-        // Avoid curl library bug that happens if above timeout occurs (sigh)
-        curl_easy_setopt( curl, CURLOPT_NOSIGNAL, 1 );
-
         // Grab current telemetry string and append a linefeed
         sprintf( Sentence, "%s\n", t->UKHASstring );
 
@@ -111,11 +102,21 @@ void UploadTelemetryPacket( received_t * t )
                  "{\"data\": {\"_raw\": \"%s\"},\"receivers\": {\"%s\": {\"time_created\": \"%s\",\"time_uploaded\": \"%s\",\"rig_info\": {\"frequency\":%.0f}}}}",
                  base64_data, Config.Tracker, doc_time, now, (t->Metadata.Frequency + t->Metadata.FrequencyError) * 1000000 );
 
-        // LogTelemetryPacket(json);
-
-
         // Set the URL that is about to receive our PUT
         sprintf( url, "http://habitat.habhub.org/habitat/_design/payload_telemetry/_update/add_listener/%s", doc_id);
+
+        // So that the response to the curl PUT doesn't mess up my finely crafted display!
+        curl_easy_setopt( curl, CURLOPT_WRITEFUNCTION, habitat_write_data );
+
+        // Set the timeout
+        curl_easy_setopt( curl, CURLOPT_TIMEOUT, 15 );
+
+        // RJH capture http errors and report
+        // curl_easy_setopt( curl, CURLOPT_FAILONERROR, 1 );
+        curl_easy_setopt( curl, CURLOPT_ERRORBUFFER, curl_error );
+
+        // Avoid curl library bug that happens if above timeout occurs (sigh)
+        curl_easy_setopt( curl, CURLOPT_NOSIGNAL, 1 );
 
         // Set the headers
         headers = NULL;
@@ -142,7 +143,13 @@ void UploadTelemetryPacket( received_t * t )
 				if (http_resp != 201 && http_resp != 403 && http_resp != 409)
 				{
 					LogMessage("Unexpected HTTP response %ld for URL '%s'\n", http_resp, url);
+                    result = false;
 				}
+                else
+                {
+                    /* Everything performing nominally (even if we didn't successfully insert this time) */
+                    result = true;
+                }
 			}
 			else
 			{
@@ -150,6 +157,8 @@ void UploadTelemetryPacket( received_t * t )
 				LogMessage("Failed for URL '%s'\n", url);
 				LogMessage("curl_easy_perform() failed: %s\n", curl_easy_strerror(res));
 				LogMessage("error: %s\n", curl_error);
+                /* Likely a network error, so return false to requeue */
+                result = false;
 			}
 			
 			if (http_resp == 409)
@@ -163,72 +172,57 @@ void UploadTelemetryPacket( received_t * t )
         // always cleanup
         curl_slist_free_all( headers );
         curl_easy_cleanup( curl );
+
+        return result;
+    }
+    else
+    {
+        /* CURL error, return false so we requeue */
+        return false;
     }
 }
 
 
 void *HabitatLoop( void *vars )
 {
-
     if ( Config.EnableHabitat )
     {
-        thread_shared_vars_t *htsv;
-        htsv = vars;
-        received_t t;
-        int packets = 0;
-        unsigned long total_packets = 0;
+        received_t *dequeued_telemetry_ptr;
 
-        int i = 1;
-
-        // Keep looping until the parent quits and there are no more packets to 
-        // send to habitat.
-        while ( ( htsv->parent_status == RUNNING ) || ( packets > 0 ) )
+        // Keep looping until the parent quits
+        while ( true )
         {
+            dequeued_telemetry_ptr = lifo_buffer_waitpop(&Habitat_Upload_Buffer);
 
-            //THis is neded for some reason habitat thread has a pthread_mutex_lock set 
-            // and this removes it 
-            if ( i )
+            if(dequeued_telemetry_ptr != NULL)
             {
-                // pthread_mutex_lock(&var);
-                pthread_mutex_unlock( &var );
-                i = 0;
-            }
-            if ( htsv->packet_count > total_packets )
-            {
-                packets = read( telem_pipe_fd[0], &t, sizeof( t ) );
+                ChannelPrintf( dequeued_telemetry_ptr->Metadata.Channel, 6, 1, "Habitat (%d queued)", lifo_buffer_queued(&Habitat_Upload_Buffer) );
+
+                if(UploadTelemetryPacket( dequeued_telemetry_ptr ))
+                {
+                    ChannelPrintf( dequeued_telemetry_ptr->Metadata.Channel, 6, 1, "                   " );
+                    free(dequeued_telemetry_ptr);
+                }
+                else
+                {
+                    /* Network / CURL Error, requeue packet */
+                    ChannelPrintf( dequeued_telemetry_ptr->Metadata.Channel, 6, 1, "Habitat Net Error! " );
+
+                    if(!lifo_buffer_requeue(&Habitat_Upload_Buffer, dequeued_telemetry_ptr))
+                    {
+                        /* Requeue failed, drop packet */
+                        free(dequeued_telemetry_ptr);
+                    }
+                }
             }
             else
             {
-                packets = 0;
-                // pthread_mutex_unlock(&var);
-
-                // If we have have a rollover after processing 4294967295 packets 
-                if ( htsv->packet_count < total_packets )
-                    total_packets = 0;
-
+                /* NULL returned: We've been asked to quit */
+                /* Don't bother free()ing stuff, as application is quitting */
+                break;
             }
-
-            if ( packets )
-            {
-                // LogMessage ("%s\n", t.Telemetry);
-
-                ChannelPrintf( t.Metadata.Channel, 6, 1, "Habitat" );
-
-                UploadTelemetryPacket( &t );
-
-                ChannelPrintf( t.Metadata.Channel, 6, 1, "       " );
-
-                total_packets++;
-
-            }
-			delay(100);			// Don't eat too much CPU
         }
     }
-
-    close( telem_pipe_fd[0] );
-    close( telem_pipe_fd[1] );
-
-    LogMessage( "Habitat thread closing\n" );
 
     return NULL;
 }
