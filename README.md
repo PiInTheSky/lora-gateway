@@ -227,6 +227,10 @@ Many thanks to David Brooke for coding this feature and the AFC.
 Change History
 ==============
 
+04/05/2018 - V1.8.20
+--------------------
+
+	Included HABPack decoding by Phil Crump M0DNY
 
 16/04/2018 - V1.8.19
 --------------------
