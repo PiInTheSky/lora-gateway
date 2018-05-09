@@ -227,6 +227,11 @@ Many thanks to David Brooke for coding this feature and the AFC.
 Change History
 ==============
 
+09/05/2018 - V1.8.21
+--------------------
+
+	Remove superfluous trailing zeroes from the ASCII telemetry produced from HABPack
+
 04/05/2018 - V1.8.20
 --------------------
 

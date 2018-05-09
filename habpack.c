@@ -222,6 +222,41 @@ void Habpack_telem_store_field(received_t *Received, uint64_t map_id, char *fiel
         value  \
     )
 
+// sprintfs a real number without superfluous trailing zeroes.
+// sprintf doesn't have that ability, hence this horrible little function
+int snprintf_real(char *str, int max_len, double value)
+{
+	int i, len;
+	
+    len = snprintf(str, max_len, "%f,", value);
+	
+	if (strchr(str, '.') != NULL)
+	{
+		// Just in case there's no dp in the resulting string.  There should always be one (I think) but just in case ...
+		
+		// Look backwards for first non-zero character, starting at the last digit in the string
+		for (i=len-2; i; i--)
+		{
+			if (str[i] != '0')
+			{
+				// Found a non zero
+				if (str[i] == '.')
+				{
+					// It's just zeroes after the dp, so we want to keep one zero, so step past that
+					i++;
+				}
+
+				// Add comma delimeter and null terminator, return the new length
+				str[++i] = ',';
+				str[++i] = '\0';
+				return i;
+			}
+		}
+	}
+	
+	return len;
+}	
+
 void Habpack_Telem_UKHAS_String(received_t *Received, char *ukhas_string, uint32_t max_length)
 {
     uint16_t crc;
@@ -270,10 +305,9 @@ void Habpack_Telem_UKHAS_String(received_t *Received, char *ukhas_string, uint32
         }
         else if(walk_ptr->value_type == HB_VALUE_REAL)
         {
-            str_index += snprintf(
+            str_index += snprintf_real(
                 &ukhas_string[str_index],
                 (max_length - str_index),
-                "%f,",
                 walk_ptr->value.real
             );
         }
