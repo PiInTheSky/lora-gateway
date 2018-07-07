@@ -2283,7 +2283,7 @@ void SendUplinkMessage( int Channel )
 
 void displayChannel (int Channel) {
 
-    displayFrequency ( Channel, Config.LoRaDevices[Channel].Frequency );
+    displayFrequency ( Channel, Config.LoRaDevices[Channel].activeFreq );
 
     displayLoRaParameters( 
         Channel, 
