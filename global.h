@@ -30,6 +30,7 @@ struct TPayload
 struct TLoRaDevice 
 {
 	double Frequency;
+    double PPM;
 	double Bandwidth;
 	double CurrentBandwidth;
 		

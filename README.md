@@ -112,6 +112,8 @@ The global options are:
 and the channel-specific options are:
 	
 	frequency_<n>=<freq in MHz>.  This sets the frequency for LoRa module <n> (0 for first, 1 for second).  e.g. frequency_0=434.450
+
+	PPM_<n>=<Parts per million offset of LoRa module.
 	
 	AFC_<n>=<Y/N>.  Enables or disables automatic frequency control (retunes by the frequency error of last received packet).
 	
@@ -226,6 +228,11 @@ Many thanks to David Brooke for coding this feature and the AFC.
 
 Change History
 ==============
+
+12/09/2018 - V1.8.22
+--------------------
+
+	Added PPM setting and correction
 
 09/05/2018 - V1.8.21
 --------------------

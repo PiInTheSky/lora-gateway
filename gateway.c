@@ -40,7 +40,7 @@
 #include "udpclient.h"
 #include "lifo_buffer.h"
 
-#define VERSION	"V1.8.21"
+#define VERSION	"V1.8.22"
 bool run = TRUE;
 
 // RFM98
@@ -464,7 +464,7 @@ void setFrequency( int Channel, double Frequency )
     FrequencyString[8] = FrequencyString[7];
     FrequencyString[7] = '.';
 
-    FrequencyValue = ( unsigned long ) ( Frequency * 7110656 / 434 );
+    FrequencyValue = ( unsigned long ) (Frequency * (1.0 - Config.LoRaDevices[Channel].PPM/1000000.0) * 7110656 / 434 );
 
     writeRegister( Channel, 0x06, ( FrequencyValue >> 16 ) & 0xFF );    // Set frequency
     writeRegister( Channel, 0x07, ( FrequencyValue >> 8 ) & 0xFF );
@@ -1772,6 +1772,8 @@ void LoadConfigFile(void)
     for (Channel = 0; Channel <= 1; Channel++)
     {
 		RegisterConfigDouble(MainSection, Channel, "frequency", &Config.LoRaDevices[Channel].Frequency, LoRaCallback);
+		RegisterConfigDouble(MainSection, Channel, "PPM", &Config.LoRaDevices[Channel].PPM, LoRaCallback);
+		
         if (Config.LoRaDevices[Channel].Frequency > 100)
         {
 			// Defaults
