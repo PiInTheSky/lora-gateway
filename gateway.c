@@ -1734,6 +1734,14 @@ void LoadConfigFile(void)
 	Config.HABChannel = 0;
     RegisterConfigInteger(MainSection, -1, "HABChannel", &Config.HABChannel, NULL);
 	
+	// Uplink encryption
+	*Config.UplinkCode = '\0';
+	RegisterConfigString(MainSection, -1, "UplinkCode", Config.UplinkCode, sizeof(Config.UplinkCode), NULL);
+	if (*Config.UplinkCode)
+	{
+		LogMessage("Uplink Code = '%s'\n", Config.UplinkCode);
+	}
+	
     // SSDV Settings
 	RegisterConfigString(MainSection, -1, "JPGFolder", Config.SSDVJpegFolder, sizeof(Config.SSDVJpegFolder), NULL);
     if ( Config.SSDVJpegFolder[0] )
@@ -2262,10 +2270,16 @@ void SendTelnetMessage(int Channel, struct TServerInfo *TelnetInfo, int TimedOut
 void SendUplinkMessage( int Channel )
 {
     char Message[512];
+    time_t now;
+	struct tm *tm;
+
+	now = time(0);
+	tm = localtime(&now);
 
     // Decide what type of message we need to send
 	if (*Config.LoRaDevices[Channel].UplinkMessage)
 	{
+		LogMessage("%02d:%02d:%02d - Send uplink message '%s'\n", tm->tm_hour, tm->tm_min, tm->tm_sec, Config.LoRaDevices[Channel].UplinkMessage);
 		SendLoRaData(Channel, Config.LoRaDevices[Channel].UplinkMessage, strlen(Config.LoRaDevices[Channel].UplinkMessage)+1);
 		*Config.LoRaDevices[Channel].UplinkMessage = 0;
 	}
@@ -2548,7 +2562,7 @@ int main( int argc, char **argv )
 
                         if (CycleSeconds == Config.LoRaDevices[Channel].UplinkTime)
                         {
-                            LogMessage("%02d:%02d:%02d - Time to send uplink message\n", tm->tm_hour, tm->tm_min, tm->tm_sec);
+                            // LogMessage("%02d:%02d:%02d - Time to send uplink message\n", tm->tm_hour, tm->tm_min, tm->tm_sec);
 
                             SendUplinkMessage(Channel);
                         }
