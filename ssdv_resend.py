@@ -28,7 +28,9 @@ def get_list_of_missing_packets(PayloadID, Minutes):
 		# only interested in latest 2 images
 		if index >= (len(j) - 2):
 			# only interested in images that have missing packets
-			if len(item['missing_packets']) > 0:
+			# if len(item['missing_packets']) > 0:
+			# only interested in images that have missing packets or which are yet to be completed
+			if len(item['missing_packets']) > 0 or (not item['received_eoi']):
 				print(item['id'], item['image_id'], len(item['missing_packets']))
 				print(item['missing_packets'])
 				# pl = item['packets']
