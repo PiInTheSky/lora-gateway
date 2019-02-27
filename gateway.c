@@ -30,6 +30,7 @@
 #include "ftp.h"
 #include "habitat.h"
 #include "network.h"
+#include "network.h"
 #include "global.h"
 #include "server.h"
 #include "gateway.h"
@@ -40,7 +41,7 @@
 #include "udpclient.h"
 #include "lifo_buffer.h"
 
-#define VERSION	"V1.8.22"
+#define VERSION	"V1.8.23"
 bool run = TRUE;
 
 // RFM98
@@ -144,7 +145,7 @@ struct TLoRaMode
 	{IMPLICIT_MODE, ERROR_CODING_4_5, BANDWIDTH_250K, SPREADING_6,  0, 16828, "TurboX"},			// 4: Fastest mode within IR2030 in 868MHz band
 	{EXPLICIT_MODE, ERROR_CODING_4_8, BANDWIDTH_41K7, SPREADING_11, 0,   200, "Calling"},			// 5: Calling mode
 	{IMPLICIT_MODE, ERROR_CODING_4_5, BANDWIDTH_41K7, SPREADING_6,  0,  2800, "Uplink"},			// 6: Uplink mode for 868
-	{EXPLICIT_MODE, ERROR_CODING_4_5, BANDWIDTH_20K8, SPREADING_7,  0,  2800, "Telnet"},			// 7: Telnet-style comms with HAB on 434
+	{EXPLICIT_MODE, ERROR_CODING_4_5, BANDWIDTH_20K8, SPREADING_7,  0,   910, "Telnet"},			// 7: Telnet-style comms with HAB on 434
 	{IMPLICIT_MODE, ERROR_CODING_4_5, BANDWIDTH_62K5, SPREADING_6,  0,  4500, "SSDV Repeater"}		// 8: Fast (SSDV) repeater network	
 };
 
@@ -655,7 +656,7 @@ void SendLoRaData(int Channel, char *buffer, int Length)
 						  0);
 	}
 	
-    LogMessage( "LoRa Channel %d Sending %d bytes\n", Channel, Length );
+    // LogMessage( "LoRa Channel %d Sending %d bytes\n", Channel, Length );
     Config.LoRaDevices[Channel].Sending = 1;
 
     setMode( Channel, RF98_MODE_STANDBY );
@@ -704,7 +705,7 @@ void ShowPacketCounts(int Channel)
 
 void ProcessUploadMessage(int Channel, char *Message)
 {
-    // LogMessage("Ch %d: Uploaded message %s\n", Channel, Message);
+    // LogMessage("Ch %d: Gateway Uplink Message %s\n", Channel, Message);
 }
 
 void ProcessCallingMessage(int Channel, char *Message)
@@ -1007,9 +1008,10 @@ void ProcessLineHABpack(int Channel, received_t *Received)
     }
 }
 
-
-void ProcessTelemetryMessage(int Channel, received_t *Received)
+int ProcessTelemetryMessage(int Channel, received_t *Received)
 {
+	int Repeated = 0;
+	
     if (strlen(Received->UKHASstring) < 250)
     {
         char *startmessage, *endmessage;
@@ -1028,7 +1030,6 @@ void ProcessTelemetryMessage(int Channel, received_t *Received)
 
         while ( endmessage != NULL )
         {
-			int Repeated;
             struct tm *tm;
 
             *endmessage = '\0';
@@ -1067,6 +1068,54 @@ void ProcessTelemetryMessage(int Channel, received_t *Received)
 
         Config.LoRaDevices[Channel].LastTelemetryPacketAt = Received->Metadata.Timestamp;
     }
+	
+	return Repeated;
+}
+
+void CheckForChatContent(int Channel, int Repeated, char *Line)
+{
+	if (Config.LoRaDevices[Channel].ChatMode)
+	{
+		char PayloadID[16], Message[200];
+		int RxMask, RxMessageID, MessageID;
+		
+		if (Repeated)
+		{
+			LogMessage("Repeated sentence [%s]\n", Line);
+			
+			Message[0] = 0;
+			sscanf(Line+2, "%15[^,],%*[^,],%*[^,],%*[^,],%*[^,],%*[^,],%*[^,],%x,%d,%d,%[^*]", PayloadID, &RxMask, &RxMessageID, &MessageID, Message);
+			LogMessage("PayloadID=%s RxMask=%x RxMessageID=%d MessageID=%d Message=%s\n", PayloadID, RxMask, RxMessageID, MessageID, Message);
+			
+			if (strcmp(PayloadID, Config.LoRaDevices[Channel].ChatPayloadID) != 0)
+			{
+				// Repeated from a payload other than "ours"
+				
+				// Get message/ID from remote gateway
+				Config.LoRaDevices[Channel].RxMessageID = MessageID;
+				strcpy(Config.LoRaDevices[Channel].RxChatMessage, Message);
+				if (*Message)
+				{
+					LogMessage("READY FOR TERMINAL\n");
+				}
+				
+				// Check to see if remote gateway has seen our last message
+				if (RxMessageID == Config.LoRaDevices[Channel].TxMessageID)
+				{
+					// Yes, it has, so now clear the message we uplink
+					Config.LoRaDevices[Channel].TxChatMessage[0] = 0;
+				}
+			}
+		}
+		else
+		{
+			// LogMessage("Normal sentence [%s]\n", Line);
+			
+			// Message[0] = 0;
+			// sscanf(Line+2, "%15[^,],%*[^,],%*[^,],%*[^,],%*[^,],%*[^,],%*[^,],%d,%d,%[^*]", PayloadID, &RxMask, &MessageID, Message);
+			// LogMessage("PayloadID=%s RxMask=%d MessageID=%d Message=%s\n", PayloadID, RxMask, MessageID, Message);
+		}
+	}
 }
 
 void ProcessTelnetMessage(int Channel, char *Message, int Bytes)
@@ -1321,7 +1370,153 @@ int PacketRSSI(int Channel)
 	
 	return FixRSSI(Channel, readRegister(Channel, REG_PACKET_RSSI), SNR);
 }
+
+int GetTextMessageToUpload( int Channel, char *Message )
+{
+    DIR *dp;
+    struct dirent *ep;
+    int Result;
+
+    Result = 0;
+
+    if ( Config.SMSFolder[0] )
+    {
+		LogMessage("Checking for SMS file in '%s' folder ...\n", Config.SMSFolder);
+        dp = opendir( Config.SMSFolder );
+        if ( dp != NULL )
+        {
+            while ( ( ep = readdir( dp ) ) && !Result )
+            {
+                if ( strstr( ep->d_name, ".sms" ) )
+                {
+                    FILE *fp;
+                    char Line[256], FileName[256];
+                    int FileNumber;
+
+                    sprintf( FileName, "%s/%s", Config.SMSFolder, ep->d_name );
+                    sscanf( ep->d_name, "%d", &FileNumber );
+
+                    if ( ( fp = fopen( FileName, "rt" ) ) != NULL )
+                    {
+                        if ( fscanf( fp, "%[^\r]", Line ) )
+                        {
+                            // #001,@daveake: Good Luck Tim !!\n
+                            sprintf( Message, "#%d,%s\n", FileNumber, Line );
+
+                            LogMessage( "UPLINK: %s", Message );
+                            Result = 1;
+                        }
+                        else
+                        {
+                            LogMessage( "FAIL\n" );
+                        }
+                        fclose( fp );
+                    }
+                }
+            }
+            closedir( dp );
+        }
+		else
+		{
+			LogMessage("Failed to open folder - error code %d\n", errno);
+		}
+    }
+
+    return Result;
+}
+
+int GetExternalListOfMissingSSDVPackets( int Channel, char *Message )
+{
+    // First, create request file
+    FILE *fp;
+
+	if (Config.LoRaDevices[Channel].SSDVUplink)
+    {
+        int i;
+
+        // Now wait for uplink.txt file to appear.
+        // Timeout before the end of our Tx slot if no file appears
 		
+        for ( i = 0; i < 20; i++ )
+        {
+            if ( ( fp = fopen( "uplink.txt", "r" ) ) )
+            {
+                Message[0] = '\0';
+                fgets( Message, 256, fp );
+
+                fclose( fp );
+
+                LogMessage( "Got uplink.txt %d bytes\n", strlen( Message ) );
+
+                // remove("get_list.txt");
+                remove( "uplink.txt" );
+
+                return strlen( Message );
+            }
+
+            usleep( 100000 );
+        }
+
+        // LogMessage("Timed out waiting for file\n");
+        // remove("get_list.txt");
+    }
+
+    return 0;
+}
+
+void SendUplinkMessage( int Channel )
+{
+    char Message[512];
+    time_t now;
+	struct tm *tm;
+
+	now = time(0);
+	tm = localtime(&now);
+
+    // Decide what type of message we need to send
+	if (*Config.LoRaDevices[Channel].UplinkMessage)
+	{
+		LogMessage("%02d:%02d:%02d - Send uplink message '%s'\n", tm->tm_hour, tm->tm_min, tm->tm_sec, Config.LoRaDevices[Channel].UplinkMessage);
+		SendLoRaData(Channel, Config.LoRaDevices[Channel].UplinkMessage, strlen(Config.LoRaDevices[Channel].UplinkMessage)+1);
+		if (!Config.LoRaDevices[Channel].ChatMode)
+		{
+			// Not re-sending
+			*Config.LoRaDevices[Channel].UplinkMessage = 0;
+		}
+	}
+    else if (GetTextMessageToUpload( Channel, Message))
+    {
+        SendLoRaData(Channel, Message, 255);
+    }
+    else if (GetExternalListOfMissingSSDVPackets( Channel, Message))
+    {
+        SendLoRaData(Channel, Message, 255);
+    }
+    else if (Config.LoRaDevices[Channel].IdleUplink)
+    {
+        SendLoRaData(Channel, "", 1);
+    }
+}
+
+void ProcessSyncMessage(int Channel, char *Message, int Bytes)
+{
+	if (Config.LoRaDevices[Channel].ChatMode)
+	{
+		if (strcmp(Message+1, Config.LoRaDevices[Channel].ChatPayloadID) == 0)
+		{
+			// Sync for us
+			sprintf(Config.LoRaDevices[Channel].UplinkMessage, "!%s,%d,%d,%s",	Config.LoRaDevices[Channel].ChatPayloadID,
+																				Config.LoRaDevices[Channel].RxMessageID,
+																				Config.LoRaDevices[Channel].TxMessageID,
+																				Config.LoRaDevices[Channel].TxChatMessage);
+							
+			SendUplinkMessage(Channel);
+			
+			UDPSend(Config.LoRaDevices[Channel].UplinkMessage, Config.UDPPort);
+		}
+	}
+}
+
 void DIO0_Interrupt( int Channel )
 {
     if ( Config.LoRaDevices[Channel].Sending )
@@ -1360,15 +1555,18 @@ void DIO0_Interrupt( int Channel )
             }
             else if ((Received.Message[0] == '$') || (Received.Message[0] == '%'))
             {
-                /* RTTY */
+				int Repeated;
+				
+				// ASCII telemetry ($ = normal; % = repeated)
                 strncpy(Received.UKHASstring, Received.Message, Received.Bytes);
-                ProcessTelemetryMessage(Channel, &Received);
+				UDPSend(Received.UKHASstring, Config.UDPPort);
+                Repeated = ProcessTelemetryMessage(Channel, &Received);
                 ProcessLineUKHAS(Channel, Config.LoRaDevices[Channel].Telemetry);
                 TestMessageForSMSAcknowledgement( Channel, Received.UKHASstring);
+				CheckForChatContent(Channel, Repeated, Config.LoRaDevices[Channel].Telemetry);
 				strcpy(Config.LoRaDevices[Channel].LocalDataBuffer, Received.UKHASstring);
 				strcat(Config.LoRaDevices[Channel].LocalDataBuffer, "\r\n");
 				Config.LoRaDevices[Channel].LocalDataCount = Received.Bytes;
-				UDPSend(Received.UKHASstring, Config.UDPPort);
             }
             else if ( Received.Message[0] == '>' )
             {
@@ -1392,6 +1590,10 @@ void DIO0_Interrupt( int Channel )
             else if ( Received.Message[0] == '-' )
             {
 				ProcessTelnetMessage(Channel, Received.Message, Received.Bytes);
+            }
+            else if (Received.Message[0] == '.')
+            {
+				ProcessSyncMessage(Channel, Received.Message, Received.Bytes);
             }
             else if (((Received.Message[0] & 0x7F) == 0x66) ||		// SSDV JPG format
 					 ((Received.Message[0] & 0x7F) == 0x67) ||		// SSDV other formats
@@ -1718,6 +1920,7 @@ void LoadConfigFile(void)
     RegisterConfigInteger(MainSection, -1, "ServerPort", &Config.ServerPort, NULL);		// JSON server
     RegisterConfigInteger(MainSection, -1, "HABPort", &Config.HABPort, NULL);			// Telnet server
     RegisterConfigInteger(MainSection, -1, "DataPort", &Config.DataPort, NULL);			// Raw data server
+    RegisterConfigInteger(MainSection, -1, "ChatPort", &Config.ChatPort, NULL);			// Chat server
     RegisterConfigInteger(MainSection, -1, "UDPPort", &Config.UDPPort, NULL);			// UDP Broadcast socket (raw data)
     RegisterConfigInteger(MainSection, -1, "OziPlotterPort", &Config.OziPlotterPort, NULL);			// UDP Broadcast socket (OziPlotter format)
     RegisterConfigInteger(MainSection, -1, "OziMuxPort", &Config.OziMuxPort, NULL);         // UDP Broadcast socket (OziMux format)
@@ -1796,6 +1999,7 @@ void LoadConfigFile(void)
             Config.LoRaDevices[Channel].UplinkTime = -1;
             Config.LoRaDevices[Channel].UplinkCycle = -1;
 			Config.LoRaDevices[Channel].IdleUplink = FALSE;
+			Config.LoRaDevices[Channel].ChatMode = 0;
 
             LogMessage( "Channel %d frequency set to %.3lfMHz\n", Channel, Config.LoRaDevices[Channel].Frequency);
             Config.LoRaDevices[Channel].InUse = 1;
@@ -1823,11 +2027,19 @@ void LoadConfigFile(void)
 				{
 					LogMessage( "Channel %d SSDV Uplink Enabled\n", Channel);
 				}
+				
 				RegisterConfigBoolean(MainSection, Channel, "IdleUplink", &Config.LoRaDevices[Channel].IdleUplink, NULL);
 				if (Config.LoRaDevices[Channel].IdleUplink)
 				{
 					LogMessage( "Channel %d Idle Uplink Enabled\n", Channel);
 				}
+			}
+			
+			RegisterConfigBoolean(MainSection, Channel, "ChatMode", &Config.LoRaDevices[Channel].ChatMode, NULL);
+			if (Config.LoRaDevices[Channel].ChatMode)
+			{
+				RegisterConfigString(MainSection, Channel, "ChatPayload", Config.LoRaDevices[Channel].ChatPayloadID, sizeof(Config.LoRaDevices[Channel].ChatPayloadID), NULL);
+				LogMessage( "Channel %d Chat Mode Enabled to Payload %s\n", Channel, Config.LoRaDevices[Channel].ChatPayloadID);
 			}
 
 			RegisterConfigInteger(MainSection, Channel, "Power", &Config.LoRaDevices[Channel].Power, NULL);
@@ -2054,8 +2266,7 @@ ProcessKeyPress( int ch )
     }
 }
 
-int
-prog_count( char *name )
+int prog_count( char *name )
 {
     DIR *dir;
     struct dirent *ent;
@@ -2102,101 +2313,6 @@ prog_count( char *name )
     closedir( dir );
 
     return Count;
-}
-
-int
-GetTextMessageToUpload( int Channel, char *Message )
-{
-    DIR *dp;
-    struct dirent *ep;
-    int Result;
-
-    Result = 0;
-
-    if ( Config.SMSFolder[0] )
-    {
-		LogMessage("Checking for SMS file in '%s' folder ...\n", Config.SMSFolder);
-        dp = opendir( Config.SMSFolder );
-        if ( dp != NULL )
-        {
-            while ( ( ep = readdir( dp ) ) && !Result )
-            {
-                if ( strstr( ep->d_name, ".sms" ) )
-                {
-                    FILE *fp;
-                    char Line[256], FileName[256];
-                    int FileNumber;
-
-                    sprintf( FileName, "%s/%s", Config.SMSFolder, ep->d_name );
-                    sscanf( ep->d_name, "%d", &FileNumber );
-
-                    if ( ( fp = fopen( FileName, "rt" ) ) != NULL )
-                    {
-                        if ( fscanf( fp, "%[^\r]", Line ) )
-                        {
-                            // #001,@daveake: Good Luck Tim !!\n
-                            sprintf( Message, "#%d,%s\n", FileNumber, Line );
-
-                            LogMessage( "UPLINK: %s", Message );
-                            Result = 1;
-                        }
-                        else
-                        {
-                            LogMessage( "FAIL\n" );
-                        }
-                        fclose( fp );
-                    }
-                }
-            }
-            closedir( dp );
-        }
-		else
-		{
-			LogMessage("Failed to open folder - error code %d\n", errno);
-		}
-    }
-
-    return Result;
-}
-
-int
-GetExternalListOfMissingSSDVPackets( int Channel, char *Message )
-{
-    // First, create request file
-    FILE *fp;
-
-	if (Config.LoRaDevices[Channel].SSDVUplink)
-    {
-        int i;
-
-        // Now wait for uplink.txt file to appear.
-        // Timeout before the end of our Tx slot if no file appears
-		
-        for ( i = 0; i < 20; i++ )
-        {
-            if ( ( fp = fopen( "uplink.txt", "r" ) ) )
-            {
-                Message[0] = '\0';
-                fgets( Message, 256, fp );
-
-                fclose( fp );
-
-                LogMessage( "Got uplink.txt %d bytes\n", strlen( Message ) );
-
-                // remove("get_list.txt");
-                remove( "uplink.txt" );
-
-                return strlen( Message );
-            }
-
-            usleep( 100000 );
-        }
-
-        // LogMessage("Timed out waiting for file\n");
-        // remove("get_list.txt");
-    }
-
-    return 0;
 }
 
 
@@ -2267,36 +2383,6 @@ void SendTelnetMessage(int Channel, struct TServerInfo *TelnetInfo, int TimedOut
 	SendLoRaData(Channel, Message, Length);
 }
 
-void SendUplinkMessage( int Channel )
-{
-    char Message[512];
-    time_t now;
-	struct tm *tm;
-
-	now = time(0);
-	tm = localtime(&now);
-
-    // Decide what type of message we need to send
-	if (*Config.LoRaDevices[Channel].UplinkMessage)
-	{
-		LogMessage("%02d:%02d:%02d - Send uplink message '%s'\n", tm->tm_hour, tm->tm_min, tm->tm_sec, Config.LoRaDevices[Channel].UplinkMessage);
-		SendLoRaData(Channel, Config.LoRaDevices[Channel].UplinkMessage, strlen(Config.LoRaDevices[Channel].UplinkMessage)+1);
-		*Config.LoRaDevices[Channel].UplinkMessage = 0;
-	}
-    else if (GetTextMessageToUpload( Channel, Message))
-    {
-        SendLoRaData(Channel, Message, 255);
-    }
-    else if (GetExternalListOfMissingSSDVPackets( Channel, Message))
-    {
-        SendLoRaData(Channel, Message, 255);
-    }
-    else if (Config.LoRaDevices[Channel].IdleUplink)
-    {
-        SendLoRaData(Channel, "", 1);
-    }
-}
-
 void displayChannel (int Channel) {
 
     displayFrequency ( Channel, Config.LoRaDevices[Channel].Frequency );
@@ -2323,8 +2409,8 @@ int main( int argc, char **argv )
     int ch;
     int LoopPeriod, MSPerLoop;
 	int Channel;
-    pthread_t SSDVThread, FTPThread, NetworkThread, HabitatThread, ServerThread, TelnetThread, ListenerThread, DataportThread;
-	struct TServerInfo JSONInfo, TelnetInfo, DataportInfo;
+    pthread_t SSDVThread, FTPThread, NetworkThread, HabitatThread, ServerThread, TelnetThread, ListenerThread, DataportThread, ChatportThread;
+	struct TServerInfo JSONInfo, TelnetInfo, DataportInfo, ChatportInfo;
 
 	atexit(bye);
 	
@@ -2458,6 +2544,19 @@ int main( int argc, char **argv )
         }
     }
 
+    if (Config.ChatPort > 0)
+    {
+		ChatportInfo.Port = Config.ChatPort;
+		ChatportInfo.ServerIndex = 3;
+		ChatportInfo.Connected = 0;
+		
+        if (pthread_create(&ChatportThread, NULL, ServerLoop, (void *)(&ChatportInfo)))
+        {
+            fprintf( stderr, "Error creating CHAT server thread\n" );
+            return 1;
+        }
+    }
+
     if ( ( Config.NetworkLED >= 0 ) && ( Config.InternetLED >= 0 ) )
     {
         if ( pthread_create( &NetworkThread, NULL, NetworkLoop, NULL ) )
@@ -2564,6 +2663,16 @@ int main( int argc, char **argv )
                         {
                             // LogMessage("%02d:%02d:%02d - Time to send uplink message\n", tm->tm_hour, tm->tm_min, tm->tm_sec);
 
+							if (Config.LoRaDevices[Channel].ChatMode)
+							{
+								sprintf(Config.LoRaDevices[Channel].UplinkMessage, "!%s,%d,%d,%s",	Config.LoRaDevices[Channel].ChatPayloadID,
+																									Config.LoRaDevices[Channel].RxMessageID,
+																									Config.LoRaDevices[Channel].TxMessageID,
+																									Config.LoRaDevices[Channel].TxChatMessage);
+							}
+
+							UDPSend(Config.LoRaDevices[Channel].UplinkMessage, Config.UDPPort);
+							
                             SendUplinkMessage(Channel);
                         }
                     }

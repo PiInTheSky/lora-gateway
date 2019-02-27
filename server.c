@@ -43,6 +43,63 @@ void EncryptMessage(char *Code, char *Message)
 	}
 }
 
+void ProcessChatClientLine(int connfd, char *line)
+{	
+	line[strcspn(line, "\r\n")] = '\0';		// Get rid of CR LF
+	
+	// LogMessage("Received '%s' from CHAT client\n", line);
+	
+	if (strchr(line, ':') != NULL)
+	{
+		// Command with parameters
+		char *command, *value, *saveptr = NULL;
+	
+		command = strtok_r(line, ":", &saveptr);
+		value = strtok_r(NULL, "\n", &saveptr);
+		
+		if (strcasecmp(command, "send") == 0)
+		{
+			int channel;
+			
+			channel = *value != '0';
+			value++;
+			
+			LogMessage("LoRa[%d]: To send '%s'\n", channel, value);
+	
+			if (*Config.UplinkCode)
+			{
+				EncryptMessage(Config.UplinkCode, value);
+			}
+			
+			// sprintf(Config.LoRaDevices[channel].UplinkMessage, "!%s,%s", Config.LoRaDevices[channel].ChatPayloadID, value);
+			
+			if (Config.LoRaDevices[channel].ChatMode)
+			{
+				// Format is [message_id],[message]
+				sscanf(value, "%d,%[^\n]", &(Config.LoRaDevices[channel].TxMessageID), Config.LoRaDevices[channel].TxChatMessage);
+				LogMessage("Uplink to payload [%s], message ID [%d], message [%s]\n", Config.LoRaDevices[channel].ChatPayloadID, Config.LoRaDevices[channel].TxMessageID, Config.LoRaDevices[channel].TxChatMessage);
+				LogMessage("Uplink message is %s\n", Config.LoRaDevices[channel].UplinkMessage);
+			}
+		}
+		else if (strcasecmp(command, "poll") == 0)
+		{
+			char Line[300];
+			int channel;
+			
+			channel = *value != '0';
+			
+			// TxMessageID, Len(TxMessage), RxMessageID, RxMessage
+			sprintf(Line, "%d,%d,%d,%s", Config.LoRaDevices[channel].TxMessageID, strlen(Config.LoRaDevices[channel].TxChatMessage),
+										 Config.LoRaDevices[channel].RxMessageID, Config.LoRaDevices[channel].RxChatMessage);
+			send(connfd, Line, strlen(Line), MSG_NOSIGNAL);
+		}
+	}
+	else
+	{
+		// single-word request
+	}
+}
+
 void ProcessJSONClientLine(int connfd, char *line)
 {	
 	line[strcspn(line, "\r\n")] = '\0';		// Get rid of CR LF
@@ -114,6 +171,13 @@ void ProcessJSONClientLine(int connfd, char *line)
 
 			send(connfd, packet, strlen(packet), MSG_NOSIGNAL);
 		}
+		else if (strcasecmp(line, "poll") == 0)
+		{
+			char Line[300];
+			
+			sprintf(Line, "1/");
+			send(connfd, Line, strlen(Line), MSG_NOSIGNAL);
+		}
 		else if (strcasecmp(line, "save") == 0)
 		{
 			LogMessage("Saving Settings\n");
@@ -121,7 +185,6 @@ void ProcessJSONClientLine(int connfd, char *line)
 		}
 	}
 }
-
 
 int SendJSON(int connfd)
 {
@@ -190,7 +253,7 @@ int SendJSON(int connfd)
 
 void *ServerLoop( void *some_void_ptr )
 {
-	static char *ChannelName[3] = {"HAB", "JSON", "DATA"};
+	static char *ChannelName[4] = {"JSON", "HAB", "DATA", "CHAT"};
     struct sockaddr_in serv_addr;
 	struct TServerInfo *ServerInfo;
 	
@@ -220,7 +283,7 @@ void *ServerLoop( void *some_void_ptr )
 	
     while (run)
     {
-		static char *ChannelName[3] = {"HAB", "JSON", "DATA"};
+		static char *ChannelName[4] = {"JSON", "HAB", "DATA", "CHAT"};
 		int MSPerLoop=100;
         int ms=0;
 		int connfd;
@@ -294,11 +357,27 @@ void *ServerLoop( void *some_void_ptr )
 					// Nothing as we are only sending
 				}
 			}
+			else if (ServerInfo->ServerIndex == 3)
+			{
+				char packet[300];
+				
+				while ((bytecount = recv(connfd, packet, sizeof(packet), 0)) > 0)
+				{
+					packet[bytecount] = 0;
+					
+					ProcessChatClientLine(connfd, packet);
+				}
+				if (bytecount == 0)
+				{
+					// -1 is no more data, 0 means port closed
+					ServerInfo->Connected = 0;
+				}
+			}
 			
 			if (bytecount == 0)
 			{
 				// -1 is no more data, 0 means port closed
-				LogMessage("Disconnected from %s client\n", ServerInfo->ServerIndex ? "HAB" : "JSON");
+				LogMessage("Disconnected from %s client\n", ChannelName[ServerInfo->ServerIndex]);
 				ServerInfo->Connected = 0;
 			}
 

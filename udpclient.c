@@ -53,7 +53,7 @@ void UDPSend(char *message, int port)
 		}
 
 		// send data
-		rc = sendto(sd, message, strlen(message)+1, 0, (struct sockaddr *) &remoteServAddr, sizeof(remoteServAddr));
+		rc = sendto(sd, message, strlen(message), 0, (struct sockaddr *) &remoteServAddr, sizeof(remoteServAddr));
 
 		if (rc<0)
 		{

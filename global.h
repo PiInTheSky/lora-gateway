@@ -85,6 +85,14 @@ struct TLoRaDevice
 	int HABUplinkCount;
 	int GotHABReply;
 	int GotReply;	
+    
+    // Chat uplink
+    int ChatMode;
+    char ChatPayloadID[32];
+    int TxMessageID;
+    char TxChatMessage[200];
+    int RxMessageID;
+    char RxChatMessage[200];
 	
 	// Local data packets
 	int LocalDataCount;
@@ -116,6 +124,7 @@ struct TConfig
 	int NetworkLED;
 	int InternetLED;
 	int ServerPort;				// JSON port for telemetry, settings
+    int ChatPort;               // Chat port
 	int UDPPort;				// UDP Broadcast port for raw received data packets
 	int OziPlotterPort;			// UDP Broadcast port for OziPlotter formatted packets
 	int OziMuxPort;				// UDP Broadcast port for OziMux formatted packets

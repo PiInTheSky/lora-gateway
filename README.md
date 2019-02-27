@@ -20,7 +20,7 @@ If you're making your own board for the Pi, connect the LoRa module(s) like so:
 	NSS		CE0 (pin 24) (CE1 (pin 26) for 2nd module)
 	SCK		SLCK
 	DIO0	Wiring Pi 31 (Pin 28) (Wiring Pi 6 (pin 22) for 2nd module)
-	DIO5	Wiring Pi 26 (Pin 32) (Wiring Pi 5 (pin 18) for 2nd module)
+	DIO5	Wiring Pi 26 (Pin 32) (Wiring Pi 5 (pin 18) for 2nd module). Set to -1 if not connected.
 
 
 Installation
@@ -174,7 +174,7 @@ This allows for gateways tp be normally left on the calling channel, so they the
 
 There's nothing special about "calling mode" except that after a period (CallingTimeout seconds) of time without packets, the gateway returns to its default settings.
 
-There is no current standard claling channel.
+To enable calling mode, set the LoRa mode to 5, and the frequency to 433.650MHz.
 
 
 Use
@@ -228,6 +228,11 @@ Many thanks to David Brooke for coding this feature and the AFC.
 
 Change History
 ==============
+
+27/02/2019 - V1.8.23
+--------------------
+
+	Chat mode settings
 
 12/09/2018 - V1.8.22
 --------------------
