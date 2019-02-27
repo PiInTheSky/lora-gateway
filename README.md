@@ -229,6 +229,13 @@ Many thanks to David Brooke for coding this feature and the AFC.
 Change History
 ==============
 
+27/02/2019 - V1.8.24
+--------------------
+
+	Better colours
+	autostart.pdf added to show how to autostart the software and use screen to easily attach to it.
+	Thanks to Steve Hyde for these.
+
 27/02/2019 - V1.8.23
 --------------------
 

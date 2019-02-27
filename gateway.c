@@ -41,7 +41,7 @@
 #include "udpclient.h"
 #include "lifo_buffer.h"
 
-#define VERSION	"V1.8.23"
+#define VERSION	"V1.8.24"
 bool run = TRUE;
 
 // RFM98
@@ -2129,39 +2129,33 @@ WINDOW *InitDisplay(void)
 
     start_color(  );            /*  Initialize colours  */
 
-    init_pair( 1, COLOR_WHITE, COLOR_BLUE );
-    init_pair( 2, COLOR_YELLOW, COLOR_BLUE );
-    init_pair( 3, COLOR_YELLOW, COLOR_BLACK );
+    init_pair(1, COLOR_WHITE, COLOR_BLUE );
+    init_pair(2, COLOR_WHITE, COLOR_BLACK );
 
-    color_set( 1, NULL );
-    // bkgd(COLOR_PAIR(1));
-    // attrset(COLOR_PAIR(1) | A_BOLD);
+    color_set(1, NULL );
 
     char buffer[80];
 
     sprintf( buffer, "LoRa Habitat and SSDV Gateway by M0RPI, M0DNY, M0RJX - " VERSION);
 
     // Title bar
-    mvaddstr( 0, ( 80 - strlen( buffer ) ) / 2, buffer );
+    mvaddstr(0, ( 80 - strlen( buffer ) ) / 2, buffer );
 
     // Help 
     sprintf( buffer, "Press (H) for Help");
-    color_set( 3, NULL );
-    mvaddstr( 15, ( 80 - strlen( buffer ) ) / 2, buffer );
+    color_set(2, NULL );
+    mvaddstr(15, ( 80 - strlen( buffer ) ) / 2, buffer );
 
-    color_set( 1, NULL );
-    refresh(  );
+    color_set(1, NULL );
+    refresh();
 
     // Windows for LoRa live data
     for ( Channel = 0; Channel <= 1; Channel++ )
     {
         Config.LoRaDevices[Channel].Window =
             newwin( 14, 38, 1, Channel ? 41 : 1 );
-        wbkgd( Config.LoRaDevices[Channel].Window, COLOR_PAIR( 2 ) );
+        wbkgd( Config.LoRaDevices[Channel].Window, COLOR_PAIR(1));
 
-        // wcolor_set(Config.LoRaDevices[Channel].Window, 2, NULL);
-        // waddstr(Config.LoRaDevices[Channel].Window, "WINDOW");
-        // mvwaddstr(Config.LoRaDevices[Channel].Window, 0, 0, "Window");
         wrefresh( Config.LoRaDevices[Channel].Window );
     }
 

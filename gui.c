@@ -13,8 +13,8 @@ WINDOW *create_help_win(int height, int width, int starty, int startx)
     box(local_win, 0 , 0);      /* 0, 0 gives default characters 
                      * for the vertical and horizontal
                      * lines            */
-    wbkgd( local_win, COLOR_PAIR( 2 ) );
-    color_set( 2, NULL );
+    wbkgd( local_win, COLOR_PAIR(1));
+    color_set(1, NULL );
 
     
 
@@ -55,13 +55,13 @@ void destroy_help_win(WINDOW *local_win)
     // Remove the border
     wborder(local_win, ' ', ' ', ' ',' ',' ',' ',' ',' ');
 
-    color_set( 3, NULL );
+    color_set(2, NULL );
     for (i=1;i<15;i++)
         mvaddstr(i, 39, "  ");
 
     // Put the HELP message back
     sprintf( buffer, "             Press (H) for Help             ");
-    color_set( 3, NULL );
+    color_set(2, NULL );
     mvaddstr( 15, ( 80 - strlen( buffer ) ) / 2, buffer );
 
     wrefresh(local_win);
@@ -82,7 +82,7 @@ void gui_show_help ()
     startx = 2;    /* of the window        */
     help_win = create_help_win(height, width, starty, startx);
     sprintf( buffer, "Press any key to return to the main screen!");
-    color_set( 3, NULL );
+    color_set(2, NULL );
     mvaddstr( 15, ( 80 - strlen( buffer ) ) / 2, buffer );
 
     // Wait for any key to be pressed
