@@ -229,6 +229,11 @@ Many thanks to David Brooke for coding this feature and the AFC.
 Change History
 ==============
 
+11/03/2019 - V1.8.25
+--------------------
+
+	UDP broadcast output of gateway hostname, IP address and version number.
+
 27/02/2019 - V1.8.24
 --------------------
 

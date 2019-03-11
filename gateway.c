@@ -23,6 +23,10 @@
 #include <wiringPi.h>
 #include <wiringPiSPI.h>
 #include <time.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <netdb.h>
+#include <ifaddrs.h>
 
 #include "urlencode.h"
 #include "base64.h"
@@ -41,7 +45,7 @@
 #include "udpclient.h"
 #include "lifo_buffer.h"
 
-#define VERSION	"V1.8.24"
+#define VERSION	"V1.8.25"
 bool run = TRUE;
 
 // RFM98
@@ -2398,6 +2402,55 @@ void displayChannel (int Channel) {
 }
 
 
+char *Hostname(void)
+{
+	static char Buffer[80];
+	
+	strcpy(Buffer, "PI");
+	
+    gethostname(Buffer, sizeof(Buffer));
+
+	return Buffer;
+}
+
+char *GetIPAddress(void)
+{
+	static char IPAddress[100];
+    struct ifaddrs *ifap, *ifa;
+    struct sockaddr_in *sa;
+    char *addr;
+	
+	IPAddress[0] = '\0';
+
+    if (getifaddrs(&ifap) == 0)
+	{
+		for (ifa = ifap; ifa; ifa = ifa->ifa_next)
+		{
+			if (ifa->ifa_addr != NULL)
+			{
+				// Family is known (which it isn't for a VPN)
+				if (ifa->ifa_addr->sa_family==AF_INET)
+				{
+					// Exclude docker bridges
+					if (strstr(ifa->ifa_name, "docker") == NULL)
+					{
+						sa = (struct sockaddr_in *) ifa->ifa_addr;
+						addr = inet_ntoa(sa->sin_addr);
+						if (strcmp(addr, "127.0.0.1") != 0)
+						{
+							strcpy(IPAddress, addr);
+						}
+					}
+				}
+			}
+        }
+    }
+
+    freeifaddrs(ifap);
+	
+	return IPAddress;
+}
+
 int main( int argc, char **argv )
 {
     int ch;
@@ -2596,6 +2649,7 @@ int main( int argc, char **argv )
         if (LoopPeriod > 1000)
         {
             // Every 1 second
+			static int Seconds=55;
             time_t now;
             struct tm *tm;
 
@@ -2681,6 +2735,15 @@ int main( int argc, char **argv )
                     }
                 }
             }
+			
+			if (++Seconds >= 60)
+			{
+				char Message[200];
+
+				Seconds = 0;
+				sprintf(Message, "GATEWAY:HOST=%s,IP=%s,VER=%s\n", Hostname(), GetIPAddress(), VERSION);
+				UDPSend(Message, Config.UDPPort);
+			}
         }
 
         delay(MSPerLoop);
