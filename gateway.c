@@ -2413,6 +2413,30 @@ char *Hostname(void)
 	return Buffer;
 }
 
+char *ChannelInfo(void)
+{
+	static char Result[100];
+	char Temp[2][50];
+	int i;
+	
+	for (i=0; i<=1; i++)
+	{
+		if (Config.LoRaDevices[i].Frequency > 0)
+		{
+			sprintf(Temp[i], ",FREQ%d=%.3lf,MODE%d=%d", i, Config.LoRaDevices[i].Frequency, i, Config.LoRaDevices[i].SpeedMode);
+		}
+		else
+		{
+			Temp[i][0] = 0;
+		}
+	}
+	
+	strcpy(Result, Temp[0]);
+	strcat(Result, Temp[1]);
+	
+	return Result;
+}
+	
 char *GetIPAddress(void)
 {
 	static char IPAddress[100];
@@ -2741,7 +2765,7 @@ int main( int argc, char **argv )
 				char Message[200];
 
 				Seconds = 0;
-				sprintf(Message, "GATEWAY:HOST=%s,IP=%s,VER=%s\n", Hostname(), GetIPAddress(), VERSION);
+				sprintf(Message, "GATEWAY:HOST=%s,IP=%s,VER=%s%s\n", Hostname(), GetIPAddress(), VERSION, ChannelInfo());
 				UDPSend(Message, Config.UDPPort);
 			}
         }
