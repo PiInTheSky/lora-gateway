@@ -45,7 +45,7 @@
 #include "udpclient.h"
 #include "lifo_buffer.h"
 
-#define VERSION	"V1.8.27"
+#define VERSION	"V1.8.28"
 bool run = TRUE;
 
 // RFM98
@@ -811,9 +811,8 @@ void RemoveOldPayloads(void)
             if ((time(NULL) - Config.Payloads[i].LastPacketAt) > 10800)
 			{
 				// More than 3 hours old, so remove it
+				Config.Payloads[i].InUse = 0;
 			}
-			
-			Config.Payloads[i].InUse = 0;
 		}
 	}
 }
@@ -857,7 +856,7 @@ int FindFreePayload(char *Payload)
 	
 	strcpy(Config.Payloads[Oldest].Payload, Payload);
 	
-	return i;
+	return Oldest;
 }
 
 void DoPositionCalcs(int PayloadIndex)
@@ -1039,6 +1038,8 @@ int ProcessTelemetryMessage(int Channel, received_t *Received)
             *endmessage = '\0';
 
 			LogTelemetryPacket(startmessage);
+
+            ProcessLineUKHAS(Channel, startmessage);
 			
 			if ((Repeated = (*startmessage == '%')))
 			{
@@ -1565,7 +1566,7 @@ void DIO0_Interrupt( int Channel )
                 strncpy(Received.UKHASstring, Received.Message, Received.Bytes);
 				UDPSend(Received.UKHASstring, Config.UDPPort);
                 Repeated = ProcessTelemetryMessage(Channel, &Received);
-                ProcessLineUKHAS(Channel, Config.LoRaDevices[Channel].Telemetry);
+                // ProcessLineUKHAS(Channel, Config.LoRaDevices[Channel].Telemetry);
                 TestMessageForSMSAcknowledgement( Channel, Received.UKHASstring);
 				CheckForChatContent(Channel, Repeated, Config.LoRaDevices[Channel].Telemetry);
 				strcpy(Config.LoRaDevices[Channel].LocalDataBuffer, Received.UKHASstring);

@@ -196,9 +196,10 @@ int SendJSON(int connfd)
 	
 	// Send any packets that we've not sent yet
 	for (PayloadIndex=0; PayloadIndex<MAX_PAYLOADS; PayloadIndex++)
-	{
+	{	
 		if (Config.Payloads[PayloadIndex].InUse && Config.Payloads[PayloadIndex].SendToClients)
 		{
+			
 			Channel = Config.Payloads[PayloadIndex].Channel;
 				
 			sprintf(line, "{\"class\":\"POSN\",\"index\":%d,\"channel\":%d,\"payload\":\"%s\",\"time\":\"%s\",\"lat\":%.5lf,\"lon\":%.5lf,\"alt\":%d,\"rate\":%.1lf,\"snr\":%d,\"rssi\":%d,\"ferr\":%.1lf,\"sentence\":\"%s\"}\r\n",

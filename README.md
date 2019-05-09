@@ -229,6 +229,11 @@ Many thanks to David Brooke for coding this feature and the AFC.
 Change History
 ==============
 
+09/05/2019 - V1.8.28
+--------------------
+
+	Store all payloads from combined packet for JSON transmission to client.
+
 09/05/2019 - V1.8.27
 --------------------
 
