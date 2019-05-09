@@ -229,6 +229,16 @@ Many thanks to David Brooke for coding this feature and the AFC.
 Change History
 ==============
 
+09/05/2019 - V1.8.27
+--------------------
+
+	Reduced RSSI server port output frequency from 10Hz to 1Hz
+
+13/04/2019 - V1.8.26
+--------------------
+
+	Extended UDP status output with basic channel settings
+
 11/03/2019 - V1.8.25
 --------------------
 

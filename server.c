@@ -388,9 +388,15 @@ void *ServerLoop( void *some_void_ptr )
 				if (ServerInfo->ServerIndex == 0)
 				{
 					// Send to JSON client
-					if (SendJSON(connfd))
+					static int SendDelay = 0;
+					
+					if ((SendDelay += MSPerLoop) >= 1000)
 					{
-						ServerInfo->Connected = 0;
+						SendDelay = 0;
+						if (SendJSON(connfd))
+						{
+							ServerInfo->Connected = 0;
+						}
 					}
 				}
 				else if (ServerInfo->ServerIndex == 1)
