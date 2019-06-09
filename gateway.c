@@ -2384,7 +2384,7 @@ void SendTelnetMessage(int Channel, struct TServerInfo *TelnetInfo, int TimedOut
 
 void displayChannel (int Channel) {
 
-    displayFrequency ( Channel, Config.LoRaDevices[Channel].Frequency );
+    displayFrequency ( Channel, Config.LoRaDevices[Channel].activeFreq );
 
     displayLoRaParameters( 
         Channel, 
