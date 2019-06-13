@@ -31,13 +31,14 @@ struct TLoRaDevice
 {
 	double Frequency;
     double PPM;
+	double FrequencyOffset;
+    
 	double Bandwidth;
 	double CurrentBandwidth;
 		
 	int InUse;    
 	int DIO0;
 	int DIO5;
-	double activeFreq;
 	
 	int AFC;					// Enable Automatic Frequency Control
 	double MaxAFCStep;			// Maximum adjustment, in kHz, per packet
@@ -200,6 +201,7 @@ typedef struct {
 	int Bytes;
 	/* UKHAS ASCII Telemetry String for habitat upload */
     char UKHASstring[UKHASstring_length];
+    char HabitatString[UKHASstring_length];
     bool isCallingBeacon;
     double AscentRate;
     /* Telemetry values */

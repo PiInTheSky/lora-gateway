@@ -229,6 +229,16 @@ Many thanks to David Brooke for coding this feature and the AFC.
 Change History
 ==============
 
+13/06/2019 - V1.8.29
+--------------------
+
+	Fixed bug where only the first sentence in a multi-sentence packet was uploaded to Habitat
+	Fixed bug where the message uplink sent 255 bytes even if message was shorter
+	Fixed bug where after leaving help screen screen shows original frequency not AFC'd frequency
+	Fixed bug where AFC correction was lost after uplink
+	AFC correction is now upplied to uplink
+
+
 09/05/2019 - V1.8.28
 --------------------
 

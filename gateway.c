@@ -45,7 +45,7 @@
 #include "udpclient.h"
 #include "lifo_buffer.h"
 
-#define VERSION	"V1.8.28"
+#define VERSION	"V1.8.29"
 bool run = TRUE;
 
 // RFM98
@@ -475,10 +475,6 @@ void setFrequency( int Channel, double Frequency )
     writeRegister( Channel, 0x07, ( FrequencyValue >> 8 ) & 0xFF );
     writeRegister( Channel, 0x08, FrequencyValue & 0xFF );
 
-    Config.LoRaDevices[Channel].activeFreq = Frequency;
-
-    // LogMessage("Set Frequency to %lf\n", Frequency);
-
     ChannelPrintf( Channel, 1, 1, "Channel %d %s MHz ", Channel, FrequencyString );
 }
 
@@ -501,7 +497,7 @@ void setLoRaMode( int Channel )
 
     setMode( Channel, RF98_MODE_SLEEP );
 
-    setFrequency( Channel, Config.LoRaDevices[Channel].Frequency);
+    setFrequency( Channel, Config.LoRaDevices[Channel].Frequency + Config.LoRaDevices[Channel].FrequencyOffset);
 }
 
 int IntToSF(int Value)
@@ -627,8 +623,9 @@ void ReTune( int Channel, double FreqShift )
 {
     setMode( Channel, RF98_MODE_SLEEP );
     LogMessage( "Retune by %.1lfkHz\n", FreqShift * 1000 );
-    setFrequency( Channel, Config.LoRaDevices[Channel].activeFreq + FreqShift );
-    startReceiving( Channel );
+	Config.LoRaDevices[Channel].FrequencyOffset += FreqShift;
+    setFrequency(Channel, Config.LoRaDevices[Channel].Frequency + Config.LoRaDevices[Channel].FrequencyOffset);
+    startReceiving(Channel);
 }
 
 void SendLoRaData(int Channel, char *buffer, int Length)
@@ -639,8 +636,8 @@ void SendLoRaData(int Channel, char *buffer, int Length)
 	// Change frequency for the uplink ?
 	if (Config.LoRaDevices[Channel].UplinkFrequency > 0)
 	{
-		LogMessage("Change frequency to %.3lfMHz\n", Config.LoRaDevices[Channel].UplinkFrequency);
-        setFrequency(Channel, Config.LoRaDevices[Channel].UplinkFrequency);
+		LogMessage("Change frequency to %.3lfMHz\n", Config.LoRaDevices[Channel].UplinkFrequency + Config.LoRaDevices[Channel].FrequencyOffset);
+        setFrequency(Channel, Config.LoRaDevices[Channel].UplinkFrequency + Config.LoRaDevices[Channel].FrequencyOffset);
 	}
 	
 	// Change mode for the uplink ?
@@ -730,7 +727,7 @@ void ProcessCallingMessage(int Channel, char *Message)
     {
         if (Config.LoRaDevices[Channel].AFC)
         {
-            Frequency += (Config.LoRaDevices[Channel].activeFreq - Config.LoRaDevices[Channel].Frequency);
+            Frequency += Config.LoRaDevices[Channel].FrequencyOffset;
         }
 
         LogMessage( "Ch %d: Calling message, new frequency %7.3lf\n", Channel,
@@ -739,7 +736,6 @@ void ProcessCallingMessage(int Channel, char *Message)
         // Decoded OK
         setMode( Channel, RF98_MODE_SLEEP );
 
-        // setFrequency(Channel, Config.LoRaDevices[Channel].activeFreq + );
         setFrequency( Channel, Frequency );
 
         SetLoRaParameters( Channel, ImplicitOrExplicit, ECToInt(ErrorCoding), BandwidthToDouble(Bandwidth), SFToInt(SpreadingFactor), LowOptToInt(LowDataRateOptimize));
@@ -747,8 +743,6 @@ void ProcessCallingMessage(int Channel, char *Message)
         setMode( Channel, RF98_MODE_RX_CONTINUOUS );
 
         Config.LoRaDevices[Channel].InCallingMode = 1;
-
-        // ChannelPrintf(Channel, 1, 1, "Channel %d %7.3lfMHz              ", Channel, Frequency);
     }
 }
 
@@ -762,7 +756,7 @@ void ProcessCallingHABpack(int Channel, received_t *Received)
 
     if (Config.LoRaDevices[Channel].AFC)
     {
-        Frequency += (Config.LoRaDevices[Channel].activeFreq - Config.LoRaDevices[Channel].Frequency);
+        Frequency += Config.LoRaDevices[Channel].FrequencyOffset;
     }
 
     // Decoded OK
@@ -1046,15 +1040,16 @@ int ProcessTelemetryMessage(int Channel, received_t *Received)
 				*startmessage = '$';
 			}
 
-            strcpy( Config.LoRaDevices[Channel].Telemetry, startmessage );
+            strcpy(Config.LoRaDevices[Channel].Telemetry, startmessage);
             Config.LoRaDevices[Channel].TelemetryCount++;
 
-            if ( Config.EnableHabitat )
+            if (Config.EnableHabitat)
             {
                 // Add to Habitat upload queue
                 received_t *queueReceived = malloc(sizeof(received_t));
                 if(queueReceived != NULL)
                 {
+					strcpy(Received->HabitatString, startmessage);
                     memcpy(queueReceived, Received, sizeof(received_t));
                     /* We haven't copied the linked list, this'll be free()ed later, so remove pointer */
                     queueReceived->Telemetry.habpack_extra = NULL;
@@ -1469,7 +1464,7 @@ int GetExternalListOfMissingSSDVPackets( int Channel, char *Message )
     return 0;
 }
 
-void SendUplinkMessage( int Channel )
+void SendUplinkMessage(int Channel)
 {
     char Message[512];
     time_t now;
@@ -1489,9 +1484,9 @@ void SendUplinkMessage( int Channel )
 			*Config.LoRaDevices[Channel].UplinkMessage = 0;
 		}
 	}
-    else if (GetTextMessageToUpload( Channel, Message))
+    else if (GetTextMessageToUpload(Channel, Message))
     {
-        SendLoRaData(Channel, Message, 255);
+        SendLoRaData(Channel, Message, strlen(Message));
     }
     else if (GetExternalListOfMissingSSDVPackets( Channel, Message))
     {
@@ -1738,8 +1733,7 @@ double FrequencyError( int Channel )
     return -( ( double ) Temp * ( 1 << 24 ) / 32000000.0 ) * (Config.LoRaDevices[Channel].CurrentBandwidth / 500.0);
 }
 
-int
-receiveMessage( int Channel, char *message, rx_metadata_t *Metadata )
+int receiveMessage( int Channel, char *message, rx_metadata_t *Metadata )
 {
     int i, Bytes, currentAddr, x;
     unsigned char data[257];
@@ -1792,7 +1786,7 @@ receiveMessage( int Channel, char *message, rx_metadata_t *Metadata )
         message[Bytes] = '\0';
 
         Metadata->Timestamp = time( NULL );
-        Metadata->Frequency = Config.LoRaDevices[Channel].activeFreq;
+        Metadata->Frequency = Config.LoRaDevices[Channel].Frequency + Config.LoRaDevices[Channel].FrequencyOffset;
         Metadata->FrequencyError =  FreqError / 1000;
         Metadata->ImplicitOrExplicit = Config.LoRaDevices[Channel].ImplicitOrExplicit;
         Metadata->Bandwidth = Config.LoRaDevices[Channel].CurrentBandwidth;
@@ -1887,6 +1881,9 @@ void LoadConfigFile(void)
 	
 	Config.LoRaDevices[0].Frequency = -1;
 	Config.LoRaDevices[1].Frequency = -1;
+
+	Config.LoRaDevices[0].FrequencyOffset = 0;
+	Config.LoRaDevices[1].FrequencyOffset = 0;
 
     if ( ( fp = fopen( filename, "r" ) ) == NULL )
     {
@@ -2384,7 +2381,7 @@ void SendTelnetMessage(int Channel, struct TServerInfo *TelnetInfo, int TimedOut
 
 void displayChannel (int Channel) {
 
-    displayFrequency ( Channel, Config.LoRaDevices[Channel].Frequency );
+    displayFrequency ( Channel, Config.LoRaDevices[Channel].Frequency + Config.LoRaDevices[Channel].FrequencyOffset);
 
     displayLoRaParameters( 
         Channel, 

@@ -84,7 +84,7 @@ bool UploadTelemetryPacket( received_t * t )
         strftime( doc_time, sizeof( doc_time ), "%Y-%0m-%0dT%H:%M:%SZ", doc_tm );
 
         // Grab current telemetry string and append a linefeed
-        sprintf( Sentence, "%s\n", t->UKHASstring );
+        sprintf(Sentence, "%s\n", t->HabitatString);
 
         // Convert sentence to base64
         base64_encode( Sentence, strlen( Sentence ), &base64_length,
