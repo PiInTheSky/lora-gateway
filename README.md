@@ -79,6 +79,8 @@ The global options are:
 	
 	EnableSSDV=<Y/N>.  Enables uploading of SSDV image packets to the SSDV server.
 	
+	EnableHABLink=<Y/N>.  Enables uploading of telemetry packets to the hab.link server.
+	
 	JPGFolder=<folder>.  Tells the gateway where to save local JPEG files built from incoming SSDV packets.
 
 	LogTelemetry=<Y/N>.  Enables logging of telemetry packets (ASCII only at present) to telemetry.txt.	

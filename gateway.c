@@ -33,6 +33,7 @@
 #include "ssdv.h"
 #include "ftp.h"
 #include "habitat.h"
+#include "hablink.h"
 #include "network.h"
 #include "network.h"
 #include "global.h"
@@ -45,7 +46,7 @@
 #include "udpclient.h"
 #include "lifo_buffer.h"
 
-#define VERSION	"V1.8.29"
+#define VERSION	"V1.8.30"
 bool run = TRUE;
 
 // RFM98
@@ -1059,6 +1060,11 @@ int ProcessTelemetryMessage(int Channel, received_t *Received)
                 }
             }
 			
+            if (Config.EnableHablink)
+            {
+				SetHablinkSentence(startmessage);
+			}
+			
             tm = localtime( &Received->Metadata.Timestamp );
             LogMessage("%02d:%02d:%02d Ch%d: %s%s\n", tm->tm_hour, tm->tm_min, tm->tm_sec, Channel, startmessage, Repeated ? " (repeated)" : "");
 
@@ -1902,6 +1908,7 @@ void LoadConfigFile(void)
     // Enable uploads
     RegisterConfigBoolean(MainSection, -1, "EnableHabitat", &Config.EnableHabitat, NULL);
     RegisterConfigBoolean(MainSection, -1, "EnableSSDV", &Config.EnableSSDV, NULL);
+    RegisterConfigBoolean(MainSection, -1, "EnableHablink", &Config.EnableHablink, NULL);
 
     // Enable telemetry logging
     RegisterConfigBoolean(MainSection, -1, "LogTelemetry", &Config.EnableTelemetryLogging, NULL);
@@ -2478,7 +2485,7 @@ int main( int argc, char **argv )
     int ch;
     int LoopPeriod, MSPerLoop;
 	int Channel;
-    pthread_t SSDVThread, FTPThread, NetworkThread, HabitatThread, ServerThread, TelnetThread, ListenerThread, DataportThread, ChatportThread;
+    pthread_t SSDVThread, FTPThread, NetworkThread, HabitatThread, HablinkThread, ServerThread, TelnetThread, ListenerThread, DataportThread, ChatportThread;
 	struct TServerInfo JSONInfo, TelnetInfo, DataportInfo, ChatportInfo;
 
 	atexit(bye);
@@ -2573,6 +2580,15 @@ int main( int argc, char **argv )
 			return 1;
 		}
     }
+	
+    if (Config.EnableHablink)
+	{
+		if (pthread_create (&HablinkThread, NULL, HablinkLoop, NULL))
+		{
+			fprintf( stderr, "Error creating Hablink thread\n" );
+			return 1;
+		}
+	}
 
     if (Config.ServerPort > 0)
     {
@@ -2763,7 +2779,7 @@ int main( int argc, char **argv )
 				char Message[200];
 
 				Seconds = 0;
-				sprintf(Message, "GATEWAY:HOST=%s,IP=%s,VER=%s%s\n", Hostname(), GetIPAddress(), VERSION, ChannelInfo());
+				sprintf(Message, "GATEWAY:HOST=%s,IP=%s,VER=%s,CALLSIGN=%s%s\n", Hostname(), GetIPAddress(), VERSION, Config.Tracker, ChannelInfo());
 				UDPSend(Message, Config.UDPPort);
 			}
         }

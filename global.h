@@ -112,6 +112,7 @@ struct TConfig
      
 	int EnableHabitat;
 	int EnableSSDV;
+    int EnableHablink;
 	int EnableTelemetryLogging;
 	int EnablePacketLogging;
 	int CallingTimeout;

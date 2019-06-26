@@ -115,6 +115,6 @@ NetworkLoop( void *some_void_ptr )
 //          LogMessage("No network :-(\n");
         }
 
-        sleep( 5 );
+        sleep(5);
     }
 }
