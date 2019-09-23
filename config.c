@@ -4,7 +4,11 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <unistd.h>
+#include <sys/stat.h>
+
 #include "config.h"
+
 
 #define MAX_SECTIONS	16
 #define SECTION_LENGTH	21
@@ -87,7 +91,7 @@ int RegisterConfigDouble(int SectionIndex, int Index, char *Name, double *Double
 			strcpy(Settings[SettingIndex].ValueName, Name);
 			Settings[SettingIndex].SettingType = stDouble;
 			Settings[SettingIndex].DoubleValuePtr = DoubleValuePtr;
-			// Settings[SettingIndex].Callback = Callback;
+			Settings[SettingIndex].Callback = Callback;
 			
 			ReadConfigValue(SettingIndex);
 		}
@@ -109,7 +113,7 @@ int RegisterConfigInteger(int SectionIndex, int Index, char *Name, int *IntValue
 			strcpy(Settings[SettingIndex].ValueName, Name);
 			Settings[SettingIndex].SettingType = stInteger;
 			Settings[SettingIndex].IntValuePtr = IntValuePtr;
-			// Settings[SettingIndex].Callback = Callback;
+			Settings[SettingIndex].Callback = Callback;
 			
 			return ReadConfigValue(SettingIndex);
 		}
@@ -131,7 +135,7 @@ int RegisterConfigBoolean(int SectionIndex, int Index, char *Name, int *BoolValu
 			strcpy(Settings[SettingIndex].ValueName, Name);
 			Settings[SettingIndex].SettingType = stBoolean;
 			Settings[SettingIndex].IntValuePtr = BoolValuePtr;
-			// Settings[SettingIndex].Callback = Callback;
+			Settings[SettingIndex].Callback = Callback;
 			
 			return ReadConfigValue(SettingIndex);
 		}
@@ -140,7 +144,7 @@ int RegisterConfigBoolean(int SectionIndex, int Index, char *Name, int *BoolValu
 	return 0;
 }
 
-int RegisterConfigString(int SectionIndex, int Index, char *Name, char *StringValuePtr, int MaxValueLength, void (Callback)(int))
+int RegisterConfigString(int SectionIndex, int Index, char *Name, char *StringValuePtr, int MaxValueLength, void (*Callback)(int))
 {
 	if ((SectionIndex >= 0) && (SectionIndex < SectionCount))
 	{
@@ -154,7 +158,7 @@ int RegisterConfigString(int SectionIndex, int Index, char *Name, char *StringVa
 			Settings[SettingIndex].SettingType = stString;
 			Settings[SettingIndex].StringValuePtr = StringValuePtr;
 			Settings[SettingIndex].MaxValueLength = MaxValueLength;
-			// Settings[SettingIndex].Callback = Callback;
+			Settings[SettingIndex].Callback = Callback;
 			
 			return ReadConfigValue(SettingIndex);
 		}
@@ -264,6 +268,7 @@ void SaveConfigFile(void)
 	char *TempFileName="gateway.txt.tmp";
 	char *SavedFileName="gateway.txt.old";
 	int SettingIndex;
+	struct stat sb;
 
     if ((src = fopen(ConfigFilename, "r" ) ) != NULL)
     {
@@ -317,9 +322,14 @@ void SaveConfigFile(void)
 			fclose(dest);
 			
 			// Now save original file and replace with new one
+			stat(ConfigFilename, &sb);			
+			
 			remove(SavedFileName);
 			rename(ConfigFilename, SavedFileName);
 			rename(TempFileName, ConfigFilename);
+			
+			chmod(ConfigFilename, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
+			chown(ConfigFilename, sb.st_uid, sb.st_gid);
 		}
 		fclose(src);
     }
@@ -351,6 +361,11 @@ void SetConfigValue(char *Setting, char *Value)
 			
 			case stNone:
 			break;
+		}
+		
+		if (Settings[SettingIndex].Callback != NULL)
+		{
+			Settings[SettingIndex].Callback(Settings[SettingIndex].Index);
 		}
 	}
 }
@@ -392,3 +407,4 @@ int SettingAsString(int SettingIndex, char *SettingName, int SettingNameSize, ch
 	
 	return 0;
 }
+

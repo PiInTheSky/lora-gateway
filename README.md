@@ -20,7 +20,7 @@ If you're making your own board for the Pi, connect the LoRa module(s) like so:
 	NSS		CE0 (pin 24) (CE1 (pin 26) for 2nd module)
 	SCK		SLCK
 	DIO0	Wiring Pi 31 (Pin 28) (Wiring Pi 6 (pin 22) for 2nd module)
-	DIO5	Wiring Pi 26 (Pin 32) (Wiring Pi 5 (pin 18) for 2nd module)
+	DIO5	Wiring Pi 26 (Pin 32) (Wiring Pi 5 (pin 18) for 2nd module). Set to -1 if not connected.
 
 
 Installation
@@ -30,14 +30,7 @@ Enable SPI in raspi-config.
 
 Install the dependencies:
 
-	sudo apt-get install git wiringpi libcurl4-openssl-dev libncurses5-dev 
-
-Install SSDV so you can view locally downloaded images.  If you skip this section then the gateway will still work but SSDV data will not be decoded into JPG files locally (but can still be viewed online).
-
-	1. cd
-	2. git clone https://github.com/fsphil/ssdv.git
-	3. cd ssdv
-	4. sudo make install
+	sudo apt-get install git wiringpi libcurl4-openssl-dev libncurses5-dev ssdv
 
 Install the LoRa gateway
 
@@ -89,6 +82,8 @@ The global options are:
 	
 	EnableSSDV=<Y/N>.  Enables uploading of SSDV image packets to the SSDV server.
 	
+	EnableHABLink=<Y/N>.  Enables uploading of telemetry packets to the hab.link server.
+	
 	JPGFolder=<folder>.  Tells the gateway where to save local JPEG files built from incoming SSDV packets.
 
 	LogTelemetry=<Y/N>.  Enables logging of telemetry packets (ASCII only at present) to telemetry.txt.	
@@ -100,6 +95,14 @@ The global options are:
 	CallingTimeout=<seconds>.  Sets a timeout for returning to calling mode after a period with no received packets.
 	
 	ServerPort=<port>.  Opens a server socket which can have 1 client connected.  Sends JSON telemetry and status information to that client.
+
+	HABPort=<port>.  Opens a server socket which can have 1 client connected.  Port is a raw data stream between gateway and HAB (e.g. for Telnet-like communications).  Note: The corresponding functionality at the tracker end has not been published.
+	
+	DataPort=<port>.  Opens a server socket which can have 1 client connected.  Sends raw telemetry (i.e. $$payload,....) to that client.
+
+	HABTimeout=<ms>.  Timeout in case of no response from HAB to raw data uplink.
+	
+	HABChannel=<channel>.  Specifies LoRa channel (0 or 1) used for telnet-style communications.
 	
 	Latitude=<decimal position>
 	Longitude=<decimal position>.  These let you tell the gateway your position, for uploading to habitat, so your listener icon appears on the map in the correct position.
@@ -114,6 +117,8 @@ The global options are:
 and the channel-specific options are:
 	
 	frequency_<n>=<freq in MHz>.  This sets the frequency for LoRa module <n> (0 for first, 1 for second).  e.g. frequency_0=434.450
+
+	PPM_<n>=<Parts per million offset of LoRa module.
 	
 	AFC_<n>=<Y/N>.  Enables or disables automatic frequency control (retunes by the frequency error of last received packet).
 	
@@ -147,6 +152,8 @@ Lines are commented out with "#" at the start.
 
 If the frequency_n line is commented out, then that channel is disabled.
 
+The program now performs some checks to determine if each selected LoRa module is present or not.  If you see a message "RFM not found on Channel" then check the SPI settings/wiring for that channel.  If you see "DIO5 pin is misconfigured on Channel" then check the DIO5 setting/wiring.  There is no current check for DIO0; any problems with that pin will result in packets not being received. 
+
 
 Uplinks
 =======
@@ -172,7 +179,7 @@ This allows for gateways tp be normally left on the calling channel, so they the
 
 There's nothing special about "calling mode" except that after a period (CallingTimeout seconds) of time without packets, the gateway returns to its default settings.
 
-There is no current standard claling channel.
+To enable calling mode, set the LoRa mode to 5, and the frequency to 433.650MHz.
 
 
 Use
@@ -227,6 +234,135 @@ Many thanks to David Brooke for coding this feature and the AFC.
 Change History
 ==============
 
+13/06/2019 - V1.8.29
+--------------------
+
+	Fixed bug where only the first sentence in a multi-sentence packet was uploaded to Habitat
+	Fixed bug where the message uplink sent 255 bytes even if message was shorter
+	Fixed bug where after leaving help screen screen shows original frequency not AFC'd frequency
+	Fixed bug where AFC correction was lost after uplink
+	AFC correction is now upplied to uplink
+
+
+09/05/2019 - V1.8.28
+--------------------
+
+	Store all payloads from combined packet for JSON transmission to client.
+
+09/05/2019 - V1.8.27
+--------------------
+
+	Reduced RSSI server port output frequency from 10Hz to 1Hz
+
+13/04/2019 - V1.8.26
+--------------------
+
+	Extended UDP status output with basic channel settings
+
+11/03/2019 - V1.8.25
+--------------------
+
+	UDP broadcast output of gateway hostname, IP address and version number.
+
+27/02/2019 - V1.8.24
+--------------------
+
+	Better colours
+	autostart.pdf added to show how to autostart the software and use screen to easily attach to it.
+	Thanks to Steve Hyde for these.
+
+27/02/2019 - V1.8.23
+--------------------
+
+	Chat mode settings
+
+12/09/2018 - V1.8.22
+--------------------
+
+	Added PPM setting and correction
+
+09/05/2018 - V1.8.21
+--------------------
+
+	Remove superfluous trailing zeroes from the ASCII telemetry produced from HABPack
+
+04/05/2018 - V1.8.20
+--------------------
+
+	Included HABPack decoding by Phil Crump M0DNY
+
+16/04/2018 - V1.8.19
+--------------------
+
+	Disabled DIO5 check for now as it sometimes disabled use of a working device.
+
+11/04/2018 - V1.8.18
+--------------------
+
+	JSON port now sends packet SNR, RSSI and frequency error
+	Implemented callbacks for when settings are changed
+	Reprogram LoRa module when frequency, bandwidth etc are changed via JSON port
+	Update display when frequency, bandwidth, AFC etc are changed via JSON port
+
+
+10/04/2018 - V1.8.17
+--------------------
+
+    JSON port only sends telemetry as it is received, instead of repeatedly
+    JSON port now sends current RSSI
+    Append \r\n to sentences sent to data port
+	JSON port now accepts commands split over multiple packets (e.g. typed commands)
+	When saving to gateway.txt, permissions are set to RW/RW/RW, and owner/group are maintained
+	Added Sockets.md to document the available sockets. 
+
+
+06/04/2018 - V1.8.16
+--------------------
+
+    Added raw output of $$... sentences to specified port (UDPPort=xx in gateway.txt)
+    Added OziMux format output (TELEMETRY,time,lat,lon,alt) to specified port (OziPort=xx)
+
+
+26/03/2018 - V1.18.15
+---------------------
+
+    By Phil Crump:
+	
+		Detect if DIO5 isn't correctly mapped (default level != high), warn and disables the channel.
+
+		Detect if the RFM isn't responding (reg 0x42 == 0x00), warn and disables the channel.
+
+		Warn if both receivers are disabled or unconfigured.	
+
+		Removed message queue test code - functionality was behind that of the main code path, and would have required updating for the other changes in this set.
+
+		Added storage of at-time-of-receive-configuration in rx_metadata_t struct. This is copied into the queued telemetry_t structure when a Telemetry Packet is processed.
+
+		Added upload of receiver frequency (with detected offset) to Habitat with payload telemetry ( Issue #15 ). Mostly ported from Pull Req #28 which has been tested by @dbrooke .
+
+		Added logging of additional metadata parameters in packet.log (Issue #5 )
+
+		Removed duplicate 'LogTelemetryPacket()' call in habitat thread. (Already called in ProcessTelemetryMessage)
+		
+	By me:
+	
+		Added "Dataport" server socket for raw data (like port 7322 in dl-fldigi)
+		Added "<" sentence type, for telemetry that is not to be uploaded to Habitat.
+
+
+12/02/2018 - V1.8.14
+--------------------
+
+    By Phil Crump:
+	
+		Added separate thread for listener telemetry/information upload (Listener telemetry is uploaded every 30 minutes to maintain map marker)
+	
+		Corrected incremental tuning units 'MHz' -> 'kHz', and added lowercase letters in tuning lookup table
+		
+	By me:
+	
+		Added config description to this file for telnet-like HAB communications link
+	
 01/10/2017 - V1.8.12
 --------------------
 

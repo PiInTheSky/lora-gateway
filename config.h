@@ -10,7 +10,7 @@ struct TSetting
 	int *IntValuePtr;
 	double *DoubleValuePtr;
 	int MaxValueLength;
-	// void (Callback)(int);
+	void (*Callback)(int);
 };
 
 void RegisterConfigFile(char *Filename);
@@ -20,6 +20,7 @@ int RegisterConfigInteger(int SectionIndex, int Index, char *Name, int *IntValue
 int RegisterConfigDouble(int SectionIndex, int Index, char *Name, double *DoubleValuePtr, void (Callback)(int));
 int RegisterConfigBoolean(int SectionIndex, int Index, char *Name, int *BoolValuePtr, void (Callback)(int));
 int ReadConfigValue(int SettingIndex);
+int ConfigSettingChannel(int SettingIndex);
 void SetConfigValue(char *Setting, char *Value);
 int SettingAsString(int SettingIndex, char *SettingName, int SettingNameSize, char *SettingValue, int SettingValueSize);
 void SaveConfigFile(void);

@@ -43,8 +43,10 @@ ActivityLED_1=29
 
 ##### Config CE1 #####
 
-frequency_1=434.500
-mode_1=1
+## Calling mode as default ...
+
+frequency_1=433.650
+mode_1=5
 AFC_1=Y
 #bandwidth_1=125K
 #implicit_1=0

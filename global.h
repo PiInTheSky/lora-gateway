@@ -1,3 +1,6 @@
+#ifndef _H_Global
+#define _H_Global
+
 #include <curses.h>
 
 #define RUNNING 1               // The main program is running
@@ -8,6 +11,7 @@
 struct TPayload
 {
 	int InUse;
+	int SendToClients;
 	int Channel;
 	
 	time_t LastPacketAt;
@@ -18,14 +22,23 @@ struct TPayload
 	char Time[12];
 	unsigned int Counter, LastCounter;
 	double Longitude, Latitude;
-	unsigned int Altitude, PreviousAltitude;
+	int Altitude, PreviousAltitude;
 	float AscentRate;
 	unsigned long LastPositionAt;
-}; struct TLoRaDevice {
+};
+ 
+struct TLoRaDevice 
+{
 	double Frequency;
+    double PPM;
+	double FrequencyOffset;
+    
 	double Bandwidth;
 	double CurrentBandwidth;
-			int InUse;    	int DIO0;	int DIO5;	double activeFreq;
+		
+	int InUse;    
+	int DIO0;
+	int DIO5;
 	
 	int AFC;					// Enable Automatic Frequency Control
 	double MaxAFCStep;			// Maximum adjustment, in kHz, per packet
@@ -73,11 +86,33 @@ struct TPayload
 	int HABUplinkCount;
 	int GotHABReply;
 	int GotReply;	
+    
+    // Chat uplink
+    int ChatMode;
+    char ChatPayloadID[32];
+    int TxMessageID;
+    char TxChatMessage[200];
+    int RxMessageID;
+    char RxChatMessage[200];
+	
+	// Local data packets
+	int LocalDataCount;
+	char LocalDataBuffer[255];
+	
+	// Status
+	int CurrentRSSI;
+	int PacketSNR, PacketRSSI;
+	double FrequencyError;
 };
- struct TConfig  {   	char Tracker[16];				// Callsign or name of receiver
+ 
+struct TConfig 
+ {   
+	char Tracker[16];				// Callsign or name of receiver
 	double latitude, longitude;		// Receiver's location
-     	int EnableHabitat;
+     
+	int EnableHabitat;
 	int EnableSSDV;
+    int EnableHablink;
 	int EnableTelemetryLogging;
 	int EnablePacketLogging;
 	int CallingTimeout;
@@ -90,25 +125,90 @@ struct TPayload
 	struct TPayload Payloads[MAX_PAYLOADS];
 	int NetworkLED;
 	int InternetLED;
-	int ServerPort;					// JSON port for telemetry, settings
+	int ServerPort;				// JSON port for telemetry, settings
+    int ChatPort;               // Chat port
+	int UDPPort;				// UDP Broadcast port for raw received data packets
+	int OziPlotterPort;			// UDP Broadcast port for OziPlotter formatted packets
+	int OziMuxPort;				// UDP Broadcast port for OziMux formatted packets
 	int HABPort;				// Telnet style port for comms with HAB
 	int HABTimeout;				// Timeout in ms for telnet uplink
 	int HABChannel;				// LoRa Channel for uplink
+	int DataPort;				// Raw received data packet port
 	char SMSFolder[64];
 	char antenna[64];
 	int EnableDev;
 	char UplinkCode[64];
 };
- typedef struct {
+ 
+typedef struct {
     int parent_status;
     unsigned long packet_count;
 } thread_shared_vars_t;
 
 typedef struct {
+    /* Rx Metadata */
     short int Channel;
-    char Telemetry[257];
-    int Packet_Number;
-} telemetry_t;
+    time_t Timestamp;
+    double Frequency;
+    double FrequencyError;
+    int ImplicitOrExplicit;
+    double Bandwidth;
+    int ErrorCoding;
+    int SpreadingFactor;
+    int LowDataRateOptimize;
+    int SNR;
+    int RSSI;
+} rx_metadata_t;
+
+/* HABpack Telemetry Storage */
+typedef enum { HB_VALUE_INTEGER, HB_VALUE_REAL, HB_VALUE_STRING } HB_Value_Type;
+typedef struct habpack_telem_linklist_entry {
+    uint32_t type;
+    char name[32];
+    HB_Value_Type value_type;
+    union {
+        int64_t integer;
+        double real;
+        char *string;
+    } value;
+    struct habpack_telem_linklist_entry *next;
+} habpack_telem_linklist_entry_t;
+
+typedef struct {
+	/* Core Telemetry */
+	char Callsign[32];
+	uint64_t SentenceId;
+    uint64_t Time;
+    char TimeString[9];
+	double Latitude;
+	double Longitude;
+	int64_t Altitude;
+	/* Calling Beacon Values */
+	uint64_t DownlinkFrequency;
+	int64_t DownlinkLoraMode;
+	int DownlinkLoraImplicit;
+	int DownlinkLoraErrorCoding;
+	double DownlinkLoraBandwidth;
+	int DownlinkLoraSpreadingFactor;
+	int DownlinkLoraLowDatarateOptimise;
+	/* Linked list of additional telem fields */
+	habpack_telem_linklist_entry_t *habpack_extra;
+} rx_telemetry_t;
+
+#define Message_length	257
+#define UKHASstring_length	257
+typedef struct {
+	char Message[Message_length];
+	int Bytes;
+	/* UKHAS ASCII Telemetry String for habitat upload */
+    char UKHASstring[UKHASstring_length];
+    char HabitatString[UKHASstring_length];
+    bool isCallingBeacon;
+    double AscentRate;
+    /* Telemetry values */
+	rx_telemetry_t Telemetry;
+    rx_metadata_t Metadata;
+} received_t;
 
 typedef struct {
     short int Channel;
@@ -125,6 +225,9 @@ struct TServerInfo
 };
 
 extern struct TConfig Config;
-extern int SSDVSendArrayIndex;
-extern pthread_mutex_t ssdv_mutex;
- void LogMessage( const char *format, ... );
+extern int SSDVSendArrayIndex;
+extern pthread_mutex_t ssdv_mutex;
+ 
+void LogMessage( const char *format, ... );
+
+#endif /* _H_Global */
