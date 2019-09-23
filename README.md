@@ -39,6 +39,9 @@ Install the LoRa gateway
 	3. cd lora-gateway
 	4. make
 	5. cp gateway-sample.txt gateway.txt
+
+
+Reboot: `sudo reboot`.	
 	
 
 Configuration
