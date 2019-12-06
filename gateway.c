@@ -149,7 +149,8 @@ struct TLoRaMode
 	{EXPLICIT_MODE, ERROR_CODING_4_6, BANDWIDTH_250K, SPREADING_7,  0,  8000, "Turbo"},				// 3: Normal mode for high speed images in 868MHz band
 	{IMPLICIT_MODE, ERROR_CODING_4_5, BANDWIDTH_250K, SPREADING_6,  0, 16828, "TurboX"},			// 4: Fastest mode within IR2030 in 868MHz band
 	{EXPLICIT_MODE, ERROR_CODING_4_8, BANDWIDTH_41K7, SPREADING_11, 0,   200, "Calling"},			// 5: Calling mode
-	{IMPLICIT_MODE, ERROR_CODING_4_5, BANDWIDTH_41K7, SPREADING_6,  0,  2800, "Uplink"},			// 6: Uplink mode for 868
+	{EXPLICIT_MODE, ERROR_CODING_4_5, BANDWIDTH_20K8, SPREADING_7,  0,  2800, "Uplink"},			// 6: Uplink explicit mode (variable length) - poppi (non si puo' usare spreading_6)
+//	{IMPLICIT_MODE, ERROR_CODING_4_5, BANDWIDTH_41K7, SPREADING_6,  0,  2800, "Uplink"},			// 6: Uplink mode for 868
 	{EXPLICIT_MODE, ERROR_CODING_4_5, BANDWIDTH_20K8, SPREADING_7,  0,   910, "Telnet"},			// 7: Telnet-style comms with HAB on 434
 	{IMPLICIT_MODE, ERROR_CODING_4_5, BANDWIDTH_62K5, SPREADING_6,  0,  4500, "SSDV Repeater"}		// 8: Fast (SSDV) repeater network	
 };
@@ -659,6 +660,23 @@ void SendLoRaData(int Channel, char *buffer, int Length)
 	}
 	
     // LogMessage( "LoRa Channel %d Sending %d bytes\n", Channel, Length );
+// poppi
+            int n;
+            i = Length;
+            if (i > 24)
+                i = 24;
+            char str[5];
+            char superstr[100];
+            sprintf(superstr, "Ch%d TX %d bytes, ", Channel, Length);
+            for(n = 0; n < i; ++n)
+            {
+                sprintf(str, "%02X ", buffer[n]);
+                strcat(superstr, str);
+            }
+            strcat(superstr, "\n");
+            LogMessage(superstr);
+// !poppi
+
     Config.LoRaDevices[Channel].Sending = 1;
 
     setMode( Channel, RF98_MODE_STANDBY );
@@ -677,6 +695,7 @@ void SendLoRaData(int Channel, char *buffer, int Length)
 
     // Set the length. For implicit mode, since the length needs to match what the receiver expects, we have to set a value which is 255 for an SSDV packet
     writeRegister( Channel, REG_PAYLOAD_LENGTH, Length );
+//    writeRegister( Channel, REG_PAYLOAD_LENGTH, 32);    // poppi - prova - trasmettiamo in implicit mode 32 bytes fissi invece di 255 (analoga modifica su RX)
 
     // go into transmit mode
     setMode( Channel, RF98_MODE_TX );
@@ -1493,10 +1512,12 @@ void SendUplinkMessage(int Channel)
     else if (GetTextMessageToUpload(Channel, Message))
     {
         SendLoRaData(Channel, Message, strlen(Message));
+//        SendLoRaData(Channel, Message, 255);    // poppi - con lunghezza != 255 ed implicit mode si aveva CRC error sul ricevente
     }
     else if (GetExternalListOfMissingSSDVPackets( Channel, Message))
     {
-        SendLoRaData(Channel, Message, 255);
+//        SendLoRaData(Channel, Message, 255);
+        SendLoRaData(Channel, Message, strlen(Message));    // poppi - grazia alla modalita' 'explicit mode' possiamo trasmettere la lunghezza esatta
     }
     else if (Config.LoRaDevices[Channel].IdleUplink)
     {
@@ -1545,6 +1566,22 @@ void DIO0_Interrupt( int Channel )
 
         if ( Received.Bytes > 0 )
         {			
+/* poppi
+            int n;
+            int i = Received.Bytes;
+            if (i > 20)
+                i = 20;
+            char str[5];
+            char superstr[100];
+            sprintf(superstr, "Len %d ", Received.Bytes);
+            for(n = 0; n < i; ++n)
+            {
+                sprintf(str, "$%02X ", Received.Message[n]);
+                strcat(superstr, str);
+            }
+            strcat(superstr, "\n");
+            LogMessage(superstr);
+// !poppi */
             if ( Config.LoRaDevices[Channel].ActivityLED >= 0 )
             {
                 digitalWrite( Config.LoRaDevices[Channel].ActivityLED, 1 );
