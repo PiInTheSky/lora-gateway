@@ -106,9 +106,7 @@ void *ListenerLoop(void *ptr)
 {
     (void) ptr;
 
-    uint32_t LoopPeriod = 0;
-
-    UploadListenerTelemetry( Config.Tracker, time(NULL), Config.latitude, Config.longitude, Config.antenna );
+    uint32_t LoopPeriod = LISTENER_UPDATE_INTERVAL*60*1000;		// So we upload listener at start, as well as every LISTENER_UPDATE_INTERVAL minutes thereafter
 
     while (1)
     {

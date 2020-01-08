@@ -39,7 +39,7 @@ Install the LoRa gateway
 	3. cd lora-gateway
 	4. make
 	5. cp gateway-sample.txt gateway.txt
-	
+
 
 Configuration
 =============
@@ -58,13 +58,13 @@ The configuration is in the file gateway.txt.  Example:
 	Latitude=51.95023
 	Longitude=-2.5445 
 	Antenna=868MHz Yagi
-
+	
 	frequency_0=434.347
 	mode_0=1
 	DIO0_0=31
 	DIO5_0=26
 	AFC_0=N
-
+	
 	frequency_1=434.475
 	mode_1=5
 	DIO0_1=6
@@ -82,21 +82,21 @@ The global options are:
 	EnableHABLink=<Y/N>.  Enables uploading of telemetry packets to the hab.link server.
 	
 	JPGFolder=<folder>.  Tells the gateway where to save local JPEG files built from incoming SSDV packets.
-
+	
 	LogTelemetry=<Y/N>.  Enables logging of telemetry packets (ASCII only at present) to telemetry.txt.	
 	
 	LogPackets=<Y/N>.  Enables logging of packet information (SNR, RSSI, length, type) to packets.txt.	
 	
 	SMSFolder=<folder>.  Tells the gateway to check for incoming SMS messages or tweets that should be sent to the tracker via the uplink.
-
+	
 	CallingTimeout=<seconds>.  Sets a timeout for returning to calling mode after a period with no received packets.
 	
 	ServerPort=<port>.  Opens a server socket which can have 1 client connected.  Sends JSON telemetry and status information to that client.
-
+	
 	HABPort=<port>.  Opens a server socket which can have 1 client connected.  Port is a raw data stream between gateway and HAB (e.g. for Telnet-like communications).  Note: The corresponding functionality at the tracker end has not been published.
 	
 	DataPort=<port>.  Opens a server socket which can have 1 client connected.  Sends raw telemetry (i.e. $$payload,....) to that client.
-
+	
 	HABTimeout=<ms>.  Timeout in case of no response from HAB to raw data uplink.
 	
 	HABChannel=<channel>.  Specifies LoRa channel (0 or 1) used for telnet-style communications.
@@ -109,12 +109,13 @@ The global options are:
 	InternetLED=<wiring pi pin>
 	ActivityLED_0=<wiring pi pin>
 	ActivityLED_1=<wiring pi pin>.  These are used for LED status indicators. Useful for packaged gateways that don't have a monitor attached.
-	
-	
-and the channel-specific options are:
-	
-	frequency_<n>=<freq in MHz>.  This sets the frequency for LoRa module <n> (0 for first, 1 for second).  e.g. frequency_0=434.450
 
+
+​	
+and the channel-specific options are:
+​	
+	frequency_<n>=<freq in MHz>.  This sets the frequency for LoRa module <n> (0 for first, 1 for second).  e.g. frequency_0=434.450
+	
 	PPM_<n>=<Parts per million offset of LoRa module.
 	
 	AFC_<n>=<Y/N>.  Enables or disables automatic frequency control (retunes by the frequency error of last received packet).
@@ -140,11 +141,11 @@ and the channel-specific options are:
 	lowopt_<n>=<Y/N>.  Enables or disables low data rate optimization.
 	
 	power_<n>=<power>.  This is the power setting used for uplinks.  Refer to the LoRa manual for details on setting this.  ** Only set values that are legal in your location (for EU see IR2030) **
-
+	
 	UplinkTime_0=<seconds>.  When to send any uplink messages, measured as seconds into each cycle.
 	
 	UplinkCycle_0=<seconds>.  Cycle time for uplinks.  First cycle starts at 00:00:00.  So for uplink time=2 and cycle=30, any transmissions will start at 2 and 32 seconds after each minute.
-	
+
 Lines are commented out with "#" at the start.
 
 If the frequency_n line is commented out, then that channel is disabled.
@@ -165,7 +166,7 @@ There are currently two types of uplink supported:
 
 	-	Uplink of messages from the "SMSFolder" folder.  For this to work, "SMSFolder" has to be defined and present.  The gateway will then check for "*.sms" files in that folder.
 	-	Uplink of SSD packet re-send requests.  The gateway looks for an "uplink.txt" file in the gateway folder.  The file is created by an external Python script (supplied) which interrogates the SSDV server.
- 
+
 
 Calling Mode
 ============
@@ -218,18 +219,31 @@ The following key presses are available. Where appropriate unshifted keys affect
 Many thanks to David Brooke for coding this feature and the AFC.
 
 	q	quit
-
+	
 	a	increase frequency by 100kHz
 	z	decrease frequency by 100kHz
 	s	increase frequency by 10kHz
 	x	decrease frequency by 10kHz
 	d	increase frequency by 1kHz
 	c	decrease frequency by 1kHz
-
+	
 	f	toggle AFC
 
 Change History
 ==============
+
+8/1/2019 - V1.8.31
+--------------------
+
+	Fixed bug measured frequency offset was retained when returning to calling mode
+	Fixed bug where uplink messages were not set to 255 bytes in implicit mode
+	Fixed bug where listeners with longitude between -180 and -90 were not uploaded to map
+
+13/06/2019 - V1.8.30
+--------------------
+
+	Added ability to connect to hab.link server for responsive web dashboards.
+
 
 13/06/2019 - V1.8.29
 --------------------
@@ -308,9 +322,9 @@ Change History
     JSON port only sends telemetry as it is received, instead of repeatedly
     JSON port now sends current RSSI
     Append \r\n to sentences sent to data port
-	JSON port now accepts commands split over multiple packets (e.g. typed commands)
-	When saving to gateway.txt, permissions are set to RW/RW/RW, and owner/group are maintained
-	Added Sockets.md to document the available sockets. 
+    JSON port now accepts commands split over multiple packets (e.g. typed commands)
+    When saving to gateway.txt, permissions are set to RW/RW/RW, and owner/group are maintained
+    Added Sockets.md to document the available sockets. 
 
 
 06/04/2018 - V1.8.16
@@ -324,47 +338,47 @@ Change History
 ---------------------
 
     By Phil Crump:
-	
-		Detect if DIO5 isn't correctly mapped (default level != high), warn and disables the channel.
-
-		Detect if the RFM isn't responding (reg 0x42 == 0x00), warn and disables the channel.
-
-		Warn if both receivers are disabled or unconfigured.	
-
-		Removed message queue test code - functionality was behind that of the main code path, and would have required updating for the other changes in this set.
-
-		Added storage of at-time-of-receive-configuration in rx_metadata_t struct. This is copied into the queued telemetry_t structure when a Telemetry Packet is processed.
-
-		Added upload of receiver frequency (with detected offset) to Habitat with payload telemetry ( Issue #15 ). Mostly ported from Pull Req #28 which has been tested by @dbrooke .
-
-		Added logging of additional metadata parameters in packet.log (Issue #5 )
-
-		Removed duplicate 'LogTelemetryPacket()' call in habitat thread. (Already called in ProcessTelemetryMessage)
-		
-	By me:
-	
-		Added "Dataport" server socket for raw data (like port 7322 in dl-fldigi)
-		Added "<" sentence type, for telemetry that is not to be uploaded to Habitat.
+    
+    	Detect if DIO5 isn't correctly mapped (default level != high), warn and disables the channel.
+    
+    	Detect if the RFM isn't responding (reg 0x42 == 0x00), warn and disables the channel.
+    
+    	Warn if both receivers are disabled or unconfigured.	
+    
+    	Removed message queue test code - functionality was behind that of the main code path, and would have required updating for the other changes in this set.
+    
+    	Added storage of at-time-of-receive-configuration in rx_metadata_t struct. This is copied into the queued telemetry_t structure when a Telemetry Packet is processed.
+    
+    	Added upload of receiver frequency (with detected offset) to Habitat with payload telemetry ( Issue #15 ). Mostly ported from Pull Req #28 which has been tested by @dbrooke .
+    
+    	Added logging of additional metadata parameters in packet.log (Issue #5 )
+    
+    	Removed duplicate 'LogTelemetryPacket()' call in habitat thread. (Already called in ProcessTelemetryMessage)
+    	
+    By me:
+    
+    	Added "Dataport" server socket for raw data (like port 7322 in dl-fldigi)
+    	Added "<" sentence type, for telemetry that is not to be uploaded to Habitat.
 
 
 12/02/2018 - V1.8.14
 --------------------
 
     By Phil Crump:
-	
-		Added separate thread for listener telemetry/information upload (Listener telemetry is uploaded every 30 minutes to maintain map marker)
-	
-		Corrected incremental tuning units 'MHz' -> 'kHz', and added lowercase letters in tuning lookup table
-		
-	By me:
-	
-		Added config description to this file for telnet-like HAB communications link
-	
+    
+    	Added separate thread for listener telemetry/information upload (Listener telemetry is uploaded every 30 minutes to maintain map marker)
+    
+    	Corrected incremental tuning units 'MHz' -> 'kHz', and added lowercase letters in tuning lookup table
+    	
+    By me:
+    
+    	Added config description to this file for telnet-like HAB communications link
+
 01/10/2017 - V1.8.12
 --------------------
 
     Added null uplink option
-
+    
     Test for incoming null uplink message
 
 21/09/2017 - V1.8.11
@@ -381,23 +395,23 @@ Change History
 -------------------
 
     Added mode 7 for Telnet uplink
-
+    
     Incorporated changes to support Telnet-style terminal to HAB
 
 28/08/2017 - V1.8.8
 -------------------
 
     Do not assume telemetry sentence has a LF at the end
-
+    
     Do not assume telemetry has 2 $ signs at beginning
 
 18/04/2017 - V1.8.7
 -------------------
 
     New help screen added to show the available commands.
-
+    
     Press H to access this feature
-
+    
     Fixed a padding bug on telemetry line !
 
 ??/??/2017 - V1.8.6
@@ -412,8 +426,9 @@ Change History
 	Fixed SSDV upload status marker
 	Fix to frequency format when retuning after calling mode
 	Some log display messages now only appear if the feature they describe is in use
-	
-	
+
+
+​	
 15/09/2016 - V1.8.4
 -------------------
 
@@ -428,7 +443,8 @@ Change History
 	Fixed errors where threads were closed on exit even if they hadn't been created (i.e. their functions disabled in the config)
 	Consistent RSSI calculations that take HF/LF port into account
 
-	
+
+​	
 14/09/2016 - V1.8.2
 -------------------
 
@@ -438,7 +454,7 @@ Change History
 	Accept commands and new config settings from client
 	Fixed SMS folder error
 	Fixed LDRO setting
-	
+
 
 03/09/2016 - V1.8
 -----------------
@@ -453,15 +469,15 @@ Change History
 	Config disables CE0 by default (most cards have CE1 only)
 	Fixed typos in gateway-sample.txt
 	Accept new SSDV types
-	
+
 
 25/08/2016 - V1.7
 -----------------
 
     Robert Harrison (RJH) has made numerous changes. 
-
+    
     Highlights include :-
-
+    
     Changed makefile to include -Wall and fixed all warnings generated
     Added pipes for Inter-Process Communication 
     Moved none thread safe curl funtions from threads and into main()
@@ -469,7 +485,7 @@ Change History
     Changed color to green but requires 256 color support in your terminal
     
     For putty users please set your terminal as shown
-    
+
 ![Alt text](http://i.imgur.com/B81bvEQ.png "Putty config")
     
     when you are connected to your pi
@@ -479,20 +495,21 @@ Change History
     or
     
     # tpu colors            # Should show 256
-	
+
 
 27/06/2016 - V1.6
 -----------------
 
 	Single SSDV upload thread using new API to upload multiple packets at once
 	Fixed 100% CPU (SSDV thread not sleeping)
-	
-	
+
+
+​	
 23/05/2016 - V1.5
 -----------------
 
 	Better status screen
-	
+
 13/05/2016
 ----------
 
@@ -505,14 +522,14 @@ Change History
 
 	SSDV 8 buffers
 	JSON feed instead of old "transition" method
-	
+
 
 19/02/2016
 ----------
 
 	Fixed listener_information JSON
 	Added antenna setting to gateway.txt
-	
+
 
 16/02/2016
 ----------
@@ -525,11 +542,13 @@ Change History
 	4 separate threads for uploading SSDV packets to the SSDV server
 	Slightly different display layout, with extra information
 
-	
+
+​	
 07/10/2015
 ----------
 
 	fsphil: Tidied up compiler warnings, makefile, file permissions
-	
-	
+
+
+​	
 

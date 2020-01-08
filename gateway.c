@@ -46,7 +46,7 @@
 #include "udpclient.h"
 #include "lifo_buffer.h"
 
-#define VERSION	"V1.8.30"
+#define VERSION	"V1.8.31"
 bool run = TRUE;
 
 // RFM98
@@ -605,8 +605,7 @@ void SetDefaultLoRaParameters( int Channel )
 /////////////////////////////////////
 //    Method:   Setup to receive continuously
 //////////////////////////////////////
-void
-startReceiving( int Channel )
+void startReceiving(int Channel)
 {
     writeRegister( Channel, REG_DIO_MAPPING_1, 0x00 );  // 00 00 00 00 maps DIO0 to RxDone
 
@@ -633,7 +632,7 @@ void SendLoRaData(int Channel, char *buffer, int Length)
 {
     unsigned char data[257];
     int i;
-
+	
 	// Change frequency for the uplink ?
 	if (Config.LoRaDevices[Channel].UplinkFrequency > 0)
 	{
@@ -656,9 +655,11 @@ void SendLoRaData(int Channel, char *buffer, int Length)
 						  BandwidthToDouble(LoRaModes[UplinkMode].Bandwidth),
 						  SFToInt(LoRaModes[UplinkMode].SpreadingFactor),
 						  0);
+						  
+		// Adjust length if necessary - for implicit mode we always use 255-byte packets
 	}
 	
-    // LogMessage( "LoRa Channel %d Sending %d bytes\n", Channel, Length );
+    LogMessage("LoRa Channel %d Sending %d bytes\n", Channel, Length );
     Config.LoRaDevices[Channel].Sending = 1;
 
     setMode( Channel, RF98_MODE_STANDBY );
@@ -675,7 +676,20 @@ void SendLoRaData(int Channel, char *buffer, int Length)
     }
     wiringPiSPIDataRW( Channel, data, Length + 1 );
 
-    // Set the length. For implicit mode, since the length needs to match what the receiver expects, we have to set a value which is 255 for an SSDV packet
+    // Set the length. For implicit mode, since the length needs to match what the receiver expects, we have to set the length to our fixed 255 bytes
+	if (Config.LoRaDevices[Channel].UplinkMode >= 0)
+	{
+		if (LoRaModes[Config.LoRaDevices[Channel].UplinkMode].ImplicitOrExplicit)
+		{
+			Length = 255;
+		}
+	}
+	else if (Config.LoRaDevices[Channel].ImplicitOrExplicit)
+	{
+		Length = 255;
+	}
+
+	// Now send the (possibly updated) length in the LoRa chip
     writeRegister( Channel, REG_PAYLOAD_LENGTH, Length );
 
     // go into transmit mode
@@ -2651,7 +2665,7 @@ int main( int argc, char **argv )
         }
     }
 
-    if ( ( Config.latitude > -90 ) && ( Config.longitude > -90 ) )
+    if (( Config.latitude >= -90) && (Config.latitude <= 90) && (Config.longitude >= 180) && (Config.longitude <= 180))
     {
         if ( pthread_create( &ListenerThread, NULL, ListenerLoop, NULL ) )
         {
@@ -2713,6 +2727,7 @@ int main( int argc, char **argv )
                     {
                         Config.LoRaDevices[Channel].InCallingMode = 0;
                         Config.LoRaDevices[Channel].ReturnToCallingModeAt = 0;
+						Config.LoRaDevices[Channel].FrequencyOffset = 0;			// Fixed bug where offset is used when returning to calling mode frequency
 
                         LogMessage( "Return to calling mode\n" );
 
