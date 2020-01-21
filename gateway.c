@@ -46,7 +46,7 @@
 #include "udpclient.h"
 #include "lifo_buffer.h"
 
-#define VERSION	"V1.8.31"
+#define VERSION	"V1.8.32"
 bool run = TRUE;
 
 // RFM98
@@ -149,6 +149,7 @@ struct TLoRaMode
 	{EXPLICIT_MODE, ERROR_CODING_4_6, BANDWIDTH_250K, SPREADING_7,  0,  8000, "Turbo"},				// 3: Normal mode for high speed images in 868MHz band
 	{IMPLICIT_MODE, ERROR_CODING_4_5, BANDWIDTH_250K, SPREADING_6,  0, 16828, "TurboX"},			// 4: Fastest mode within IR2030 in 868MHz band
 	{EXPLICIT_MODE, ERROR_CODING_4_8, BANDWIDTH_41K7, SPREADING_11, 0,   200, "Calling"},			// 5: Calling mode
+//	{EXPLICIT_MODE, ERROR_CODING_4_5, BANDWIDTH_20K8, SPREADING_7,  0,  2800, "Uplink"},			// 6: Uplink explicit mode (variable length)
 	{IMPLICIT_MODE, ERROR_CODING_4_5, BANDWIDTH_41K7, SPREADING_6,  0,  2800, "Uplink"},			// 6: Uplink mode for 868
 	{EXPLICIT_MODE, ERROR_CODING_4_5, BANDWIDTH_20K8, SPREADING_7,  0,   910, "Telnet"},			// 7: Telnet-style comms with HAB on 434
 	{IMPLICIT_MODE, ERROR_CODING_4_5, BANDWIDTH_62K5, SPREADING_6,  0,  4500, "SSDV Repeater"}		// 8: Fast (SSDV) repeater network	
@@ -205,6 +206,10 @@ int ssdv_pipe_fd[2];
 thread_shared_vars_t stsv;
 
 WINDOW *mainwin=NULL;		// Curses window
+
+// Create a structure for saving calling mode settings
+rx_metadata_t callingModeSettings[2];
+
 
 void CloseDisplay( WINDOW * mainwin )
 {
@@ -622,7 +627,7 @@ void startReceiving(int Channel)
 void ReTune( int Channel, double FreqShift )
 {
     setMode( Channel, RF98_MODE_SLEEP );
-    LogMessage( "Retune by %.1lfkHz\n", FreqShift * 1000 );
+    LogMessage( "Ch%d: Retune by %.1lfkHz\n", Channel, FreqShift * 1000 );
 	Config.LoRaDevices[Channel].FrequencyOffset += FreqShift;
     setFrequency(Channel, Config.LoRaDevices[Channel].Frequency + Config.LoRaDevices[Channel].FrequencyOffset);
     startReceiving(Channel);
@@ -632,11 +637,11 @@ void SendLoRaData(int Channel, char *buffer, int Length)
 {
     unsigned char data[257];
     int i;
-	
+
 	// Change frequency for the uplink ?
 	if (Config.LoRaDevices[Channel].UplinkFrequency > 0)
 	{
-		LogMessage("Change frequency to %.3lfMHz\n", Config.LoRaDevices[Channel].UplinkFrequency + Config.LoRaDevices[Channel].FrequencyOffset);
+		LogMessage("Ch%d: Change frequency to %.3lfMHz\n", Channel, Config.LoRaDevices[Channel].UplinkFrequency + Config.LoRaDevices[Channel].FrequencyOffset);
         setFrequency(Channel, Config.LoRaDevices[Channel].UplinkFrequency + Config.LoRaDevices[Channel].FrequencyOffset);
 	}
 	
@@ -647,7 +652,7 @@ void SendLoRaData(int Channel, char *buffer, int Length)
 		
 		UplinkMode = Config.LoRaDevices[Channel].UplinkMode;
 		
-		LogMessage("Change LoRa mode to %d\n", Config.LoRaDevices[Channel].UplinkMode);
+		LogMessage("Ch%d: Change LoRa mode to %d\n", Channel, Config.LoRaDevices[Channel].UplinkMode);
 		
         SetLoRaParameters(Channel,
 						  LoRaModes[UplinkMode].ImplicitOrExplicit,
@@ -660,6 +665,23 @@ void SendLoRaData(int Channel, char *buffer, int Length)
 	}
 	
     LogMessage("LoRa Channel %d Sending %d bytes\n", Channel, Length );
+/* prints the message's content for debug purposes
+            int n;
+            i = Length;
+            if (i > 24)
+                i = 24;
+            char str[5];
+            char superstr[100];
+            sprintf(superstr, "Ch%d: TX %d bytes, ", Channel, Length);
+            for(n = 0; n < i; ++n)
+            {
+                sprintf(str, "%02X ", buffer[n]);
+                strcat(superstr, str);
+            }
+            strcat(superstr, "\n");
+            LogMessage(superstr);
+*/
+
     Config.LoRaDevices[Channel].Sending = 1;
 
     setMode( Channel, RF98_MODE_STANDBY );
@@ -674,20 +696,27 @@ void SendLoRaData(int Channel, char *buffer, int Length)
     {
         data[i + 1] = buffer[i];
     }
-    wiringPiSPIDataRW( Channel, data, Length + 1 );
 
     // Set the length. For implicit mode, since the length needs to match what the receiver expects, we have to set the length to our fixed 255 bytes
 	if (Config.LoRaDevices[Channel].UplinkMode >= 0)
 	{
 		if (LoRaModes[Config.LoRaDevices[Channel].UplinkMode].ImplicitOrExplicit)
 		{
+            if (Length+1 < sizeof(data))                    // places a NULL at end of data to allow the receiver to skip any garbage
+                data[Length+1] = 0;
 			Length = 255;
+			LogMessage("Ch%d: length set to 255 bytes (Uplink implicit mode tx)\n", Channel);
 		}
 	}
 	else if (Config.LoRaDevices[Channel].ImplicitOrExplicit)
 	{
+        if (Length+1 < sizeof(data))                        // places a NULL at end of data to allow the receiver to skip any garbage
+            data[Length+1] = 0;
 		Length = 255;
+		LogMessage("Ch%d: length set to 255 bytes (implicit mode tx)\n", Channel);
 	}
+
+    wiringPiSPIDataRW( Channel, data, Length + 1 );         // SPI write moved here (after NULL termination)
 
 	// Now send the (possibly updated) length in the LoRa chip
     writeRegister( Channel, REG_PAYLOAD_LENGTH, Length );
@@ -758,6 +787,22 @@ void ProcessCallingMessage(int Channel, char *Message)
         setMode( Channel, RF98_MODE_RX_CONTINUOUS );
 
         Config.LoRaDevices[Channel].InCallingMode = 1;
+
+        // save the new settings so that we can restore them after an UpLink cycle, instead of going back to calling mode listening and having to wait for
+        // a calling mode packet before being able to decode tracker's messages.
+        // note - when booting, the tracker may send a dummy calling mode packet using the standard frequency/mode (instead the calling_mode settings).
+        // As a result, if received by a gateway running normally (not set for calling mode) it will trigger the calling mode state even if not really necessary
+        // (if the gateway received that packet, it's already set on correct parameters).
+        // This poses no problems except for the message displayed when exiting the uplink mode, that will be "Restoring saved calling_mode Rx Settings"
+        // instead of the (proper) message "Restoring default Rx Settings".
+        //
+        callingModeSettings[Channel].Channel = Channel;                             // this field is used just to validate the data
+        callingModeSettings[Channel].Frequency = Frequency;                         // saved frequency is already AFC corrected
+        callingModeSettings[Channel].ImplicitOrExplicit = ImplicitOrExplicit;
+        callingModeSettings[Channel].ErrorCoding = ECToInt(ErrorCoding);
+        callingModeSettings[Channel].Bandwidth = BandwidthToDouble(Bandwidth);
+        callingModeSettings[Channel].SpreadingFactor = SFToInt(SpreadingFactor);
+        callingModeSettings[Channel].LowDataRateOptimize = LowOptToInt(LowDataRateOptimize);
     }
 }
 
@@ -1401,7 +1446,7 @@ int GetTextMessageToUpload( int Channel, char *Message )
 
     if ( Config.SMSFolder[0] )
     {
-		LogMessage("Checking for SMS file in '%s' folder ...\n", Config.SMSFolder);
+		LogMessage("Ch%d: Checking for SMS file in '%s' folder ...\n", Channel, Config.SMSFolder);
         dp = opendir( Config.SMSFolder );
         if ( dp != NULL )
         {
@@ -1457,7 +1502,10 @@ int GetExternalListOfMissingSSDVPackets( int Channel, char *Message )
         // Now wait for uplink.txt file to appear.
         // Timeout before the end of our Tx slot if no file appears
 		
-        for ( i = 0; i < 20; i++ )
+        // Timeout reduced from 2sec to 300ms. This allows using two channels for UpLink transmission (more chances to reach the tracker).
+        // A 2sec timeout would probably delay the second channel's transmission out of the uplink time slot.
+//        for ( i = 0; i < 20; i++ )
+        for ( i = 0; i < 3; i++ )
         {
             if ( ( fp = fopen( "uplink.txt", "r" ) ) )
             {
@@ -1469,7 +1517,19 @@ int GetExternalListOfMissingSSDVPackets( int Channel, char *Message )
                 LogMessage( "Got uplink.txt %d bytes\n", strlen( Message ) );
 
                 // remove("get_list.txt");
-                remove( "uplink.txt" );
+
+                // To allow uplink transmission with both channels, the file is only deleted if:
+                // - we are transmitting with the second (last) channel;
+                // - we are transmitting with first channel and second channel is not configured for uplink mode.
+                // If the file is created just between ch0 and ch1 transmission, only ch1 transmission will take place.
+                // This is acceptable.
+                if (Channel == 1 || Config.LoRaDevices[1].UplinkTime < 0)
+                {
+                    remove( "uplink.txt" );
+                    LogMessage( "uplink.txt deleted\n" );
+                }
+                else
+                    LogMessage( "uplink.txt not deleted to allow Ch1 transmission\n" );
 
                 return strlen( Message );
             }
@@ -1496,7 +1556,7 @@ void SendUplinkMessage(int Channel)
     // Decide what type of message we need to send
 	if (*Config.LoRaDevices[Channel].UplinkMessage)
 	{
-		LogMessage("%02d:%02d:%02d - Send uplink message '%s'\n", tm->tm_hour, tm->tm_min, tm->tm_sec, Config.LoRaDevices[Channel].UplinkMessage);
+		LogMessage("%02d:%02d:%02d Ch%d - Send uplink message '%s'\n", tm->tm_hour, tm->tm_min, tm->tm_sec, Channel, Config.LoRaDevices[Channel].UplinkMessage);
 		SendLoRaData(Channel, Config.LoRaDevices[Channel].UplinkMessage, strlen(Config.LoRaDevices[Channel].UplinkMessage)+1);
 		if (!Config.LoRaDevices[Channel].ChatMode)
 		{
@@ -1510,7 +1570,7 @@ void SendUplinkMessage(int Channel)
     }
     else if (GetExternalListOfMissingSSDVPackets( Channel, Message))
     {
-        SendLoRaData(Channel, Message, 255);
+        SendLoRaData(Channel, Message, strlen(Message));
     }
     else if (Config.LoRaDevices[Channel].IdleUplink)
     {
@@ -1544,8 +1604,34 @@ void DIO0_Interrupt( int Channel )
         Config.LoRaDevices[Channel].Sending = 0;
         // LogMessage( "Ch%d: End of Tx\n", Channel );
 
-        setLoRaMode( Channel );
-        SetDefaultLoRaParameters( Channel );
+        // restoring radio settings after uplink transmission:
+        // If 'InCallingMode' is true, the receiver was set by a calling mode packet. In this case, the radio is returned to that settings
+        // instead of going back to calling mode (and having to wait for a calling mode packet before being able to receive data).
+        //
+        if (Config.LoRaDevices[Channel].InCallingMode && callingModeSettings[Channel].Channel == Channel)
+        {
+            // these four rows are equivalent to 'setLoRaMode', but with custom frequency
+            setMode( Channel, RF98_MODE_SLEEP );
+            writeRegister( Channel, REG_OPMODE, 0x80 );
+            setMode( Channel, RF98_MODE_SLEEP );
+            setFrequency( Channel, callingModeSettings[Channel].Frequency);
+
+            SetLoRaParameters( Channel,
+                       callingModeSettings[Channel].ImplicitOrExplicit,
+                       callingModeSettings[Channel].ErrorCoding,
+                       callingModeSettings[Channel].Bandwidth,
+                       callingModeSettings[Channel].SpreadingFactor,
+                       callingModeSettings[Channel].LowDataRateOptimize );
+
+            LogMessage( "Ch%d: Restoring saved calling_mode Rx Settings\n", Channel );
+        }
+        else
+        {
+            setLoRaMode( Channel );
+            SetDefaultLoRaParameters( Channel );
+            LogMessage( "Ch%d: Restoring default Rx Settings\n", Channel );
+        }
+
         startReceiving( Channel );
     }
     else
@@ -2665,7 +2751,7 @@ int main( int argc, char **argv )
         }
     }
 
-    if (( Config.latitude >= -90) && (Config.latitude <= 90) && (Config.longitude >= 180) && (Config.longitude <= 180))
+    if (( Config.latitude >= -90) && (Config.latitude <= 90) && (Config.longitude >= -180) && (Config.longitude <= 180))
     {
         if ( pthread_create( &ListenerThread, NULL, ListenerLoop, NULL ) )
         {
@@ -2673,6 +2759,10 @@ int main( int argc, char **argv )
             return 1;
         }
     }
+
+    // Initializes the structure used for storing calling mode settings
+    callingModeSettings[0].Channel = -1;
+    callingModeSettings[1].Channel = -1;
 
     LogMessage( "Starting now ...\n" );
 
@@ -2729,7 +2819,9 @@ int main( int argc, char **argv )
                         Config.LoRaDevices[Channel].ReturnToCallingModeAt = 0;
 						Config.LoRaDevices[Channel].FrequencyOffset = 0;			// Fixed bug where offset is used when returning to calling mode frequency
 
-                        LogMessage( "Return to calling mode\n" );
+                        callingModeSettings[Channel].Channel = -1;                  // invalidates previously saved calling mode settings
+
+                        LogMessage( "Ch%d: Return to calling mode\n", Channel );
 
                         setLoRaMode( Channel );
 
@@ -2746,11 +2838,13 @@ int main( int argc, char **argv )
                     {
                         Config.LoRaDevices[Channel].ReturnToOriginalFrequencyAt = 0;
 
-                        LogMessage("AFC timeout - return to original frequency\n");
+                        LogMessage("Ch%d: AFC timeout - return to original frequency\n", Channel);
 						
 						setMode(Channel, RF98_MODE_SLEEP);
 						setFrequency(Channel, Config.LoRaDevices[Channel].Frequency);
 						startReceiving(Channel);
+
+                        Config.LoRaDevices[Channel].FrequencyOffset = 0;            // Fixed bug where AFC offset were kept
                     }					
 
 					// Uplink cycle time ?

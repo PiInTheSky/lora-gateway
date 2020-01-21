@@ -232,12 +232,38 @@ Many thanks to David Brooke for coding this feature and the AFC.
 Change History
 ==============
 
-8/1/2019 - V1.8.31
+19/01/2020 - V1.18.32
+---------------------
+
+    By proboscide99:
+
+	Parameters received in a calling mode packet are saved. If the channel is also used for UpLink, saved
+	parameters will be restored after transmission. This allows immediate reception with correct parameters
+	without having to wait for a new calling mode packet.
+
+	Fixed bug that forced 255 bytes in missing SSDV packet request (UpLink mode) even with 'explicit headers'
+
+	When 'implicit headers' are used for UpLink mode, buffer is NULL terminated to prevent the tracker
+	from processing garbage (danger)
+
+	Both channels may be used for UpLink mode using different timing in the uplink slot (leave 1-2 secs gap)
+	Timeout for seeking for missing SSDV file 'uplink.txt' reduced from 2sec to 300ms to allow small gap
+	between channels (see above)
+
+	Fixed bug measured frequency offset was retained when AFC timeout occurs (affects value set by keys)
+
+	Fixed bug that prevented listener from being uploaded to map (longitude comparison)
+
+	Channel number display added to many messages on log console
+
+
+08/01/2020 - V1.8.31
 --------------------
 
 	Fixed bug measured frequency offset was retained when returning to calling mode
 	Fixed bug where uplink messages were not set to 255 bytes in implicit mode
 	Fixed bug where listeners with longitude between -180 and -90 were not uploaded to map
+
 
 13/06/2019 - V1.8.30
 --------------------
