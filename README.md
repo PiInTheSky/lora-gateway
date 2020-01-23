@@ -232,7 +232,7 @@ Many thanks to David Brooke for coding this feature and the AFC.
 Change History
 ==============
 
-19/01/2020 - V1.18.32
+19/01/2020 - V1.8.32
 ---------------------
 
     By proboscide99:
