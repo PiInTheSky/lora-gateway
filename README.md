@@ -114,8 +114,8 @@ The global options are:
 ​	
 and the channel-specific options are:
 ​	
-	frequency_<n>=<freq in MHz>.  This sets the frequency for LoRa module <n> (0 for first, 1 for second).  e.g. frequency_0=434.450
-	
+​	frequency_<n>=<freq in MHz>.  This sets the frequency for LoRa module <n> (0 for first, 1 for second).  e.g. frequency_0=434.450
+​	
 	PPM_<n>=<Parts per million offset of LoRa module.
 	
 	AFC_<n>=<Y/N>.  Enables or disables automatic frequency control (retunes by the frequency error of last received packet).
@@ -232,29 +232,34 @@ Many thanks to David Brooke for coding this feature and the AFC.
 Change History
 ==============
 
+03/02/2020 - V1.8.33
+--------------------
+
+	Set length of received buffer with strlen() instead of using rx byte count, to avoid sending dross to clients (by Steve Randall)
+
 19/01/2020 - V1.8.32
 ---------------------
 
     By proboscide99:
-
-	Parameters received in a calling mode packet are saved. If the channel is also used for UpLink, saved
-	parameters will be restored after transmission. This allows immediate reception with correct parameters
-	without having to wait for a new calling mode packet.
-
-	Fixed bug that forced 255 bytes in missing SSDV packet request (UpLink mode) even with 'explicit headers'
-
-	When 'implicit headers' are used for UpLink mode, buffer is NULL terminated to prevent the tracker
-	from processing garbage (danger)
-
-	Both channels may be used for UpLink mode using different timing in the uplink slot (leave 1-2 secs gap)
-	Timeout for seeking for missing SSDV file 'uplink.txt' reduced from 2sec to 300ms to allow small gap
-	between channels (see above)
-
-	Fixed bug measured frequency offset was retained when AFC timeout occurs (affects value set by keys)
-
-	Fixed bug that prevented listener from being uploaded to map (longitude comparison)
-
-	Channel number display added to many messages on log console
+    
+    Parameters received in a calling mode packet are saved. If the channel is also used for UpLink, saved
+    parameters will be restored after transmission. This allows immediate reception with correct parameters
+    without having to wait for a new calling mode packet.
+    
+    Fixed bug that forced 255 bytes in missing SSDV packet request (UpLink mode) even with 'explicit headers'
+    
+    When 'implicit headers' are used for UpLink mode, buffer is NULL terminated to prevent the tracker
+    from processing garbage (danger)
+    
+    Both channels may be used for UpLink mode using different timing in the uplink slot (leave 1-2 secs gap)
+    Timeout for seeking for missing SSDV file 'uplink.txt' reduced from 2sec to 300ms to allow small gap
+    between channels (see above)
+    
+    Fixed bug measured frequency offset was retained when AFC timeout occurs (affects value set by keys)
+    
+    Fixed bug that prevented listener from being uploaded to map (longitude comparison)
+    
+    Channel number display added to many messages on log console
 
 
 08/01/2020 - V1.8.31

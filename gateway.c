@@ -46,7 +46,7 @@
 #include "udpclient.h"
 #include "lifo_buffer.h"
 
-#define VERSION	"V1.8.32"
+#define VERSION	"V1.8.33"
 bool run = TRUE;
 
 // RFM98
@@ -1672,7 +1672,7 @@ void DIO0_Interrupt( int Channel )
 				CheckForChatContent(Channel, Repeated, Config.LoRaDevices[Channel].Telemetry);
 				strcpy(Config.LoRaDevices[Channel].LocalDataBuffer, Received.UKHASstring);
 				strcat(Config.LoRaDevices[Channel].LocalDataBuffer, "\r\n");
-				Config.LoRaDevices[Channel].LocalDataCount = Received.Bytes;
+				Config.LoRaDevices[Channel].LocalDataCount = strlen(Config.LoRaDevices[Channel].LocalDataBuffer);
             }
             else if ( Received.Message[0] == '>' )
             {
@@ -1683,7 +1683,7 @@ void DIO0_Interrupt( int Channel )
                 LogMessage("Local Data %d bytes = %s", Received.Bytes, Received.Message);
 				strcpy(Config.LoRaDevices[Channel].LocalDataBuffer, Received.Message);
 				strcat(Config.LoRaDevices[Channel].LocalDataBuffer, "\r\n");
-				Config.LoRaDevices[Channel].LocalDataCount = Received.Bytes;
+				Config.LoRaDevices[Channel].LocalDataCount = strlen(Config.LoRaDevices[Channel].LocalDataBuffer);
             }
             else if ( Received.Message[0] == '*' )
             {
