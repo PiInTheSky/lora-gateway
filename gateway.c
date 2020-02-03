@@ -46,7 +46,7 @@
 #include "udpclient.h"
 #include "lifo_buffer.h"
 
-#define VERSION	"V1.8.33"
+#define VERSION	"V1.8.34"
 bool run = TRUE;
 
 // RFM98
@@ -755,14 +755,14 @@ void ProcessUploadMessage(int Channel, char *Message)
 
 void ProcessCallingMessage(int Channel, char *Message)
 {
-    char Payload[16];
+    char Payload[32];
     double Frequency;
     int ImplicitOrExplicit, ErrorCoding, Bandwidth, SpreadingFactor, LowDataRateOptimize;
 
     ChannelPrintf( Channel, 3, 1, "Calling message %d bytes ",
                    strlen( Message ) );
 
-    if ( sscanf( Message + 2, "%15[^,],%lf,%d,%d,%d,%d,%d",
+    if ( sscanf( Message + 2, "%31[^,],%lf,%d,%d,%d,%d,%d",
                  Payload,
                  &Frequency,
                  &ImplicitOrExplicit,
@@ -954,7 +954,7 @@ void ProcessLineUKHAS(int Channel, char *Line)
 	Config.Payloads[PayloadIndex].Channel = Channel;
 	
 	// Parse key fields from sentence
-	sscanf( Line + 2, "%15[^,],%u,%8[^,],%lf,%lf,%d",
+	sscanf( Line + 2, "%31[^,],%u,%8[^,],%lf,%lf,%d",
 			(Config.Payloads[PayloadIndex].Payload),
 			&(Config.Payloads[PayloadIndex].Counter),
 			(Config.Payloads[PayloadIndex].Time),
@@ -1141,7 +1141,7 @@ void CheckForChatContent(int Channel, int Repeated, char *Line)
 {
 	if (Config.LoRaDevices[Channel].ChatMode)
 	{
-		char PayloadID[16], Message[200];
+		char PayloadID[32], Message[200];
 		int RxMask, RxMessageID, MessageID;
 		
 		if (Repeated)
@@ -1149,7 +1149,7 @@ void CheckForChatContent(int Channel, int Repeated, char *Line)
 			LogMessage("Repeated sentence [%s]\n", Line);
 			
 			Message[0] = 0;
-			sscanf(Line+2, "%15[^,],%*[^,],%*[^,],%*[^,],%*[^,],%*[^,],%*[^,],%x,%d,%d,%[^*]", PayloadID, &RxMask, &RxMessageID, &MessageID, Message);
+			sscanf(Line+2, "%31[^,],%*[^,],%*[^,],%*[^,],%*[^,],%*[^,],%*[^,],%x,%d,%d,%[^*]", PayloadID, &RxMask, &RxMessageID, &MessageID, Message);
 			LogMessage("PayloadID=%s RxMask=%x RxMessageID=%d MessageID=%d Message=%s\n", PayloadID, RxMask, RxMessageID, MessageID, Message);
 			
 			if (strcmp(PayloadID, Config.LoRaDevices[Channel].ChatPayloadID) != 0)
@@ -1177,7 +1177,7 @@ void CheckForChatContent(int Channel, int Repeated, char *Line)
 			// LogMessage("Normal sentence [%s]\n", Line);
 			
 			// Message[0] = 0;
-			// sscanf(Line+2, "%15[^,],%*[^,],%*[^,],%*[^,],%*[^,],%*[^,],%*[^,],%d,%d,%[^*]", PayloadID, &RxMask, &MessageID, Message);
+			// sscanf(Line+2, "%31[^,],%*[^,],%*[^,],%*[^,],%*[^,],%*[^,],%*[^,],%d,%d,%[^*]", PayloadID, &RxMask, &MessageID, Message);
 			// LogMessage("PayloadID=%s RxMask=%d MessageID=%d Message=%s\n", PayloadID, RxMask, MessageID, Message);
 		}
 	}

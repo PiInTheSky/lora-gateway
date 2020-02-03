@@ -232,6 +232,11 @@ Many thanks to David Brooke for coding this feature and the AFC.
 Change History
 ==============
 
+03/02/2020 - V1.8.34
+--------------------
+
+	Maximum payload ID (callsign) length in telemetry or calling mode is now 31 (was 15).
+
 03/02/2020 - V1.8.33
 --------------------
 
