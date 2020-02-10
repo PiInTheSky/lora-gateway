@@ -46,7 +46,7 @@
 #include "udpclient.h"
 #include "lifo_buffer.h"
 
-#define VERSION	"V1.8.34"
+#define VERSION	"V1.8.35"
 bool run = TRUE;
 
 // RFM98
@@ -1406,7 +1406,7 @@ int FixRSSI(int Channel, int RawRSSI, int SNR)
 	
 	if (SNR < 0)
 	{
-		RSSI += SNR/4;
+		RSSI += SNR;
 	}
 	
 	return RSSI;

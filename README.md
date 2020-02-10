@@ -232,6 +232,11 @@ Many thanks to David Brooke for coding this feature and the AFC.
 Change History
 ==============
 
+10/02/2020 - V1.8.35
+--------------------
+
+	Fix to RSSI calculation when SNR < 0 (thanks to Alan Hall)
+
 03/02/2020 - V1.8.34
 --------------------
 
