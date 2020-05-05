@@ -48,11 +48,13 @@ int ConnectSocket(char *Host, int Port)
 
 	if (inet_pton(AF_INET, Host, &serv_addr.sin_addr) <=0)
 	{
+		close(sockfd);
 		return -1;
 	} 
 
 	if (connect(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0)
 	{
+		close(sockfd);
 		return -1;
 	} 
 		
@@ -81,11 +83,11 @@ void *HablinkLoop( void *vars )
 	{
 		if (sockfd < 0)
 		{
-			LogMessage("Connecting to hab.link ...\n");
+			LogMessage("Connecting to hab.link (%s:%d)...\n", Config.HablinkAddress, 8887);
 
 			while (sockfd < 0)
 			{
-				sockfd = ConnectSocket("52.56.152.45", 8887);
+				sockfd = ConnectSocket(Config.HablinkAddress, 8887);
 				
 				if (sockfd >= 0)
 				{

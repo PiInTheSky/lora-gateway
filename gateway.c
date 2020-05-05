@@ -46,7 +46,7 @@
 #include "udpclient.h"
 #include "lifo_buffer.h"
 
-#define VERSION	"V1.8.35"
+#define VERSION	"V1.8.36"
 bool run = TRUE;
 
 // RFM98
@@ -1119,7 +1119,7 @@ int ProcessTelemetryMessage(int Channel, received_t *Received)
                 }
             }
 			
-            if (Config.EnableHablink)
+            if (Config.EnableHablink && Config.HablinkAddress[0])
             {
 				SetHablinkSentence(startmessage);
 			}
@@ -2009,6 +2009,8 @@ void LoadConfigFile(void)
     RegisterConfigBoolean(MainSection, -1, "EnableHabitat", &Config.EnableHabitat, NULL);
     RegisterConfigBoolean(MainSection, -1, "EnableSSDV", &Config.EnableSSDV, NULL);
     RegisterConfigBoolean(MainSection, -1, "EnableHablink", &Config.EnableHablink, NULL);
+	
+	RegisterConfigString(MainSection, -1, "HablinkAddress", Config.HablinkAddress, sizeof(Config.HablinkAddress), NULL);
 
     // Enable telemetry logging
     RegisterConfigBoolean(MainSection, -1, "LogTelemetry", &Config.EnableTelemetryLogging, NULL);
@@ -2681,7 +2683,7 @@ int main( int argc, char **argv )
 		}
     }
 	
-    if (Config.EnableHablink)
+    if (Config.EnableHablink && Config.HablinkAddress[0])
 	{
 		if (pthread_create (&HablinkThread, NULL, HablinkLoop, NULL))
 		{
