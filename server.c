@@ -237,9 +237,10 @@ int SendJSON(int connfd)
 	{
 		if (Config.LoRaDevices[Channel].InUse)
 		{
-			sprintf(line, "{\"class\":\"STATS\",\"index\":%d,\"rssi\":%d}\r\n",
+			sprintf(line, "{\"class\":\"STATS\",\"index\":%d,\"rssi\":%d,\"freq\":%.4lf}\r\n",
 					Channel,
-					Config.LoRaDevices[Channel].CurrentRSSI);
+					Config.LoRaDevices[Channel].CurrentRSSI,
+					Config.LoRaDevices[Channel].Frequency + Config.LoRaDevices[Channel].FrequencyOffset);
 			
 			strcat(sendBuff, line);
 		}

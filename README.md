@@ -232,6 +232,11 @@ Many thanks to David Brooke for coding this feature and the AFC.
 Change History
 ==============
 
+06/05/2020 - V1.8.38
+--------------------
+
+	Send current frequency to client app, with current RSSI
+	
 06/05/2020 - V1.8.37
 --------------------
 
