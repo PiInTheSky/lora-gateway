@@ -115,6 +115,15 @@ void ProcessJSONClientLine(int connfd, char *line)
 		value = strtok_r( NULL, "\n", &saveptr);
 		
 		SetConfigValue(setting, value);
+		
+		if (strstr(line, "frequency_0") != NULL)
+		{
+			Config.LoRaDevices[0].FrequencyOffset = 0;
+		}	
+		else if (strstr(line, "frequency_1") != NULL)
+		{
+			Config.LoRaDevices[1].FrequencyOffset = 0;
+		}	
 	}
 	else if (strchr(line, ':') != NULL)
 	{

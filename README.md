@@ -232,6 +232,11 @@ Many thanks to David Brooke for coding this feature and the AFC.
 Change History
 ==============
 
+06/05/2020 - V1.8.37
+--------------------
+
+	Reset AFC offset to zero after setting frequency from client app
+	
 10/02/2020 - V1.8.35
 --------------------
 
