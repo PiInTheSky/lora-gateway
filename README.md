@@ -23,16 +23,34 @@ If you're making your own board for the Pi, connect the LoRa module(s) like so:
 	DIO5	Wiring Pi 26 (Pin 32) (Wiring Pi 5 (pin 18) for 2nd module). Set to -1 if not connected.
 
 
-Installation
+SPI
+===
+
+Enable SPI in raspi-config
+
+
+WiringPi
+========
+
+Raspberry Pi OS has yet to be updated with the latest version of Wiring Pi, so if you are using a Pi 4B then you must install Wiring Pi from source as follows:
+	
+	cd /tmp
+	wget https://project-downloads.drogon.net/wiringpi-latest.deb
+	sudo dpkg -i wiringpi-latest.deb
+
+for other Pi models you can save some typing by dpoing this instead:
+
+	sudo apt install wiringpi
+	
+	
+Dependencies
 ============
 
-Enable SPI in raspi-config.
+	sudo apt-get install git libcurl4-openssl-dev libncurses5-dev ssdv
 
-Install the dependencies:
 
-	sudo apt-get install git wiringpi libcurl4-openssl-dev libncurses5-dev ssdv
-
-Install the LoRa gateway
+Gateway
+=======
 
 	1. cd ~ 
 	2. git clone https://github.com/PiInTheSky/lora-gateway.git
