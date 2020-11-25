@@ -46,7 +46,7 @@
 #include "udpclient.h"
 #include "lifo_buffer.h"
 
-#define VERSION	"V1.8.38"
+#define VERSION	"V1.8.39"
 bool run = TRUE;
 
 // RFM98
@@ -2599,6 +2599,7 @@ int main( int argc, char **argv )
 
 	// Clear config to zeroes so we only have to set non-zero defaults
 	memset((void *)&Config, 0, sizeof(Config));
+	strcpy(Config.Version, VERSION);
 
     if ( prog_count( "gateway" ) > 1 )
     {

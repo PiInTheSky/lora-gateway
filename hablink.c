@@ -25,7 +25,18 @@ void UploadSentence(int sockfd, char *Sentence)
 	char Message[300];
 	
 	// Create message to upload
-	sprintf(Message, "POSITION:CALLSIGN=%s,SENTENCE=%s\n", Config.Tracker, Sentence);
+	// sprintf(Message, "POSITION:CALLSIGN=%s,SENTENCE=%s\n", Config.Tracker, Sentence);
+	sprintf(Message, "POSITION:SENTENCE=%s\n", Sentence);
+
+	write(sockfd, Message, strlen(Message));
+}
+
+void UploadListener(int sockfd)
+{
+	char Message[100];
+	
+	// Create message to upload
+	sprintf(Message, "LISTENER:TYPE=LoRa Gateway,VERSION=%s,CALLSIGN=%s\n", Config.Version, Config.Tracker);
 
 	write(sockfd, Message, strlen(Message));
 }
@@ -92,6 +103,8 @@ void *HablinkLoop( void *vars )
 				if (sockfd >= 0)
 				{
 					LogMessage("Connected to hab.link\n");
+					
+					UploadListener(sockfd);
 				}
 				else
 				{

@@ -250,6 +250,12 @@ Many thanks to David Brooke for coding this feature and the AFC.
 Change History
 ==============
 
+25/11/2020 - V1.8.39
+--------------------
+
+	Send callsign, listener type (LoRa Gateway) and version to hab.link server
+	Don't include callsign with telemetry messages to hab.link server
+
 06/05/2020 - V1.8.38
 --------------------
 

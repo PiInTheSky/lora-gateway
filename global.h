@@ -139,6 +139,7 @@ struct TConfig
 	char antenna[64];
 	int EnableDev;
 	char UplinkCode[64];
+	char Version[16];
 };
  
 typedef struct {
