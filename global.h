@@ -29,6 +29,8 @@ struct TPayload
  
 struct TLoRaDevice 
 {
+	int    Enabled;
+	
 	double Frequency;
     double PPM;
 	double FrequencyOffset;

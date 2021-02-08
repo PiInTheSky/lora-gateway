@@ -46,7 +46,7 @@
 #include "udpclient.h"
 #include "lifo_buffer.h"
 
-#define VERSION	"V1.8.39"
+#define VERSION	"V1.8.40"
 bool run = TRUE;
 
 // RFM98
@@ -1941,11 +1941,15 @@ void RemoveTrailingSlash(char *Value)
 
 void LoRaCallback(int Index)
 {
-	setLoRaMode(Index);
+	// Check that this device is enabled otherwise, if it's missing, we'll get stuck trying to talk to the device
+	if (Config.LoRaDevices[Index].Enabled)
+	{
+		setLoRaMode(Index);
 
-    SetDefaultLoRaParameters(Index);
+		SetDefaultLoRaParameters(Index);
 
-    startReceiving(Index);
+		startReceiving(Index);
+	}
 }
 
 void MiscCallback(int Index)
@@ -2096,7 +2100,9 @@ void LoadConfigFile(void)
 		RegisterConfigDouble(MainSection, Channel, "frequency", &Config.LoRaDevices[Channel].Frequency, LoRaCallback);
 		RegisterConfigDouble(MainSection, Channel, "PPM", &Config.LoRaDevices[Channel].PPM, LoRaCallback);
 		
-        if (Config.LoRaDevices[Channel].Frequency > 100)
+		Config.LoRaDevices[Channel].Enabled = Config.LoRaDevices[Channel].Frequency > 100;
+		
+		if (Config.LoRaDevices[Channel].Enabled)
         {
 			// Defaults
             Config.LoRaDevices[Channel].ImplicitOrExplicit = EXPLICIT_MODE;

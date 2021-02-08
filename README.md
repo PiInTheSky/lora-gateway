@@ -250,6 +250,12 @@ Many thanks to David Brooke for coding this feature and the AFC.
 Change History
 ==============
 
+08/02/2021 - V1.8.40
+--------------------
+
+	Fixed bug where JSON server stopped when asked to set parameters for missing LoRa Module
+	If you are using the gateway with HAB Base or PADD and just 1 LoRa module you *need* this update.
+
 25/11/2020 - V1.8.39
 --------------------
 
