@@ -46,7 +46,7 @@
 #include "udpclient.h"
 #include "lifo_buffer.h"
 
-#define VERSION	"V1.8.40"
+#define VERSION	"V1.8.41"
 bool run = TRUE;
 
 // RFM98
@@ -335,7 +335,7 @@ void LogPacket( rx_metadata_t *Metadata, int Bytes, unsigned char MessageType )
     }
 }
 
-void LogTelemetryPacket(char *Telemetry)
+void LogTelemetryPacket(int Channel, char *Telemetry)
 {
     // if (Config.EnableTelemetryLogging)
     {
@@ -349,8 +349,7 @@ void LogTelemetryPacket(char *Telemetry)
             now = time( 0 );
             tm = localtime( &now );
 
-            fprintf( fp, "%02d:%02d:%02d - %s\n", tm->tm_hour, tm->tm_min,
-                     tm->tm_sec, Telemetry );
+            fprintf( fp, "%02d:%02d:%02d - %d - %s\n", tm->tm_hour, tm->tm_min, tm->tm_sec, Channel, Telemetry);
 
             fclose( fp );
         }
@@ -1091,7 +1090,7 @@ int ProcessTelemetryMessage(int Channel, received_t *Received)
 
             *endmessage = '\0';
 
-			LogTelemetryPacket(startmessage);
+			LogTelemetryPacket(Channel, startmessage);
 
             ProcessLineUKHAS(Channel, startmessage);
 			

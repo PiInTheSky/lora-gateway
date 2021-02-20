@@ -250,6 +250,11 @@ Many thanks to David Brooke for coding this feature and the AFC.
 Change History
 ==============
 
+20/02/2021 - V1.8.41
+--------------------
+
+	telemetry.txt file includes LoRa channel 0 or 1
+
 08/02/2021 - V1.8.40
 --------------------
 
