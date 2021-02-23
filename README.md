@@ -250,6 +250,11 @@ Many thanks to David Brooke for coding this feature and the AFC.
 Change History
 ==============
 
+23/02/2021 - V1.8.42
+--------------------
+
+	Can now disable use of DIO5 by setting DIO5_0=-1 or DIO5_1=-1
+
 20/02/2021 - V1.8.41
 --------------------
 

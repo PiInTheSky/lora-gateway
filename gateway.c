@@ -46,7 +46,7 @@
 #include "udpclient.h"
 #include "lifo_buffer.h"
 
-#define VERSION	"V1.8.41"
+#define VERSION	"V1.8.42"
 bool run = TRUE;
 
 // RFM98
@@ -454,10 +454,16 @@ setMode( int Channel, uint8_t newMode )
 
     if ( newMode != RF98_MODE_SLEEP )
     {
-        while ( digitalRead( Config.LoRaDevices[Channel].DIO5 ) == 0 )
-        {
-        }
-        // delay(1);
+		if (Config.LoRaDevices[Channel].DIO5 >= 0)
+		{
+			while (digitalRead(Config.LoRaDevices[Channel].DIO5) == 0)
+			{
+			}
+		}
+		else
+		{
+			delay(1);
+		}
     }
 
     // LogMessage("Mode Change Done\n");
@@ -1787,7 +1793,10 @@ void setupRFM98( int Channel )
     {
         // initialize the pins
         pinMode( Config.LoRaDevices[Channel].DIO0, INPUT );
-        pinMode( Config.LoRaDevices[Channel].DIO5, INPUT );
+		if (Config.LoRaDevices[Channel].DIO5 >= 0)
+		{
+			pinMode(Config.LoRaDevices[Channel].DIO5, INPUT);
+		}
 
         wiringPiISR( Config.LoRaDevices[Channel].DIO0, INT_EDGE_RISING,
                      Channel > 0 ? &DIO0_Interrupt_1 : &DIO0_Interrupt_0 );
@@ -1803,13 +1812,6 @@ void setupRFM98( int Channel )
             Config.LoRaDevices[Channel].InUse = 0;
             return;
         }
-
-        // if( digitalRead( Config.LoRaDevices[Channel].DIO5 ) == 0 )
-        // {
-            // LogMessage("Error: DIO5 pin is misconfigured on Channel %d, Disabling.\n", Channel);
-            // Config.LoRaDevices[Channel].InUse = 0;
-            // return;
-        // }
 
         // LoRa mode 
         setLoRaMode( Channel );
