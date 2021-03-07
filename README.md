@@ -250,6 +250,11 @@ Many thanks to David Brooke for coding this feature and the AFC.
 Change History
 ==============
 
+07/03/2021 - V1.8.43
+--------------------
+
+	Fixed erors in setting implicit/explicit bit on config register when sent from JSON client.  Thanks to Alan Hall for spotting this one.
+
 23/02/2021 - V1.8.42
 --------------------
 

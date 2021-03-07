@@ -46,7 +46,7 @@
 #include "udpclient.h"
 #include "lifo_buffer.h"
 
-#define VERSION	"V1.8.42"
+#define VERSION	"V1.8.43"
 bool run = TRUE;
 
 // RFM98
@@ -573,7 +573,7 @@ int LowOptToInt(int LowOpt)
 
 void SetLoRaParameters( int Channel, int ImplicitOrExplicit, int ErrorCoding, double Bandwidth, int SpreadingFactor, int LowDataRateOptimize )
 {
-    writeRegister( Channel, REG_MODEM_CONFIG, ImplicitOrExplicit | IntToEC(ErrorCoding) | DoubleToBandwidth(Bandwidth));
+    writeRegister( Channel, REG_MODEM_CONFIG, (ImplicitOrExplicit ? IMPLICIT_MODE : EXPLICIT_MODE) | IntToEC(ErrorCoding) | DoubleToBandwidth(Bandwidth));
     writeRegister( Channel, REG_MODEM_CONFIG2, IntToSF(SpreadingFactor) | CRC_ON );
     writeRegister( Channel, REG_MODEM_CONFIG3, 0x04 | IntToLowOpt(LowDataRateOptimize));    // 0x04: AGC sets LNA gain
     writeRegister( Channel, REG_DETECT_OPT, ( readRegister( Channel, REG_DETECT_OPT ) & 0xF8 ) | ( ( SpreadingFactor == 6 ) ? 0x05 : 0x03 ) );    // 0x05 For SF6; 0x03 otherwise

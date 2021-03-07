@@ -356,7 +356,7 @@ void SetConfigValue(char *Setting, char *Value)
 			break;
 			
 			case stBoolean:
-				*Settings[SettingIndex].IntValuePtr = Value[strcspn(Value, "1YyTt")];
+				*Settings[SettingIndex].IntValuePtr = (*Value == '1') || (*Value == 'Y') || (*Value == 'y') || (*Value == 't') || (*Value == 'T');
 			break;
 			
 			case stNone:
