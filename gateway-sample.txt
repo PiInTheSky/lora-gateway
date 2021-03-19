@@ -4,7 +4,8 @@
 tracker=YOUR_CALLSIGN
 Latitude=0.0
 Longitude=0.0
-Antenna=Watson W-50
+Radio=Your radio
+Antenna=Your antenna
 
 
 ##### Config Options #####

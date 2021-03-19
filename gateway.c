@@ -2083,6 +2083,7 @@ void LoadConfigFile(void)
     // Listener
     RegisterConfigDouble(MainSection, -1, "Latitude", &Config.latitude, NULL);
     RegisterConfigDouble(MainSection, -1, "Longitude", &Config.longitude, NULL);
+	RegisterConfigString(MainSection, -1, "radio", Config.radio, sizeof(Config.radio), NULL);
 	RegisterConfigString(MainSection, -1, "antenna", Config.antenna, sizeof(Config.antenna), NULL);
 
     // Dev mode
