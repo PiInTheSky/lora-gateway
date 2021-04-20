@@ -13,7 +13,7 @@ size_t write_data( void *buffer, size_t size, size_t nmemb, void *userp )
     return size * nmemb;
 }
 
-void UploadListenerTelemetry( char *callsign, time_t gps_time, float gps_lat, float gps_lon, char *antenna )
+void UploadListenerTelemetry( char *callsign, time_t gps_time, float gps_lat, float gps_lon, char *radio, char *antenna )
 {
     char time_string[20];
     struct tm * time_info;
@@ -82,7 +82,7 @@ void UploadListenerTelemetry( char *callsign, time_t gps_time, float gps_lat, fl
 
             // Now specify the POST data
             sprintf( JsonData, "{\"radio\": \"%s\", \"antenna\": \"%s\"}",
-                     "LoRa RFM98W", antenna );
+                     radio, antenna );
             sprintf( PostFields, "callsign=%s&time=%d&data=%s", callsign, (int)gps_time, JsonData );
             curl_easy_setopt( curl, CURLOPT_POSTFIELDS, PostFields );
 
@@ -112,7 +112,7 @@ void *ListenerLoop(void *ptr)
     {
         if (LoopPeriod > LISTENER_UPDATE_INTERVAL*60*1000)
         {
-            UploadListenerTelemetry( Config.Tracker, time(NULL), Config.latitude, Config.longitude, Config.antenna );
+            UploadListenerTelemetry( Config.Tracker, time(NULL), Config.latitude, Config.longitude, Config.radio, Config.antenna );
             LoopPeriod = 0;
         }
         

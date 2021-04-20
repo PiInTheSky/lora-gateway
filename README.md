@@ -75,6 +75,7 @@ The configuration is in the file gateway.txt.  Example:
 	ServerPort=6004
 	Latitude=51.95023
 	Longitude=-2.5445 
+	Radio=LoRa RFM98W
 	Antenna=868MHz Yagi
 	
 	frequency_0=434.347
@@ -121,6 +122,7 @@ The global options are:
 	
 	Latitude=<decimal position>
 	Longitude=<decimal position>.  These let you tell the gateway your position, for uploading to habitat, so your listener icon appears on the map in the correct position.
+	Radio=<radio make/model>.  Lets you specify your radio/board make/model or type. This appears on the map if your listener icon is clicked on.
 	Antenna=<antenna make/model>.  Lets you specify your antenna make/model or type.  This appears on the map if your listener icon is clicked on.
 	
 	NetworkLED=<wiring pi pin>
@@ -249,6 +251,10 @@ Many thanks to David Brooke for coding this feature and the AFC.
 
 Change History
 ==============
+
+19/03/2021 - V1.8.43mbb
+--------------------
+	Added radio setting to gateway.txt
 
 07/03/2021 - V1.8.43
 --------------------
