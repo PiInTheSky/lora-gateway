@@ -52,11 +52,11 @@ Dependencies
 Gateway
 =======
 
-	1. cd ~ 
-	2. git clone https://github.com/PiInTheSky/lora-gateway.git
-	3. cd lora-gateway
-	4. make
-	5. cp gateway-sample.txt gateway.txt
+	cd ~ 
+	git clone https://github.com/PiInTheSky/lora-gateway.git
+	cd lora-gateway
+	make
+	cp gateway-sample.txt gateway.txt
 
 
 Configuration
