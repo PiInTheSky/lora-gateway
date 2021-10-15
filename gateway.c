@@ -389,6 +389,18 @@ void LogMessage( const char *format, ... )
 
     wrefresh( Window );
 
+    if (Config.DumpBuffer) {
+        FILE *dumpFilePtr;
+        dumpFilePtr = fopen((char*)Config.DumpFile, "a");
+        if (dumpFilePtr != NULL) {
+            fputs(Buffer, dumpFilePtr);
+            fclose(dumpFilePtr);
+        }
+        else {
+            fprintf( stderr, "Failed to open dump file %s\n", Config.DumpFile);
+        }
+    }
+
     pthread_mutex_unlock( &var );   // unlock once you are done
 
 }
@@ -2096,6 +2108,10 @@ void LoadConfigFile(void)
 		RemoveTrailingSlash(Config.SMSFolder);
         LogMessage("Folder %s will be scanned for messages to upload\n", Config.SMSFolder);
     }
+
+    // Dump buffer
+    RegisterConfigBoolean(MainSection, -1, "DumpBuffer", &Config.DumpBuffer, NULL);
+    RegisterConfigString(MainSection, -1, "DumpFile", Config.DumpFile, sizeof(Config.DumpFile), NULL);
 
     for (Channel = 0; Channel <= 1; Channel++)
     {
