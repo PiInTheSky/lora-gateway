@@ -143,6 +143,8 @@ struct TConfig
 	int EnableDev;
 	char UplinkCode[64];
 	char Version[16];
+        int DumpBuffer;
+        char DumpFile[64];
 };
  
 typedef struct {
