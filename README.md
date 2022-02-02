@@ -252,8 +252,13 @@ Many thanks to David Brooke for coding this feature and the AFC.
 Change History
 ==============
 
+02/02/2022 - V1.8.44
+
+	Fix to uplink of encrypted commands.
+
 19/03/2021 - V1.8.43mbb
---------------------
+-----------------------
+
 	Added radio setting to gateway.txt
 
 07/03/2021 - V1.8.43

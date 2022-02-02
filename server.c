@@ -144,7 +144,7 @@ void ProcessJSONClientLine(int connfd, char *line)
 	
 			if (*Config.UplinkCode)
 			{
-				EncryptMessage(Config.UplinkCode, value);
+				EncryptMessage(Config.UplinkCode, value+1);
 			}
 			
 			strcpy(Config.LoRaDevices[channel].UplinkMessage, value);
