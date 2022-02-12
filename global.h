@@ -145,6 +145,13 @@ struct TConfig
 	char Version[16];
         int DumpBuffer;
         char DumpFile[64];
+	int EnableMQTT;
+	char MQTTHost;
+	char MQTTPort;
+	char MQTTUser;
+	char MQTTPass;
+	char MQTTClient;
+	char MQTTTopic;
 };
  
 typedef struct {

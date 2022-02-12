@@ -2113,6 +2113,16 @@ void LoadConfigFile(void)
     RegisterConfigBoolean(MainSection, -1, "DumpBuffer", &Config.DumpBuffer, NULL);
     RegisterConfigString(MainSection, -1, "DumpFile", Config.DumpFile, sizeof(Config.DumpFile), NULL);
 
+    // MQTT
+    RegisterConfigBoolean(MainSection, -1, "EnableMQTT", &Config.EnableMQTT, NULL);
+    RegisterConfigString(MainSection, -1, "MQTTHost", Config.MQTTHost, sizeof(Config.MQTTHost), NULL);
+    RegisterConfigString(MainSection, -1, "MQTTPort", Config.MQTTPort, sizeof(Config.MQTTPort), NULL);
+    RegisterConfigString(MainSection, -1, "MQTTUser", Config.MQTTUser, sizeof(Config.MQTTUser), NULL);
+    RegisterConfigString(MainSection, -1, "MQTTPass", Config.MQTTPass, sizeof(Config.MQTTPass), NULL);
+    RegisterConfigString(MainSection, -1, "MQTTClient", Config.MQTTClient, sizeof(Config.MQTTClient), NULL);
+    RegisterConfigString(MainSection, -1, "MQTTTopic", Config.MQTTTopic, sizeof(Config.MQTTTopic), NULL);
+
+
     for (Channel = 0; Channel <= 1; Channel++)
     {
 		RegisterConfigDouble(MainSection, Channel, "frequency", &Config.LoRaDevices[Channel].Frequency, LoRaCallback);
