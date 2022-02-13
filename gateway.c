@@ -33,6 +33,7 @@
 #include "ssdv.h"
 #include "ftp.h"
 #include "habitat.h"
+#include "mqtt.h"
 #include "hablink.h"
 #include "network.h"
 #include "network.h"
@@ -196,6 +197,7 @@ struct TBinaryPacket {
 #pragma pack(pop)
 
 lifo_buffer_t Habitat_Upload_Buffer;
+lifo_buffer_t MQTT_Upload_Buffer;
 
 // Create pipes for inter proces communication 
 // GLOBAL AS CALLED FROM INTERRRUPT
@@ -1133,6 +1135,18 @@ int ProcessTelemetryMessage(int Channel, received_t *Received)
 
                     /* Push pointer onto upload queue */
                     lifo_buffer_push(&Habitat_Upload_Buffer, (void *)queueReceived);
+                }
+            }
+
+            if (Config.EnableMQTT)
+            {
+                // Add to MQTT upload queue
+                received_t *queueReceived = malloc(sizeof(received_t));
+                if(queueReceived != NULL)
+                {
+                    memcpy(queueReceived, Received, sizeof(received_t));
+                    /* Push pointer onto upload queue */
+                    lifo_buffer_push(&MQTT_Upload_Buffer, (void *)queueReceived);
                 }
             }
 			
@@ -2621,7 +2635,7 @@ int main( int argc, char **argv )
     int ch;
     int LoopPeriod, MSPerLoop;
 	int Channel;
-    pthread_t SSDVThread, FTPThread, NetworkThread, HabitatThread, HablinkThread, ServerThread, TelnetThread, ListenerThread, DataportThread, ChatportThread;
+    pthread_t SSDVThread, FTPThread, NetworkThread, HabitatThread, HablinkThread, ServerThread, TelnetThread, ListenerThread, DataportThread, ChatportThread, MQTTThread;
 	struct TServerInfo JSONInfo, TelnetInfo, DataportInfo, ChatportInfo;
 
 	atexit(bye);
@@ -2716,6 +2730,26 @@ int main( int argc, char **argv )
 			fprintf( stderr, "Error creating Habitat thread\n" );
 			return 1;
 		}
+    }
+
+    if (Config.EnableMQTT)
+    {
+        lifo_buffer_init(&MQTT_Upload_Buffer, 1024);
+	mqtt_connect_t *mqttConnection = malloc(sizeof *mqttConnection);
+
+	strcpy(mqttConnection->host, Config.MQTTHost);
+        strcpy(mqttConnection->port, Config.MQTTPort);
+        strcpy(mqttConnection->user, Config.MQTTUser);
+        strcpy(mqttConnection->pass, Config.MQTTPass);
+        strcpy(mqttConnection->topic, Config.MQTTTopic);
+        strcpy(mqttConnection->clientId, Config.MQTTClient);
+
+	if ( pthread_create (&MQTTThread, NULL, MQTTLoop, mqttConnection))
+	{
+	    fprintf( stderr, "Error creating MQTT thread\n" );
+            free(mqttConnection);
+	    return 1;
+	}
     }
 	
     if (Config.EnableHablink && Config.HablinkAddress[0])
