@@ -61,13 +61,13 @@ AFC_1=Y
 #UplinkCycle_1=60
 
 # MQTT Config
-EnableMQTT=Y
-MQTTHost=mqtt_host
-MQTTPort=1883
-MQTTUser=mqtt_user
-MQTTPass=mqtt_password
-MQTTClient=mqtt_client_name
-MQTTTopic=topic_name
+#EnableMQTT=Y
+#MQTTHost=mqtt_host
+#MQTTPort=1883
+#MQTTUser=mqtt_user
+#MQTTPass=mqtt_password
+#MQTTClient=mqtt_client_name
+#MQTTTopic=topic_name
 
 # Dump config
 #DumpBuffer=Y
