@@ -9,7 +9,7 @@ INDOPT= -bap -bl -blf -bli0 -brs -cbi0 -cdw -cs -ci4 -cli4 -i4 -ip0 -nbc -nce -l
 
 CC=gcc
 CFLAGS=-Wall -O3 #-std=c99 
-LDFLAGS= -lm -lwiringPi -lwiringPiDev -lcurl -lncurses -lpthread
+LDFLAGS= -lm -lwiringPi -lwiringPiDev -lcurl -lncurses -lpthread -lpaho-mqtt3c
 RM=rm
 
 %.o: %.c *.h     # combined w/ next line will compile recently changed .c files

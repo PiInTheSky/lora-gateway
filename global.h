@@ -145,8 +145,15 @@ struct TConfig
 	char Version[16];
         int DumpBuffer;
         char DumpFile[64];
+	int EnableMQTT;
+	char MQTTHost[128];
+	char MQTTPort[8];
+	char MQTTUser[16];
+	char MQTTPass[32];
+	char MQTTClient[16];
+	char MQTTTopic[32];
 };
- 
+
 typedef struct {
     int parent_status;
     unsigned long packet_count;
@@ -223,6 +230,15 @@ typedef struct {
     int Packet_Number;
 } ssdv_t;
 
+typedef struct {
+    char host[128];
+    char port[8];
+    char user[16];
+    char pass[32];
+    char clientId[16];
+    char topic[32];
+} mqtt_connect_t;
+
 struct TServerInfo
 {
 	int Port;
@@ -230,6 +246,7 @@ struct TServerInfo
 	int ServerIndex;
 	int sockfd;
 };
+
 
 extern struct TConfig Config;
 extern int SSDVSendArrayIndex;
