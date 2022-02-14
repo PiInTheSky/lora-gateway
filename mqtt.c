@@ -21,7 +21,7 @@ volatile MQTTClient_deliveryToken deliveredtoken;
 
 void delivered(void *context, MQTTClient_deliveryToken dt)
 {
-    LogMessage("Message with token value %d delivery confirmed\n", dt);
+    // LogMessage("Message with token value %d delivery confirmed\n", dt);
     deliveredtoken = dt;
 }
 
@@ -45,7 +45,7 @@ int msgarrvd(void *context, char *topicName, int topicLen, MQTTClient_message *m
 
 void connlost(void *context, char *cause)
 {
-    LogMessage("\nConnection lost\n");
+    LogMessage("\nMQTT Connection lost\n");
     LogMessage("     cause: %s\n", cause);
 }
 
@@ -67,13 +67,13 @@ bool UploadMQTTPacket(mqtt_connect_t * mqttConnection, received_t * t )
     conn_opts.username = mqttConnection->user;
     conn_opts.password = mqttConnection->pass; 
     MQTTClient_setCallbacks(client, NULL, connlost, msgarrvd, delivered);
-    LogMessage("Attempting publication on host: %s\n",
-	address);
+    // LogMessage("Attempting publication on host: %s\n",
+	// address);
             //"on topic %s for client with ClientID: %s\n",
             //t->Message, address, mqttConnection->topic, mqttConnection->clientId);
     if ((rc = MQTTClient_connect(client, &conn_opts)) != MQTTCLIENT_SUCCESS)
     {
-        LogMessage("Failed to connect, return code %d\n", rc);
+        LogMessage("MQTT: Failed to connect, return code %d\n", rc);
         return false;
     }
     pubmsg.payload = t->Message;

@@ -28,29 +28,41 @@ SPI
 
 Enable SPI in raspi-config
 
+Dependencies
+============
+
+	sudo apt-get install git libcurl4-openssl-dev libncurses5-dev  libssl-dev ssdv
+
+
+
 
 WiringPi
 ========
 
-Raspberry Pi OS has yet to be updated with the latest version of Wiring Pi, so if you are using a Pi 4B then you must install Wiring Pi from source as follows:
+Raspberry Pi OS no longer includes WiringPi, so you must install Wiring Pi from source as follows:
 	
-	cd /tmp
-	wget https://project-downloads.drogon.net/wiringpi-latest.deb
-	sudo dpkg -i wiringpi-latest.deb
+	cd ~
+	git clone https://github.com/WiringPi/WiringPi.git
+	cd WiringPi
+	make
+	sudo make install
 
-for other Pi models you can save some typing by dpoing this instead:
 
-	sudo apt install wiringpi
-	
-	
-Dependencies
-============
 
-	sudo apt-get install git libcurl4-openssl-dev libncurses5-dev ssdv
+MQTT
+=======
+
+	cd ~ 
+	mkdir MQTTClients
+	cd MQTTClients
+	git clone https://github.com/janderholm/paho.mqtt.c.git
+	cd paho.mqtt.c
+	make
+	sudo make install
 
 
 Gateway
-=======
+=============
 
 	cd ~ 
 	git clone https://github.com/PiInTheSky/lora-gateway.git
@@ -136,8 +148,8 @@ and the channel-specific options are:
 ​	
 ​	frequency_<n>=<freq in MHz>.  This sets the frequency for LoRa module <n> (0 for first, 1 for second).  e.g. frequency_0=434.450
 ​	
-	PPM_<n>=<Parts per million offset of LoRa module.
-	
+​	PPM_<n>=<Parts per million offset of LoRa module.
+​	
 	AFC_<n>=<Y/N>.  Enables or disables automatic frequency control (retunes by the frequency error of last received packet).
 	
 	mode_<n>=<mode>.  Sets the "mode" for the selected LoRa module.  This offers a simple way of setting the various
@@ -173,6 +185,7 @@ If the frequency_n line is commented out, then that channel is disabled.
 The program now performs some checks to determine if each selected LoRa module is present or not.  If you see a message "RFM not found on Channel" then check the SPI settings/wiring for that channel.  If you see "DIO5 pin is misconfigured on Channel" then check the DIO5 setting/wiring.  There is no current check for DIO0; any problems with that pin will result in packets not being received. 
 
 
+
 Uplinks
 =======
 
@@ -188,6 +201,7 @@ There are currently two types of uplink supported:
 	-	Uplink of SSD packet re-send requests.  The gateway looks for an "uplink.txt" file in the gateway folder.  The file is created by an external Python script (supplied) which interrogates the SSDV server.
 
 
+
 Calling Mode
 ============
 
@@ -200,12 +214,23 @@ There's nothing special about "calling mode" except that after a period (Calling
 To enable calling mode, set the LoRa mode to 5, and the frequency to 433.650MHz.
 
 
-Use
-===
 
-Run with:
+MQTT
+============
 
-	sudo ./gateway
+To send telemetry to an MQTT broker, edit the MQTT settings in gateway.txt
+
+e.g.:
+
+	# MQTT Config
+	EnableMQTT=Y
+	MQTTHost=mqtt_host
+	MQTTPort=1883
+	MQTTUser=mqtt_user
+	MQTTPass=mqtt_password
+	MQTTClient=mqtt_client_name
+	MQTTTopic=topic_name
+
 
 
 Display
@@ -252,7 +277,12 @@ Many thanks to David Brooke for coding this feature and the AFC.
 Change History
 ==============
 
+## 14/02/2022 - V1.8.45
+
+	Added MQTT support (coded by David Johnson G4DPZ)
+
 02/02/2022 - V1.8.44
+-----------------------
 
 	Fix to uplink of encrypted commands.
 
@@ -292,12 +322,12 @@ Change History
 --------------------
 
 	Send current frequency to client app, with current RSSI
-	
+
 06/05/2020 - V1.8.37
 --------------------
 
 	Reset AFC offset to zero after setting frequency from client app
-	
+
 10/02/2020 - V1.8.35
 --------------------
 
