@@ -151,7 +151,7 @@ struct TConfig
 	char MQTTUser[16];
 	char MQTTPass[32];
 	char MQTTClient[16];
-	char MQTTTopic[32];
+	char MQTTTopic[128];
 };
 
 typedef struct {
@@ -236,7 +236,7 @@ typedef struct {
     char user[16];
     char pass[32];
     char clientId[16];
-    char topic[32];
+    char topic[128];
 } mqtt_connect_t;
 
 struct TServerInfo

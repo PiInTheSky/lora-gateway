@@ -277,7 +277,11 @@ Many thanks to David Brooke for coding this feature and the AFC.
 Change History
 ==============
 
-## 14/02/2022 - V1.8.45
+16/02/2022 - V1.8.46
+
+	Added flexible MQTT topic - $GATEWAY$ gets replaced by gateway callsign; $PAYLOAD$ gets replaced by payload callsign
+
+14/02/2022 - V1.8.45
 
 	Added MQTT support (coded by David Johnson G4DPZ)
 

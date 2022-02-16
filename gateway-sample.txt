@@ -68,6 +68,7 @@ AFC_1=Y
 #MQTTPass=mqtt_password
 #MQTTClient=mqtt_client_name
 #MQTTTopic=topic_name
+# example MQTTTopic=incoming/payloads/$PAYLOAD$/$GATEWAY$/sentence
 
 # Dump config
 #DumpBuffer=Y
