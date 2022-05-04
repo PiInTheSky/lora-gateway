@@ -58,8 +58,7 @@ Raspberry Pi OS no longer includes WiringPi, so you must install Wiring Pi from 
 	cd ~
 	git clone https://github.com/WiringPi/WiringPi.git
 	cd WiringPi
-	make
-	sudo make install
+	./build
 
 
 
@@ -166,9 +165,9 @@ and the channel-specific options are:
 ​	
 ​	AFC_<n>=<Y/N>.  Enables or disables automatic frequency control (retunes by the frequency error of last received packet).
 ​	
-	mode_<n>=<mode>.  Sets the "mode" for the selected LoRa module.  This offers a simple way of setting the various
-					LoRa parameters (SF etc.) in one go.  The modes are:
-					
+​	mode_<n>=<mode>.  Sets the "mode" for the selected LoRa module.  This offers a simple way of setting the various
+​					LoRa parameters (SF etc.) in one go.  The modes are:
+​					
 					0 = (normal for telemetry)	Explicit mode, Error coding 4:8, Bandwidth 20.8kHz, SF 11, Low data rate optimize on
 					1 = (normal for SSDV) 		Implicit mode, Error coding 4:5, Bandwidth 20.8kHz,  SF 6, Low data rate optimize off
 					2 = (normal for repeater)	Explicit mode, Error coding 4:8, Bandwidth 62.5kHz,  SF 8, Low data rate optimize off
