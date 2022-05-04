@@ -31,7 +31,21 @@ Enable SPI in raspi-config
 Dependencies
 ============
 
-	sudo apt-get install git libcurl4-openssl-dev libncurses5-dev  libssl-dev ssdv
+	sudo apt-get install git libcurl4-openssl-dev libncurses5-dev  libssl-dev
+
+
+
+SSDV
+========
+
+Raspberry Pi OS no longer includes SSDV, so you must install SSDV from source as follows:
+	
+
+	cd ~
+	git clone https://github.com/fsphil/ssdv.git
+	cd SSDV
+	make
+	sudo make install
 
 
 
@@ -150,8 +164,8 @@ and the channel-specific options are:
 ​	
 ​	PPM_<n>=<Parts per million offset of LoRa module.
 ​	
-	AFC_<n>=<Y/N>.  Enables or disables automatic frequency control (retunes by the frequency error of last received packet).
-	
+​	AFC_<n>=<Y/N>.  Enables or disables automatic frequency control (retunes by the frequency error of last received packet).
+​	
 	mode_<n>=<mode>.  Sets the "mode" for the selected LoRa module.  This offers a simple way of setting the various
 					LoRa parameters (SF etc.) in one go.  The modes are:
 					
