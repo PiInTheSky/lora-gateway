@@ -33,6 +33,7 @@
 #include "ssdv.h"
 #include "ftp.h"
 #include "habitat.h"
+#include "sondehub.h"
 #include "mqtt.h"
 #include "hablink.h"
 #include "network.h"
@@ -47,7 +48,7 @@
 #include "udpclient.h"
 #include "lifo_buffer.h"
 
-#define VERSION	"V1.8.46"
+#define VERSION	"V1.9.0"
 bool run = TRUE;
 
 // RFM98
@@ -1155,6 +1156,11 @@ int ProcessTelemetryMessage(int Channel, received_t *Received)
 				SetHablinkSentence(startmessage);
 			}
 			
+            if (Config.EnableSondehub)
+            {
+				SetSondehubSentence(Channel, startmessage);
+			}
+			
             tm = localtime( &Received->Metadata.Timestamp );
             LogMessage("%02d:%02d:%02d Ch%d: %s%s\n", tm->tm_hour, tm->tm_min, tm->tm_sec, Channel, startmessage, Repeated ? " (repeated)" : "");
 
@@ -2009,6 +2015,7 @@ void LoadConfigFile(void)
     Config.InternetLED = -1;
     Config.LoRaDevices[0].ActivityLED = -1;
     Config.LoRaDevices[1].ActivityLED = -1;
+	strcpy(Config.radio, "Uputronics LoRa HAT");
 
     // Default pin allocations
     Config.LoRaDevices[0].DIO0 = 6;
@@ -2040,6 +2047,7 @@ void LoadConfigFile(void)
     RegisterConfigBoolean(MainSection, -1, "EnableHabitat", &Config.EnableHabitat, NULL);
     RegisterConfigBoolean(MainSection, -1, "EnableSSDV", &Config.EnableSSDV, NULL);
     RegisterConfigBoolean(MainSection, -1, "EnableHablink", &Config.EnableHablink, NULL);
+    RegisterConfigBoolean(MainSection, -1, "EnableSondehub", &Config.EnableSondehub, NULL);
 	
 	RegisterConfigString(MainSection, -1, "HablinkAddress", Config.HablinkAddress, sizeof(Config.HablinkAddress), NULL);
 
@@ -2109,6 +2117,7 @@ void LoadConfigFile(void)
     // Listener
     RegisterConfigDouble(MainSection, -1, "Latitude", &Config.latitude, NULL);
     RegisterConfigDouble(MainSection, -1, "Longitude", &Config.longitude, NULL);
+    RegisterConfigDouble(MainSection, -1, "Altitude", &Config.altitude, NULL);
 	RegisterConfigString(MainSection, -1, "radio", Config.radio, sizeof(Config.radio), NULL);
 	RegisterConfigString(MainSection, -1, "antenna", Config.antenna, sizeof(Config.antenna), NULL);
 
@@ -2635,7 +2644,7 @@ int main( int argc, char **argv )
     int ch;
     int LoopPeriod, MSPerLoop;
 	int Channel;
-    pthread_t SSDVThread, FTPThread, NetworkThread, HabitatThread, HablinkThread, ServerThread, TelnetThread, ListenerThread, DataportThread, ChatportThread, MQTTThread;
+    pthread_t SSDVThread, FTPThread, NetworkThread, HabitatThread, HablinkThread, SondehubThread, ServerThread, TelnetThread, ListenerThread, DataportThread, ChatportThread, MQTTThread;
 	struct TServerInfo JSONInfo, TelnetInfo, DataportInfo, ChatportInfo;
 
 	atexit(bye);
@@ -2735,21 +2744,21 @@ int main( int argc, char **argv )
     if (Config.EnableMQTT)
     {
         lifo_buffer_init(&MQTT_Upload_Buffer, 1024);
-	mqtt_connect_t *mqttConnection = malloc(sizeof *mqttConnection);
+		mqtt_connect_t *mqttConnection = malloc(sizeof *mqttConnection);
 
-	strcpy(mqttConnection->host, Config.MQTTHost);
+		strcpy(mqttConnection->host, Config.MQTTHost);
         strcpy(mqttConnection->port, Config.MQTTPort);
         strcpy(mqttConnection->user, Config.MQTTUser);
         strcpy(mqttConnection->pass, Config.MQTTPass);
         strcpy(mqttConnection->topic, Config.MQTTTopic);
         strcpy(mqttConnection->clientId, Config.MQTTClient);
 
-	if ( pthread_create (&MQTTThread, NULL, MQTTLoop, mqttConnection))
-	{
-	    fprintf( stderr, "Error creating MQTT thread\n" );
+		if ( pthread_create (&MQTTThread, NULL, MQTTLoop, mqttConnection))
+		{
+			fprintf( stderr, "Error creating MQTT thread\n" );
             free(mqttConnection);
-	    return 1;
-	}
+			return 1;
+		}
     }
 	
     if (Config.EnableHablink && Config.HablinkAddress[0])
@@ -2757,6 +2766,15 @@ int main( int argc, char **argv )
 		if (pthread_create (&HablinkThread, NULL, HablinkLoop, NULL))
 		{
 			fprintf( stderr, "Error creating Hablink thread\n" );
+			return 1;
+		}
+	}
+
+    if (Config.EnableSondehub)
+	{
+		if (pthread_create (&SondehubThread, NULL, SondehubLoop, NULL))
+		{
+			fprintf( stderr, "Error creating Sondehub thread\n" );
 			return 1;
 		}
 	}

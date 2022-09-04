@@ -65,6 +65,8 @@ Raspberry Pi OS no longer includes WiringPi, so you must install Wiring Pi from 
 MQTT
 =======
 
+MQTT support was added recently, and needs the following library installed::
+
 	cd ~ 
 	mkdir MQTTClients
 	cd MQTTClients
@@ -91,6 +93,7 @@ The configuration is in the file gateway.txt.  Example:
 
 	tracker=M0RPI
 	EnableHabitat=N
+	EnableSondehub=N
 	EnableSSDV=Y
 	LogTelemetry=Y
 	LogPackets=Y
@@ -120,6 +123,8 @@ The global options are:
 	tracker=<callsign>.  This is whatever callsign you want to appear as on the tracking map and/or SSDV page.
 	
 	EnableHabitat=<Y/N>.  Enables uploading of telemetry packets to Habitat.
+	
+	EnableSondhub=<Y/N>.  Enables uploading of telemetry packets to the amateur Sondehub system.
 	
 	EnableSSDV=<Y/N>.  Enables uploading of SSDV image packets to the SSDV server.
 	
@@ -175,8 +180,8 @@ and the channel-specific options are:
 ​					4 = Test mode not for normal use.
 ​					5 = (normal for calling mode)	Explicit mode, Error coding 4:8, Bandwidth 41.7kHz, SF 11, Low data rate optimize off
 ​					
-	SF_<n>=<Spreading Factor>  e.g. SF_0=7
-	
+​	SF_<n>=<Spreading Factor>  e.g. SF_0=7
+​	
 	Bandwidth_<n>=<Bandwidth>.  e.g. Bandwidth_0=41K7.  Options are 7K8, 10K4, 15K6, 20K8, 31K25, 41K7, 62K5, 125K, 250K, 500K
 	
 	Implicit_<n>=<Y/N>.  e.g. Implicit_0=Y
@@ -290,11 +295,15 @@ Many thanks to David Brooke for coding this feature and the AFC.
 Change History
 ==============
 
-16/02/2022 - V1.8.46
+## 04/09/2022 - V1.9.0
+
+	Added support for uploading telemetry and listener details to the amateur Sondehub system.
+
+## 16/02/2022 - V1.8.46
 
 	Added flexible MQTT topic - $GATEWAY$ gets replaced by gateway callsign; $PAYLOAD$ gets replaced by payload callsign
 
-14/02/2022 - V1.8.45
+## 14/02/2022 - V1.8.45
 
 	Added MQTT support (coded by David Johnson G4DPZ)
 

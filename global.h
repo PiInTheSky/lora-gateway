@@ -110,11 +110,12 @@ struct TLoRaDevice
 struct TConfig 
  {   
 	char Tracker[16];				// Callsign or name of receiver
-	double latitude, longitude;		// Receiver's location
+	double latitude, longitude, altitude;		// Receiver's location
      
 	int EnableHabitat;
 	int EnableSSDV;
     int EnableHablink;
+	int EnableSondehub;
 	char HablinkAddress[32];
 	int EnableTelemetryLogging;
 	int EnablePacketLogging;
