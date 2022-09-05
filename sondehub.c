@@ -41,7 +41,7 @@ void SetSondehubSentence(int Channel, char *tmp)
 				// SondehubPayloads[Channel].Longitude,
 				// SondehubPayloads[Channel].Altitude);
 				
-	SondehubPayloads[Channel].InUse = 1;
+	SondehubPayloads[Channel].InUse = (SondehubPayloads[Channel].Latitude != 0) && (SondehubPayloads[Channel].Longitude != 0);
 }
 
 size_t sondehub_write_data( void *buffer, size_t size, size_t nmemb, void *userp )
@@ -246,12 +246,12 @@ void *SondehubLoop( void *vars )
 		{
 			if (UploadListenerToSondehub())
 			{
-				LogMessage("Uploaded listener info to sondhub");
+				LogMessage("Uploaded listener info to Sondehub/amateur\n");
 				ListenerCountdown = 216000;		// Every 6 hours
 			}
 			else
 			{
-				LogMessage("Failed to upload listener info to Sondehub/amateur");
+				LogMessage("Failed to upload listener info to Sondehub/amateur\n");
 				ListenerCountdown = 600;		// Try again in 1 minute
 			}
 		}

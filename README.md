@@ -295,6 +295,10 @@ Many thanks to David Brooke for coding this feature and the AFC.
 Change History
 ==============
 
+## 05/09/2022 - V1.9.1
+
+	Only upload to Sondehub if telemetry has non-zero latitude or longitude
+
 ## 04/09/2022 - V1.9.0
 
 	Added support for uploading telemetry and listener details to the amateur Sondehub system.
