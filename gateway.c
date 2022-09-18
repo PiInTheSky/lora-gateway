@@ -48,7 +48,7 @@
 #include "udpclient.h"
 #include "lifo_buffer.h"
 
-#define VERSION	"V1.9.1"
+#define VERSION	"V1.9.2"
 bool run = TRUE;
 
 // RFM98
@@ -353,6 +353,27 @@ void LogTelemetryPacket(int Channel, char *Telemetry)
             tm = localtime( &now );
 
             fprintf( fp, "%02d:%02d:%02d - %d - %s\n", tm->tm_hour, tm->tm_min, tm->tm_sec, Channel, Telemetry);
+
+            fclose( fp );
+        }
+    }
+}
+
+void LogError(char *Message1, char *Message2)
+{
+    // if (Config.EnableTelemetryLogging)
+    {
+        FILE *fp;
+
+        if ( ( fp = fopen( "errors.txt", "at" ) ) != NULL )
+        {
+            time_t now;
+            struct tm *tm;
+
+            now = time( 0 );
+            tm = localtime( &now );
+
+            fprintf( fp, "%02d:%02d:%02d: %s %s\n", tm->tm_hour, tm->tm_min, tm->tm_sec, Message1, Message2);
 
             fclose( fp );
         }

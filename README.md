@@ -295,6 +295,12 @@ Many thanks to David Brooke for coding this feature and the AFC.
 Change History
 ==============
 
+## 10/09/2022 - V1.9.2
+
+	Fixed code that uploads to Sondehub so that a zero altitude doesn't result in a 400 response from the server
+	Any 400 responses are now logged to errors.txt along with the JSON that triggered them
+	A 400 response is no longer retried
+
 ## 05/09/2022 - V1.9.1
 
 	Only upload to Sondehub if telemetry has non-zero latitude or longitude

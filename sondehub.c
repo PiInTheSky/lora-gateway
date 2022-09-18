@@ -106,7 +106,13 @@ int UploadJSONToServer(char *url, char *json)
                     // Everything performing nominally (even if we didn't successfully insert this time)
                     result = true;
 				}
-                else
+                else if (http_resp == 400)
+				{
+					LogMessage("400 response to %s\n", json);
+					LogError("400 response to:", json);
+                    result = true;
+				}
+				else
                 {
 					LogMessage("Unexpected HTTP response %ld for URL '%s'\n", http_resp, url);
                     result = false;
@@ -162,7 +168,7 @@ int UploadSondehubPosition(int Channel)
 					"\"datetime\":\"%s\","							// UTC from payload
 					"\"lat\": %.5lf,"								// Latitude
 					"\"lon\": %.5lf,"								// Longitude
-					"\"alt\": %.d,"								// Altitude
+					"\"alt\": %d,"								// Altitude
 					"\"frequency\": %.4lf,"							// Frequency
 					"\"modulation\": \"LoRa\","						// Modulation
 			// DoubleToString('snr', SNR, HasSNR) +
