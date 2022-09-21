@@ -33,14 +33,12 @@ void SetSondehubSentence(int Channel, char *tmp)
 			&SondehubPayloads[Channel].Longitude,
 			&SondehubPayloads[Channel].Altitude);
 
-	// LogMessage("Sondehub: %s,%d,%s,%.5lf,%.5lf,%d\n", 
-				// SondehubPayloads[Channel].Payload,
-				// SondehubPayloads[Channel].Counter,
-				// SondehubPayloads[Channel].Time,
-				// SondehubPayloads[Channel].Latitude,
-				// SondehubPayloads[Channel].Longitude,
-				// SondehubPayloads[Channel].Altitude);
-				
+	SondehubPayloads[Channel].PacketSNR = Config.LoRaDevices[Channel].PacketSNR;
+	SondehubPayloads[Channel].PacketRSSI = Config.LoRaDevices[Channel].PacketRSSI;
+	SondehubPayloads[Channel].Frequency = Config.LoRaDevices[Channel].Frequency + Config.LoRaDevices[Channel].FrequencyOffset;
+	
+	strcpy(SondehubPayloads[Channel].Telemetry, tmp);
+	
 	SondehubPayloads[Channel].InUse = (SondehubPayloads[Channel].Latitude != 0) && (SondehubPayloads[Channel].Longitude != 0);
 }
 
@@ -102,8 +100,8 @@ int UploadJSONToServer(char *url, char *json)
 				curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &http_resp);
 				if (http_resp == 200)
 				{
-					// LogMessage("Saved OK to sondehub\n");
                     // Everything performing nominally (even if we didn't successfully insert this time)
+					// LogError("200 response to:", json);
                     result = true;
 				}
                 else if (http_resp == 400)
@@ -143,10 +141,93 @@ int UploadJSONToServer(char *url, char *json)
 	
 }
 
+void ExtractFields(char *Telemetry, char *ExtractedFields)
+{
+	char Line[256], FieldList[32];
+	char *token;
+
+	ExtractedFields[0] = '\0';
+	FieldList[0] = '\0';
+	
+	strcpy(Line, Telemetry);
+	token = strtok(Line, ",*");
+	while ((token != NULL) && (FieldList[0] == '\0'))
+	{
+		if (strncmp(token, "012345", 6) == 0)
+		{
+			strcpy(FieldList, token);
+		}
+		token = strtok(NULL, ",*");
+	}	
+	
+	if (FieldList[0])
+	{
+		// We have a field list field, so go through that and extract each field, adding fields to the JSON for Sondehub
+		int i;
+		char Value[64];
+		
+		strcpy(Line, Telemetry);
+		token = strtok(Line, ",*");
+		for (i=1; FieldList[i]; i++)
+		{
+			token = strtok(NULL, ",*");
+			Value[0] = '\0';
+			
+			// LogMessage("Field %d type %c is '%s'\n", i, FieldList[i], token);
+			
+			switch (FieldList[i])
+			{
+				case '6':
+				sprintf(Value, "\"sats\":%s,", token);
+				break;
+
+				case '7':
+				sprintf(Value, "\"vel_h\":%s,", token);
+				break;
+
+				case '8':
+				sprintf(Value, "\"heading\":%s,", token);
+				break;
+
+				case '9':
+				sprintf(Value, "\"batt\":%s,", token);
+				break;
+
+				case 'A':	
+				sprintf(Value, "\"internal_temp\":%s,", token);
+				break;
+
+				case 'B':
+				sprintf(Value, "\"temp\":%s,", token);
+				break;
+
+				case 'C':	
+				sprintf(Value, "\"pred_lat\":%s,", token);
+				break;
+
+				case 'D':	
+				sprintf(Value, "\"pred_lon\":%s,", token);
+				break;
+
+				case 'R':	
+				sprintf(Value, "\"pressure\":%s,", token);
+				break;
+			}
+			
+			if (*Value)
+			{
+				strcat(ExtractedFields, Value);
+			}
+		}	
+	}
+	
+	// LogMessage("Extracted: '%s'\n", ExtractedFields);
+}
+
 int UploadSondehubPosition(int Channel)
 {
     char url[200];
-    char json[1000], now[32], doc_time[32];
+    char json[1000], now[32], doc_time[32], ExtractedFields[256];
     time_t rawtime;
     struct tm *tm, *doc_tm;
 
@@ -158,6 +239,9 @@ int UploadSondehubPosition(int Channel)
 	// Get formatted timestamp for doc timestamp
 	doc_tm = gmtime( &rawtime );
 	strftime(doc_time, sizeof( doc_time ), "%Y-%0m-%0dT%H:%M:%SZ", doc_tm);
+	
+	// Find field list and extract fields
+	ExtractFields(SondehubPayloads[Channel].Telemetry, ExtractedFields);
 
 	// Create json as required by sondehub-amateur
 	sprintf(json,	"[{\"software_name\": \"LoRa Gateway\","		// Fixed software name
@@ -168,23 +252,27 @@ int UploadSondehubPosition(int Channel)
 					"\"datetime\":\"%s\","							// UTC from payload
 					"\"lat\": %.5lf,"								// Latitude
 					"\"lon\": %.5lf,"								// Longitude
-					"\"alt\": %d,"								// Altitude
+					"\"alt\": %d,"									// Altitude
 					"\"frequency\": %.4lf,"							// Frequency
-					"\"modulation\": \"LoRa\","						// Modulation
-			// DoubleToString('snr', SNR, HasSNR) +
-			// DoubleToString('rssi', PacketRSSI, HasPacketRSSI) +
-			"\"uploader_position\": ["
-			" %.3lf,"												// Listener Latitude
-			" %.3lf,"												// Listener Longitude
-			" %.0lf"												// Listener Altitude
-			"],"
-			"\"uploader_antenna\": \"%s\""
-			"}]",
-			Config.Version, Config.Tracker, now,
-			SondehubPayloads[Channel].Payload, doc_time,
-			SondehubPayloads[Channel].Latitude, SondehubPayloads[Channel].Longitude, SondehubPayloads[Channel].Altitude,
-			Config.LoRaDevices[Channel].Frequency + Config.LoRaDevices[Channel].FrequencyOffset,
-			Config.latitude, Config.longitude, Config.altitude, Config.antenna);
+					"\"modulation\": \"LoRa Mode %d\","	 			// Modulation
+					"\"snr\": %d,"									// SNR
+					"\"rssi\": %d,"									// RSSI
+					"%s"
+					"\"uploader_position\": ["
+					" %.3lf,"												// Listener Latitude
+					" %.3lf,"												// Listener Longitude
+					" %.0lf"												// Listener Altitude
+					"],"
+					"\"uploader_antenna\": \"%s\""
+					"}]",
+					Config.Version, Config.Tracker, now,
+					SondehubPayloads[Channel].Payload, doc_time,
+					SondehubPayloads[Channel].Latitude, SondehubPayloads[Channel].Longitude, SondehubPayloads[Channel].Altitude,				
+					SondehubPayloads[Channel].Frequency,
+					Config.LoRaDevices[Channel].SpeedMode,
+					SondehubPayloads[Channel].PacketSNR, SondehubPayloads[Channel].PacketRSSI,
+					ExtractedFields,
+					Config.latitude, Config.longitude, Config.altitude, Config.antenna);
 
 	// Set the URL that is about to receive our PUT
 	strcpy(url, "https://api.v2.sondehub.org/amateur/telemetry");

@@ -25,6 +25,9 @@ struct TPayload
 	int Altitude, PreviousAltitude;
 	float AscentRate;
 	unsigned long LastPositionAt;
+
+	int PacketSNR, PacketRSSI;
+	double Frequency;
 };
  
 struct TLoRaDevice 

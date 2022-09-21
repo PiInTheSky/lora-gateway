@@ -295,6 +295,11 @@ Many thanks to David Brooke for coding this feature and the AFC.
 Change History
 ==============
 
+## 21/09/2022 - V1.9.3
+
+	Scans telemetry for a fieldlist field.  This is metadata defining the sequence of fields in the telemetry string
+	If found, then this field is used to extract fields such as sats, pred_lat etc., and send them to Sondehub/amateur
+
 ## 10/09/2022 - V1.9.2
 
 	Fixed code that uploads to Sondehub so that a zero altitude doesn't result in a 400 response from the server
