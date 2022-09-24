@@ -295,6 +295,11 @@ Many thanks to David Brooke for coding this feature and the AFC.
 Change History
 ==============
 
+## 24/09/2222 - V1.9.4
+
+	Include UKHAS sentence as "raw" value sent to sondehub/amateur
+	Remove any "/" character from listener callsign sent to sondehub/amateur
+
 ## 21/09/2022 - V1.9.3
 
 	Scans telemetry for a fieldlist field.  This is metadata defining the sequence of fields in the telemetry string

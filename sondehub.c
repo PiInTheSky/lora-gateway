@@ -257,6 +257,7 @@ int UploadSondehubPosition(int Channel)
 					"\"modulation\": \"LoRa Mode %d\","	 			// Modulation
 					"\"snr\": %d,"									// SNR
 					"\"rssi\": %d,"									// RSSI
+					"\"raw\": \"%s\","								// Sentence
 					"%s"
 					"\"uploader_position\": ["
 					" %.3lf,"												// Listener Latitude
@@ -271,6 +272,7 @@ int UploadSondehubPosition(int Channel)
 					SondehubPayloads[Channel].Frequency,
 					Config.LoRaDevices[Channel].SpeedMode,
 					SondehubPayloads[Channel].PacketSNR, SondehubPayloads[Channel].PacketRSSI,
+					SondehubPayloads[Channel].Telemetry,
 					ExtractedFields,
 					Config.latitude, Config.longitude, Config.altitude, Config.antenna);
 
@@ -278,6 +280,24 @@ int UploadSondehubPosition(int Channel)
 	strcpy(url, "https://api.v2.sondehub.org/amateur/telemetry");
 
 	return UploadJSONToServer(url, json);
+}
+
+char *SanitiseCallsignForMQTT(char *Callsign)
+{
+	static char Result[32];
+	char *ptr;
+	
+	strcpy(Result, Callsign);
+	
+    ptr = strchr(Result, '/');
+	
+    while (ptr)
+	{
+        *ptr = '-';
+        ptr = strchr(ptr, '/');
+    }	
+
+	return Result;
 }
 
 int UploadListenerToSondehub(void)
@@ -308,7 +328,7 @@ int UploadListenerToSondehub(void)
 			"\"uploader_radio\": \"%s\","
 			"\"uploader_antenna\": \"%s\""
 			"}",
-			Config.Version, Config.Tracker,
+			Config.Version, SanitiseCallsignForMQTT(Config.Tracker),
 			Config.latitude, Config.longitude, Config.altitude,
 			Config.radio, Config.antenna);
 			
