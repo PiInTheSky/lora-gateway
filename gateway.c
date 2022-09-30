@@ -35,7 +35,6 @@
 #include "habitat.h"
 #include "sondehub.h"
 #include "mqtt.h"
-#include "hablink.h"
 #include "network.h"
 #include "network.h"
 #include "global.h"
@@ -1172,11 +1171,6 @@ int ProcessTelemetryMessage(int Channel, received_t *Received)
                 }
             }
 			
-            if (Config.EnableHablink && Config.HablinkAddress[0])
-            {
-				SetHablinkSentence(startmessage);
-			}
-			
             if (Config.EnableSondehub)
             {
 				SetSondehubSentence(Channel, startmessage);
@@ -2067,12 +2061,9 @@ void LoadConfigFile(void)
     // Enable uploads
     RegisterConfigBoolean(MainSection, -1, "EnableHabitat", &Config.EnableHabitat, NULL);
     RegisterConfigBoolean(MainSection, -1, "EnableSSDV", &Config.EnableSSDV, NULL);
-    RegisterConfigBoolean(MainSection, -1, "EnableHablink", &Config.EnableHablink, NULL);
     RegisterConfigBoolean(MainSection, -1, "EnableSondehub", &Config.EnableSondehub, NULL);
 	
-	RegisterConfigString(MainSection, -1, "HablinkAddress", Config.HablinkAddress, sizeof(Config.HablinkAddress), NULL);
-
-    // Enable telemetry logging
+	// Enable telemetry logging
     RegisterConfigBoolean(MainSection, -1, "LogTelemetry", &Config.EnableTelemetryLogging, NULL);
 
     // Enable packet logging
@@ -2665,7 +2656,7 @@ int main( int argc, char **argv )
     int ch;
     int LoopPeriod, MSPerLoop;
 	int Channel;
-    pthread_t SSDVThread, FTPThread, NetworkThread, HabitatThread, HablinkThread, SondehubThread, ServerThread, TelnetThread, ListenerThread, DataportThread, ChatportThread, MQTTThread;
+    pthread_t SSDVThread, FTPThread, NetworkThread, HabitatThread, SondehubThread, ServerThread, TelnetThread, ListenerThread, DataportThread, ChatportThread, MQTTThread;
 	struct TServerInfo JSONInfo, TelnetInfo, DataportInfo, ChatportInfo;
 
 	atexit(bye);
@@ -2782,15 +2773,6 @@ int main( int argc, char **argv )
 		}
     }
 	
-    if (Config.EnableHablink && Config.HablinkAddress[0])
-	{
-		if (pthread_create (&HablinkThread, NULL, HablinkLoop, NULL))
-		{
-			fprintf( stderr, "Error creating Hablink thread\n" );
-			return 1;
-		}
-	}
-
     if (Config.EnableSondehub)
 	{
 		if (pthread_create (&SondehubThread, NULL, SondehubLoop, NULL))

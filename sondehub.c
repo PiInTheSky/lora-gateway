@@ -100,8 +100,6 @@ int UploadJSONToServer(char *url, char *json)
 				curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &http_resp);
 				if (http_resp == 200)
 				{
-                    // Everything performing nominally (even if we didn't successfully insert this time)
-					// LogError("200 response to:", json);
                     result = true;
 				}
                 else if (http_resp == 400)
@@ -113,6 +111,7 @@ int UploadJSONToServer(char *url, char *json)
 				else
                 {
 					LogMessage("Unexpected HTTP response %ld for URL '%s'\n", http_resp, url);
+					LogError("400 response to:", json);
                     result = false;
                 }
 			}
@@ -227,7 +226,7 @@ void ExtractFields(char *Telemetry, char *ExtractedFields)
 int UploadSondehubPosition(int Channel)
 {
     char url[200];
-    char json[1000], now[32], doc_time[32], ExtractedFields[256];
+    char json[1000], now[32], doc_time[32], ExtractedFields[256], uploader_position[256];
     time_t rawtime;
     struct tm *tm, *doc_tm;
 
@@ -243,6 +242,21 @@ int UploadSondehubPosition(int Channel)
 	// Find field list and extract fields
 	ExtractFields(SondehubPayloads[Channel].Telemetry, ExtractedFields);
 
+    if ((Config.latitude >= -90) && (Config.latitude <= 90) && (Config.longitude >= -180) && (Config.longitude <= 180))
+	{
+		sprintf(uploader_position,	"\"uploader_position\": ["
+									" %.3lf,"												// Listener Latitude
+									" %.3lf,"												// Listener Longitude
+									" %.0lf"												// Listener Altitude
+									"],",
+									Config.latitude, Config.longitude, Config.altitude
+									);
+	}
+	else
+	{
+		uploader_position[0] = '\0';
+	}
+	
 	// Create json as required by sondehub-amateur
 	sprintf(json,	"[{\"software_name\": \"LoRa Gateway\","		// Fixed software name
 					"\"software_version\": \"%s\","					// Version
@@ -259,11 +273,7 @@ int UploadSondehubPosition(int Channel)
 					"\"rssi\": %d,"									// RSSI
 					"\"raw\": \"%s\","								// Sentence
 					"%s"
-					"\"uploader_position\": ["
-					" %.3lf,"												// Listener Latitude
-					" %.3lf,"												// Listener Longitude
-					" %.0lf"												// Listener Altitude
-					"],"
+					"%s"
 					"\"uploader_antenna\": \"%s\""
 					"}]",
 					Config.Version, Config.Tracker, now,
@@ -274,7 +284,8 @@ int UploadSondehubPosition(int Channel)
 					SondehubPayloads[Channel].PacketSNR, SondehubPayloads[Channel].PacketRSSI,
 					SondehubPayloads[Channel].Telemetry,
 					ExtractedFields,
-					Config.latitude, Config.longitude, Config.altitude, Config.antenna);
+					uploader_position,
+					Config.antenna);
 
 	// Set the URL that is about to receive our PUT
 	strcpy(url, "https://api.v2.sondehub.org/amateur/telemetry");
@@ -356,17 +367,20 @@ void *SondehubLoop( void *vars )
 			}
 		}
 		
-		if (--ListenerCountdown <= 0)
+		if ((Config.latitude >= -90) && (Config.latitude <= 90) && (Config.longitude >= -180) && (Config.longitude <= 180))
 		{
-			if (UploadListenerToSondehub())
+			if (--ListenerCountdown <= 0)
 			{
-				LogMessage("Uploaded listener info to Sondehub/amateur\n");
-				ListenerCountdown = 216000;		// Every 6 hours
-			}
-			else
-			{
-				LogMessage("Failed to upload listener info to Sondehub/amateur\n");
-				ListenerCountdown = 600;		// Try again in 1 minute
+				if (UploadListenerToSondehub())
+				{
+					LogMessage("Uploaded listener info to Sondehub/amateur\n");
+					ListenerCountdown = 216000;		// Every 6 hours
+				}
+				else
+				{
+					LogMessage("Failed to upload listener info to Sondehub/amateur\n");
+					ListenerCountdown = 600;		// Try again in 1 minute
+				}
 			}
 		}
 		
