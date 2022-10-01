@@ -124,7 +124,7 @@ The global options are:
 	
 	EnableHabitat=<Y/N>.  Enables uploading of telemetry packets to Habitat.
 	
-	EnableSondhub=<Y/N>.  Enables uploading of telemetry packets to the amateur Sondehub system.
+	EnableSondehub=<Y/N>.  Enables uploading of telemetry packets to the amateur Sondehub system.
 	
 	EnableSSDV=<Y/N>.  Enables uploading of SSDV image packets to the SSDV server.
 	
