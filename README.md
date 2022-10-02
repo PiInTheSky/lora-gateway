@@ -124,7 +124,7 @@ The global options are:
 	
 	EnableHabitat=<Y/N>.  Enables uploading of telemetry packets to Habitat.
 	
-	EnableSondhub=<Y/N>.  Enables uploading of telemetry packets to the amateur Sondehub system.
+	EnableSondehub=<Y/N>.  Enables uploading of telemetry packets to the amateur Sondehub system.
 	
 	EnableSSDV=<Y/N>.  Enables uploading of SSDV image packets to the SSDV server.
 	
@@ -294,6 +294,10 @@ Many thanks to David Brooke for coding this feature and the AFC.
 
 Change History
 ==============
+
+## 24/09/2222 - V1.9.5
+
+	Sondehub datetime field now contains payload timestamp plus current UTC date, corrected if necessary for UTC being the day after the telemetry was created (i.e. telemetry just before midnight UTC received just after midnight)
 
 ## 24/09/2222 - V1.9.4
 

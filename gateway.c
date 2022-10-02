@@ -47,7 +47,7 @@
 #include "udpclient.h"
 #include "lifo_buffer.h"
 
-#define VERSION	"V1.9.4"
+#define VERSION	"V1.9.5"
 bool run = TRUE;
 
 // RFM98

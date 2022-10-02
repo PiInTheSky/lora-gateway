@@ -1,3 +1,6 @@
+#define __USE_XOPEN
+#define _GNU_SOURCE
+#include <time.h>
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -223,21 +226,38 @@ void ExtractFields(char *Telemetry, char *ExtractedFields)
 	// LogMessage("Extracted: '%s'\n", ExtractedFields);
 }
 
+void BuildPayloadTime(char *Result, char *TimeInSentence, struct tm *tm)
+{
+	struct tm tm2;
+	
+	memcpy(&tm2, tm, sizeof(tm2));
+	
+    strptime(TimeInSentence, "%H:%M:%S", &tm2);
+	
+	// Test for payload time being yesterday
+	
+	if ((tm2.tm_hour == 23) && (tm->tm_hour == 00))
+	{
+		tm2.tm_mday--;
+		timegm(&tm2);
+	}
+
+	strftime(Result, 32, "%Y-%0m-%0dT%H:%M:%SZ", &tm2);
+}
+
 int UploadSondehubPosition(int Channel)
 {
     char url[200];
-    char json[1000], now[32], doc_time[32], ExtractedFields[256], uploader_position[256];
+    char json[1000], now[32], payload_time[32], ExtractedFields[256], uploader_position[256];
     time_t rawtime;
-    struct tm *tm, *doc_tm;
+    struct tm *tm;
 
 	// Get formatted timestamp for now
-	time( &rawtime );
-	tm = gmtime( &rawtime );
-	strftime( now, sizeof( now ), "%Y-%0m-%0dT%H:%M:%SZ", tm );
+	time(&rawtime);
+	tm = gmtime(&rawtime);
+	strftime(now, sizeof(now), "%Y-%0m-%0dT%H:%M:%SZ", tm);
 
-	// Get formatted timestamp for doc timestamp
-	doc_tm = gmtime( &rawtime );
-	strftime(doc_time, sizeof( doc_time ), "%Y-%0m-%0dT%H:%M:%SZ", doc_tm);
+	BuildPayloadTime(payload_time, SondehubPayloads[Channel].Time, tm);
 	
 	// Find field list and extract fields
 	ExtractFields(SondehubPayloads[Channel].Telemetry, ExtractedFields);
@@ -277,7 +297,7 @@ int UploadSondehubPosition(int Channel)
 					"\"uploader_antenna\": \"%s\""
 					"}]",
 					Config.Version, Config.Tracker, now,
-					SondehubPayloads[Channel].Payload, doc_time,
+					SondehubPayloads[Channel].Payload, payload_time,
 					SondehubPayloads[Channel].Latitude, SondehubPayloads[Channel].Longitude, SondehubPayloads[Channel].Altitude,				
 					SondehubPayloads[Channel].Frequency,
 					Config.LoRaDevices[Channel].SpeedMode,
