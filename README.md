@@ -295,7 +295,12 @@ Many thanks to David Brooke for coding this feature and the AFC.
 Change History
 ==============
 
-## 24/09/2222 - V1.9.5
+## 13/10/2022 - V1.9.6
+
+	Sondehub upload: Interpret battery voltage as V/mV automatiically
+	Sondehub upload: Send battery voltage in V
+
+## 24/09/2022 - V1.9.5
 
 	Sondehub datetime field now contains payload timestamp plus current UTC date, corrected if necessary for UTC being the day after the telemetry was created (i.e. telemetry just before midnight UTC received just after midnight)
 

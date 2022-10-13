@@ -192,7 +192,16 @@ void ExtractFields(char *Telemetry, char *ExtractedFields)
 				break;
 
 				case '9':
-				sprintf(Value, "\"batt\":%s,", token);
+					if (strchr(token, '.'))
+					{
+						// volts
+						sprintf(Value, "\"batt\":%s,", token);
+					}
+					else
+					{
+						// mV --> V
+						sprintf(Value, "\"batt\":%.1lf,", atof(token) / 1000.0);
+					}
 				break;
 
 				case 'A':	
