@@ -205,11 +205,11 @@ void ExtractFields(char *Telemetry, char *ExtractedFields)
 				break;
 
 				case 'A':	
-				sprintf(Value, "\"internal_temp\":%s,", token);
+				sprintf(Value, "\"temp\":%s,", token);
 				break;
 
 				case 'B':
-				sprintf(Value, "\"temp\":%s,", token);
+				sprintf(Value, "\"ext_temperature\":%s,", token);
 				break;
 
 				case 'C':	
