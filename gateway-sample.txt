@@ -10,15 +10,13 @@ Antenna=Your antenna
 
 ##### Config Options #####
 
-EnableHabitat=Y
+EnableSondehub=Y
 EnableSSDV=Y
 JPGFolder=ssdv
 LogTelemetry=Y
 LogPackets=Y
 CallingTimeout=60
 ServerPort=6004
-#SMSFolder=./
-EnableDev=N
 
 NetworkLED=22
 InternetLED=23

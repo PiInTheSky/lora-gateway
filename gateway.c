@@ -32,7 +32,6 @@
 #include "base64.h"
 #include "ssdv.h"
 #include "ftp.h"
-#include "habitat.h"
 #include "sondehub.h"
 #include "mqtt.h"
 #include "network.h"
@@ -42,12 +41,11 @@
 #include "gateway.h"
 #include "config.h"
 #include "gui.h"
-#include "listener.h"
 #include "habpack.h"
 #include "udpclient.h"
 #include "lifo_buffer.h"
 
-#define VERSION	"V1.9.6"
+#define VERSION	"V1.10.0"
 bool run = TRUE;
 
 // RFM98
@@ -196,7 +194,6 @@ struct TBinaryPacket {
 
 #pragma pack(pop)
 
-lifo_buffer_t Habitat_Upload_Buffer;
 lifo_buffer_t MQTT_Upload_Buffer;
 
 // Create pipes for inter proces communication 
@@ -1143,22 +1140,6 @@ int ProcessTelemetryMessage(int Channel, received_t *Received)
             strcpy(Config.LoRaDevices[Channel].Telemetry, startmessage);
             Config.LoRaDevices[Channel].TelemetryCount++;
 
-            if (Config.EnableHabitat)
-            {
-                // Add to Habitat upload queue
-                received_t *queueReceived = malloc(sizeof(received_t));
-                if(queueReceived != NULL)
-                {
-					strcpy(Received->HabitatString, startmessage);
-                    memcpy(queueReceived, Received, sizeof(received_t));
-                    /* We haven't copied the linked list, this'll be free()ed later, so remove pointer */
-                    queueReceived->Telemetry.habpack_extra = NULL;
-
-                    /* Push pointer onto upload queue */
-                    lifo_buffer_push(&Habitat_Upload_Buffer, (void *)queueReceived);
-                }
-            }
-
             if (Config.EnableMQTT)
             {
                 // Add to MQTT upload queue
@@ -2059,7 +2040,6 @@ void LoadConfigFile(void)
     LogMessage( "Tracker = '%s'\n", Config.Tracker );
 
     // Enable uploads
-    RegisterConfigBoolean(MainSection, -1, "EnableHabitat", &Config.EnableHabitat, NULL);
     RegisterConfigBoolean(MainSection, -1, "EnableSSDV", &Config.EnableSSDV, NULL);
     RegisterConfigBoolean(MainSection, -1, "EnableSondehub", &Config.EnableSondehub, NULL);
 	
@@ -2316,7 +2296,7 @@ WINDOW *InitDisplay(void)
 
     char buffer[80];
 
-    sprintf( buffer, "LoRa Habitat and SSDV Gateway by M0RPI, M0DNY, M0RJX - " VERSION);
+    sprintf( buffer, "LoRa HAB Sondehub, SSDV and MQTT Gateway by M0RPI, M0DNY, M0RJX - " VERSION);
 
     // Title bar
     mvaddstr(0, ( 80 - strlen( buffer ) ) / 2, buffer );
@@ -2656,7 +2636,7 @@ int main( int argc, char **argv )
     int ch;
     int LoopPeriod, MSPerLoop;
 	int Channel;
-    pthread_t SSDVThread, FTPThread, NetworkThread, HabitatThread, SondehubThread, ServerThread, TelnetThread, ListenerThread, DataportThread, ChatportThread, MQTTThread;
+    pthread_t SSDVThread, FTPThread, NetworkThread, SondehubThread, ServerThread, TelnetThread, DataportThread, ChatportThread, MQTTThread;
 	struct TServerInfo JSONInfo, TelnetInfo, DataportInfo, ChatportInfo;
 
 	atexit(bye);
@@ -2741,17 +2721,6 @@ int main( int argc, char **argv )
 		fprintf( stderr, "Error creating FTP thread\n" );
 		return 1;
 	}
-
-    if (Config.EnableHabitat)
-	{
-        lifo_buffer_init(&Habitat_Upload_Buffer, 1024);
-
-		if ( pthread_create (&HabitatThread, NULL, HabitatLoop, NULL))
-		{
-			fprintf( stderr, "Error creating Habitat thread\n" );
-			return 1;
-		}
-    }
 
     if (Config.EnableMQTT)
     {
@@ -2839,15 +2808,6 @@ int main( int argc, char **argv )
         if ( pthread_create( &NetworkThread, NULL, NetworkLoop, NULL ) )
         {
             fprintf( stderr, "Error creating Network thread\n" );
-            return 1;
-        }
-    }
-
-    if (( Config.latitude >= -90) && (Config.latitude <= 90) && (Config.longitude >= -180) && (Config.longitude <= 180))
-    {
-        if ( pthread_create( &ListenerThread, NULL, ListenerLoop, NULL ) )
-        {
-            fprintf( stderr, "Error creating Listener thread\n" );
             return 1;
         }
     }
@@ -3004,9 +2964,6 @@ int main( int argc, char **argv )
     LogMessage( "Stopping SSDV thread\n" );
     stsv.parent_status = STOPPED;
 
-	LogMessage( "Stopping Habitat thread\n" );
-	lifo_buffer_quitwait(&Habitat_Upload_Buffer);
-
     if (Config.EnableSSDV)
 	{
 		LogMessage( "Waiting for SSDV thread to close ...\n" );
@@ -3014,15 +2971,6 @@ int main( int argc, char **argv )
 		LogMessage( "SSDV thread closed\n" );
 	}
 	
-    if (Config.EnableHabitat)
-	{
-		LogMessage( "Waiting for Habitat thread to close ...\n" );
-		pthread_join( HabitatThread, NULL );
-		LogMessage( "Habitat thread closed\n" );
-	}
-	
-    // CloseDisplay( mainwin );
-
     pthread_mutex_destroy( &var );
 
     curl_global_cleanup(  );    // RJH thread safe

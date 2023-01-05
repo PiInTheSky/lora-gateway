@@ -115,7 +115,6 @@ struct TConfig
 	char Tracker[16];				// Callsign or name of receiver
 	double latitude, longitude, altitude;		// Receiver's location
      
-	int EnableHabitat;
 	int EnableSSDV;
     int EnableHablink;
 	int EnableSondehub;
