@@ -108,13 +108,13 @@ int UploadJSONToServer(char *url, char *json)
                 else if (http_resp == 400)
 				{
 					LogMessage("400 response to %s\n", json);
-					LogError("400 response to:", json);
                     result = true;
 				}
 				else
                 {
 					LogMessage("Unexpected HTTP response %ld for URL '%s'\n", http_resp, url);
-					LogError("400 response to:", json);
+					LogError(http_resp, "JSON: ", json);
+					LogError(http_resp, "RESP: ", curl_error);
                     result = false;
                 }
 			}
@@ -124,6 +124,10 @@ int UploadJSONToServer(char *url, char *json)
 				LogMessage("Failed for URL '%s'\n", url);
 				LogMessage("curl_easy_perform() failed: %s\n", curl_easy_strerror(res));
 				LogMessage("error: %s\n", curl_error);
+
+				LogError(res, "JSON: ", json);
+				LogError(res, "RESP: ", curl_error);
+				
                 // Likely a network error, so return false to requeue
                 result = false;
 			}

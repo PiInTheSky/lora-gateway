@@ -3,7 +3,9 @@ Habitat LoRa Gateway
 
 Part of the LoRa Balloon Tracking System.  Receives balloon telemetry and uploads to Sondehub and/or MQTT.
 
-** ALL HABHUB SUPPORT HAS BEEN REMOVED since the server has been decommissioned **
+**<u>ALL HABHUB SUPPORT HAS BEEN REMOVED since that server has been decommissioned</u>**
+
+<u>**If you are updating from an old version, please see the MQTT section below to install a library that you will need to build the latest version.**</u>
 
 Runs on a Raspberry Pi with 1 or 2 RFM98HW modules attached to the SPI port.
 Also works with other compatible HopeRF and Semtec LoRa devices.
@@ -293,6 +295,14 @@ Many thanks to David Brooke for coding this feature and the AFC.
 
 Change History
 ==============
+
+## 13/8/2023 - V1.10.1
+
+	Sondehub upload: For errors, log return code, return text and uploaded JSON to errors.txt
+
+## 1/2023 - V1.10.0
+
+	Removed all HABHUB Support
 
 ## 13/10/2022 - V1.9.6
 
