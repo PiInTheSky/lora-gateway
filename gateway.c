@@ -45,7 +45,7 @@
 #include "udpclient.h"
 #include "lifo_buffer.h"
 
-#define VERSION	"V1.10.1"
+#define VERSION	"V1.10.2"
 bool run = TRUE;
 
 // RFM98
@@ -1126,39 +1126,47 @@ int ProcessTelemetryMessage(int Channel, received_t *Received)
         {
             struct tm *tm;
 
+			tm = localtime( &Received->Metadata.Timestamp );
+			
             *endmessage = '\0';
 
-			LogTelemetryPacket(Channel, startmessage);
-
-            ProcessLineUKHAS(Channel, startmessage);
-			
-			if ((Repeated = (*startmessage == '%')))
+			if (ValidCRC16(startmessage))
 			{
-				*startmessage = '$';
-			}
+				LogTelemetryPacket(Channel, startmessage);
 
-            strcpy(Config.LoRaDevices[Channel].Telemetry, startmessage);
-            Config.LoRaDevices[Channel].TelemetryCount++;
+				ProcessLineUKHAS(Channel, startmessage);
+				
+				if ((Repeated = (*startmessage == '%')))
+				{
+					*startmessage = '$';
+				}
 
-            if (Config.EnableMQTT)
-            {
-                // Add to MQTT upload queue
-                received_t *queueReceived = malloc(sizeof(received_t));
-                if(queueReceived != NULL)
-                {
-                    memcpy(queueReceived, Received, sizeof(received_t));
-                    /* Push pointer onto upload queue */
-                    lifo_buffer_push(&MQTT_Upload_Buffer, (void *)queueReceived);
-                }
-            }
-			
-            if (Config.EnableSondehub)
-            {
-				SetSondehubSentence(Channel, startmessage);
+				strcpy(Config.LoRaDevices[Channel].Telemetry, startmessage);
+				Config.LoRaDevices[Channel].TelemetryCount++;
+
+				if (Config.EnableMQTT)
+				{
+					// Add to MQTT upload queue
+					received_t *queueReceived = malloc(sizeof(received_t));
+					if(queueReceived != NULL)
+					{
+						memcpy(queueReceived, Received, sizeof(received_t));
+						/* Push pointer onto upload queue */
+						lifo_buffer_push(&MQTT_Upload_Buffer, (void *)queueReceived);
+					}
+				}
+				
+				if (Config.EnableSondehub)
+				{
+					SetSondehubSentence(Channel, startmessage);
+				}
+				
+				LogMessage("%02d:%02d:%02d Ch%d: %s%s\n", tm->tm_hour, tm->tm_min, tm->tm_sec, Channel, startmessage, Repeated ? " (repeated)" : "");
 			}
-			
-            tm = localtime( &Received->Metadata.Timestamp );
-            LogMessage("%02d:%02d:%02d Ch%d: %s%s\n", tm->tm_hour, tm->tm_min, tm->tm_sec, Channel, startmessage, Repeated ? " (repeated)" : "");
+			else
+			{
+				LogMessage("%02d:%02d:%02d Ch%d: %s\n", tm->tm_hour, tm->tm_min, tm->tm_sec, Channel, "Bad UKHAS CRC");
+			}
 
 			startmessage = endmessage + 1;
 			endmessage = strchr( startmessage, '\n' );
@@ -2325,15 +2333,20 @@ WINDOW *InitDisplay(void)
 }
 
 
-uint16_t
-CRC16( unsigned char *ptr )
+int ValidCRC16(char *ptr)
 {
     uint16_t CRC;
     int j;
+	int Valid;
+	char CRCString[5];
 
+	Valid = 0;
     CRC = 0xffff;               // Seed
+	
+	// Skip $'s
+	while (*++ptr == '$');
 
-    for ( ; *ptr; ptr++ )
+    for ( ; *ptr && (*ptr != '*'); ptr++)
     {                           // For speed, repeat calculation instead of looping for each bit
         CRC ^= ( ( ( unsigned int ) *ptr ) << 8 );
         for ( j = 0; j < 8; j++ )
@@ -2345,7 +2358,15 @@ CRC16( unsigned char *ptr )
         }
     }
 
-    return CRC;
+    if (*ptr == '*')
+	{
+		// CRC follows
+		sprintf(CRCString, "%04X", CRC);
+		
+		Valid = memcmp(ptr+1, CRCString, 4) == 0;
+	}
+	
+	return Valid;	
 }
 
 void

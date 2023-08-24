@@ -296,6 +296,12 @@ Many thanks to David Brooke for coding this feature and the AFC.
 Change History
 ==============
 
+## 24/8/2023 - V1.10.2
+
+	UKHAS Telemetry is CRC16 checked before being used/uploaded, in addition to the existing LoRa CRC check
+	Separation of new incoming telemetry and that already being uploaded to Sondehub
+	Added parsing check on UKHAS telemetry before uploading to Sondehub
+
 ## 13/8/2023 - V1.10.1
 
 	Sondehub upload: For errors, log return code, return text and uploaded JSON to errors.txt

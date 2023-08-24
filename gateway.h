@@ -12,6 +12,7 @@ void LogError(int ErrorCode, char *Message1, char *Message2);
 void LogMessage( const char *format, ... );
 void ChannelPrintf( int Channel, int row, int column, const char *format,
                     ... );
+int ValidCRC16(char *ptr);					
 void displayChannel (int Channel); 
 
 #endif

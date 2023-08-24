@@ -24,25 +24,33 @@
 #include "gateway.h"
 #include "sondehub.h"
 
-struct TPayload SondehubPayloads[2];
+pthread_mutex_t crit = PTHREAD_MUTEX_INITIALIZER;		// To protect IncomingSondehubPayloads
+
+struct TPayload IncomingSondehubPayloads[2];
+struct TPayload ActiveSondehubPayloads[2];
 
 void SetSondehubSentence(int Channel, char *tmp)
 {
-	sscanf(tmp + 2, "%31[^,],%u,%8[^,],%lf,%lf,%d",
-			SondehubPayloads[Channel].Payload,
-			&SondehubPayloads[Channel].Counter,
-			SondehubPayloads[Channel].Time,
-			&SondehubPayloads[Channel].Latitude,
-			&SondehubPayloads[Channel].Longitude,
-			&SondehubPayloads[Channel].Altitude);
+    pthread_mutex_lock(&crit); // lock the critical section
 
-	SondehubPayloads[Channel].PacketSNR = Config.LoRaDevices[Channel].PacketSNR;
-	SondehubPayloads[Channel].PacketRSSI = Config.LoRaDevices[Channel].PacketRSSI;
-	SondehubPayloads[Channel].Frequency = Config.LoRaDevices[Channel].Frequency + Config.LoRaDevices[Channel].FrequencyOffset;
+	if (sscanf(tmp + 2, "%31[^,],%u,%8[^,],%lf,%lf,%d",
+				IncomingSondehubPayloads[Channel].Payload,
+				&IncomingSondehubPayloads[Channel].Counter,
+				IncomingSondehubPayloads[Channel].Time,
+				&IncomingSondehubPayloads[Channel].Latitude,
+				&IncomingSondehubPayloads[Channel].Longitude,
+				&IncomingSondehubPayloads[Channel].Altitude) == 6)
+	{
+		IncomingSondehubPayloads[Channel].PacketSNR = Config.LoRaDevices[Channel].PacketSNR;
+		IncomingSondehubPayloads[Channel].PacketRSSI = Config.LoRaDevices[Channel].PacketRSSI;
+		IncomingSondehubPayloads[Channel].Frequency = Config.LoRaDevices[Channel].Frequency + Config.LoRaDevices[Channel].FrequencyOffset;
 	
-	strcpy(SondehubPayloads[Channel].Telemetry, tmp);
+		strcpy(IncomingSondehubPayloads[Channel].Telemetry, tmp);
 	
-	SondehubPayloads[Channel].InUse = (SondehubPayloads[Channel].Latitude != 0) && (SondehubPayloads[Channel].Longitude != 0);
+		IncomingSondehubPayloads[Channel].InUse = (IncomingSondehubPayloads[Channel].Latitude != 0) && (IncomingSondehubPayloads[Channel].Longitude != 0);
+	}
+
+    pthread_mutex_unlock(&crit);   // unlock once you are done
 }
 
 size_t sondehub_write_data( void *buffer, size_t size, size_t nmemb, void *userp )
@@ -108,7 +116,9 @@ int UploadJSONToServer(char *url, char *json)
                 else if (http_resp == 400)
 				{
 					LogMessage("400 response to %s\n", json);
-                    result = true;
+					LogError(http_resp, "JSON: ", json);
+					LogError(http_resp, "RESP: ", curl_error);
+                    result = true;		// Don't retry - this failed due to the uploaded JSON containing something that the server rejected
 				}
 				else
                 {
@@ -260,7 +270,6 @@ void BuildPayloadTime(char *Result, char *TimeInSentence, struct tm *tm)
 
 int UploadSondehubPosition(int Channel)
 {
-    char url[200];
     char json[1000], now[32], payload_time[32], ExtractedFields[256], uploader_position[256];
     time_t rawtime;
     struct tm *tm;
@@ -270,10 +279,10 @@ int UploadSondehubPosition(int Channel)
 	tm = gmtime(&rawtime);
 	strftime(now, sizeof(now), "%Y-%0m-%0dT%H:%M:%SZ", tm);
 
-	BuildPayloadTime(payload_time, SondehubPayloads[Channel].Time, tm);
+	BuildPayloadTime(payload_time, ActiveSondehubPayloads[Channel].Time, tm);
 	
 	// Find field list and extract fields
-	ExtractFields(SondehubPayloads[Channel].Telemetry, ExtractedFields);
+	ExtractFields(ActiveSondehubPayloads[Channel].Telemetry, ExtractedFields);
 
     if ((Config.latitude >= -90) && (Config.latitude <= 90) && (Config.longitude >= -180) && (Config.longitude <= 180))
 	{
@@ -310,20 +319,17 @@ int UploadSondehubPosition(int Channel)
 					"\"uploader_antenna\": \"%s\""
 					"}]",
 					Config.Version, Config.Tracker, now,
-					SondehubPayloads[Channel].Payload, payload_time,
-					SondehubPayloads[Channel].Latitude, SondehubPayloads[Channel].Longitude, SondehubPayloads[Channel].Altitude,				
-					SondehubPayloads[Channel].Frequency,
+					ActiveSondehubPayloads[Channel].Payload, payload_time,
+					ActiveSondehubPayloads[Channel].Latitude, ActiveSondehubPayloads[Channel].Longitude, ActiveSondehubPayloads[Channel].Altitude,				
+					ActiveSondehubPayloads[Channel].Frequency,
 					Config.LoRaDevices[Channel].SpeedMode,
-					SondehubPayloads[Channel].PacketSNR, SondehubPayloads[Channel].PacketRSSI,
-					SondehubPayloads[Channel].Telemetry,
+					ActiveSondehubPayloads[Channel].PacketSNR, ActiveSondehubPayloads[Channel].PacketRSSI,
+					ActiveSondehubPayloads[Channel].Telemetry,
 					ExtractedFields,
 					uploader_position,
 					Config.antenna);
 
-	// Set the URL that is about to receive our PUT
-	strcpy(url, "https://api.v2.sondehub.org/amateur/telemetry");
-
-	return UploadJSONToServer(url, json);
+	return UploadJSONToServer("https://api.v2.sondehub.org/amateur/telemetry", json);
 }
 
 char *SanitiseCallsignForMQTT(char *Callsign)
@@ -346,7 +352,6 @@ char *SanitiseCallsignForMQTT(char *Callsign)
 
 int UploadListenerToSondehub(void)
 {
-    char url[200];
     char json[1000], now[32], doc_time[32];
     time_t rawtime;
     struct tm *tm, *doc_tm;
@@ -376,9 +381,7 @@ int UploadListenerToSondehub(void)
 			Config.latitude, Config.longitude, Config.altitude,
 			Config.radio, Config.antenna);
 			
-	strcpy(url, "https://api.v2.sondehub.org/amateur/listeners");
-
-	return UploadJSONToServer(url, json);
+	return UploadJSONToServer("https://api.v2.sondehub.org/amateur/listeners", json);
 }
 
 	
@@ -391,11 +394,23 @@ void *SondehubLoop( void *vars )
 		
 		for (Channel=0; Channel<=1; Channel++)
 		{
-			if (SondehubPayloads[Channel].InUse)
+			// Copy new incoming payload, if there is one
+			if (IncomingSondehubPayloads[Channel].InUse)
+			{
+				pthread_mutex_lock(&crit); // lock the critical section
+	
+				// copy from incoming to active
+				memcpy(&ActiveSondehubPayloads[Channel], &IncomingSondehubPayloads[Channel], sizeof(struct TPayload));
+				
+				pthread_mutex_unlock(&crit);   // unlock once you are done
+			}
+
+			// Try to upload active payload, if there is one
+			if (ActiveSondehubPayloads[Channel].InUse)
 			{
 				if (UploadSondehubPosition(Channel))
 				{
-					SondehubPayloads[Channel].InUse = 0;
+					ActiveSondehubPayloads[Channel].InUse = 0;
 				}
 			}
 		}
