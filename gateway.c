@@ -45,7 +45,7 @@
 #include "udpclient.h"
 #include "lifo_buffer.h"
 
-#define VERSION	"V1.10.2"
+#define VERSION	"V1.10.3"
 bool run = TRUE;
 
 // RFM98
@@ -1165,7 +1165,7 @@ int ProcessTelemetryMessage(int Channel, received_t *Received)
 			}
 			else
 			{
-				LogMessage("%02d:%02d:%02d Ch%d: %s\n", tm->tm_hour, tm->tm_min, tm->tm_sec, Channel, "Bad UKHAS CRC");
+				LogMessage("%02d:%02d:%02d Ch%d: %s%s\n", tm->tm_hour, tm->tm_min, tm->tm_sec, Channel, "Bad UKHAS CRC: ", startmessage);
 			}
 
 			startmessage = endmessage + 1;

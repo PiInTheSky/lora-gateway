@@ -408,10 +408,9 @@ void *SondehubLoop( void *vars )
 			// Try to upload active payload, if there is one
 			if (ActiveSondehubPayloads[Channel].InUse)
 			{
-				if (UploadSondehubPosition(Channel))
-				{
-					ActiveSondehubPayloads[Channel].InUse = 0;
-				}
+				UploadSondehubPosition(Channel);		// Upload, with limited retries ifd needed
+				
+				ActiveSondehubPayloads[Channel].InUse = 0;
 			}
 		}
 		
