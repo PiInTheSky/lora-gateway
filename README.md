@@ -296,6 +296,12 @@ Many thanks to David Brooke for coding this feature and the AFC.
 Change History
 ==============
 
+## 14/9/2023 - V1.10.4
+	Clear InUse flag in SH upload so new telemetry is only uploaded once
+
+## 2/9/2023 - V1.10.3
+	Limit to 5 retries on SH upload
+
 ## 24/8/2023 - V1.10.2
 
 	UKHAS Telemetry is CRC16 checked before being used/uploaded, in addition to the existing LoRa CRC check

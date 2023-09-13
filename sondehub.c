@@ -392,28 +392,38 @@ void *SondehubLoop( void *vars )
 		static long ListenerCountdown = 0;
 		int Channel;
 		
+		// Copy from incoming to active
+		pthread_mutex_lock(&crit); // lock the critical section
 		for (Channel=0; Channel<=1; Channel++)
 		{
 			// Copy new incoming payload, if there is one
 			if (IncomingSondehubPayloads[Channel].InUse)
 			{
-				pthread_mutex_lock(&crit); // lock the critical section
-	
 				// copy from incoming to active
 				memcpy(&ActiveSondehubPayloads[Channel], &IncomingSondehubPayloads[Channel], sizeof(struct TPayload));
 				
-				pthread_mutex_unlock(&crit);   // unlock once you are done
+				IncomingSondehubPayloads[Channel].InUse = 0;
 			}
+		}
+		pthread_mutex_unlock(&crit);   // unlock once you are done
 
+		// Upload from active section
+		for (Channel=0; Channel<=1; Channel++)
+		{
 			// Try to upload active payload, if there is one
 			if (ActiveSondehubPayloads[Channel].InUse)
 			{
-				UploadSondehubPosition(Channel);		// Upload, with limited retries ifd needed
+				ChannelPrintf(Channel, 6, 1, "SH");
+				
+				UploadSondehubPosition(Channel);		// Upload, with limited retries if needed
 				
 				ActiveSondehubPayloads[Channel].InUse = 0;
+
+				ChannelPrintf(Channel, 6, 1, "  ");
 			}
 		}
 		
+		// Listener position uploads
 		if ((Config.latitude >= -90) && (Config.latitude <= 90) && (Config.longitude >= -180) && (Config.longitude <= 180))
 		{
 			if (--ListenerCountdown <= 0)
