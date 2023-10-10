@@ -106,22 +106,37 @@ int UploadJSONToServer(char *url, char *json)
 			res = curl_easy_perform( curl );
 
 			// Check for errors
-			if ( res == CURLE_OK )
+			if (res == CURLE_OK)
 			{
 				curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &http_resp);
 				if (http_resp == 200)
 				{
+					// Data submitted OK
                     result = true;
 				}
-                else if (http_resp == 400)
+                else if ((http_resp >= 201) && (http_resp <= 209))
 				{
-					LogMessage("400 response to %s\n", json);
+					//Data submitted, but with some issues. Refer to response for details.	
+					LogMessage("20x response to %s\n", json);
+					LogError(http_resp, "JSON: ", json);
+					LogError(http_resp, "RESP: ", curl_error);
+                    result = true;		// Don't retry - this partially failed due to the uploaded JSON containing something that the server complained about
+				}
+                else if ((http_resp >= 400) && (http_resp <= 409))
+				{
+					LogMessage("%d response to %s\n", http_resp, json);
 					LogError(http_resp, "JSON: ", json);
 					LogError(http_resp, "RESP: ", curl_error);
                     result = true;		// Don't retry - this failed due to the uploaded JSON containing something that the server rejected
 				}
+                else if ((http_resp >= 500) && (http_resp <= 509))
+				{
+					// Server busy, retry
+                    result = false;
+				}
 				else
                 {
+					// Undocumented response; log but don't retry
 					LogMessage("Unexpected HTTP response %ld for URL '%s'\n", http_resp, url);
 					LogError(http_resp, "JSON: ", json);
 					LogError(http_resp, "RESP: ", curl_error);

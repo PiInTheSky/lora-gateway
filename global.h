@@ -116,9 +116,7 @@ struct TConfig
 	double latitude, longitude, altitude;		// Receiver's location
      
 	int EnableSSDV;
-    int EnableHablink;
 	int EnableSondehub;
-	char HablinkAddress[32];
 	int EnableTelemetryLogging;
 	int EnablePacketLogging;
 	int CallingTimeout;
