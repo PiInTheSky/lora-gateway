@@ -117,8 +117,8 @@ bool UploadMQTTPacket(mqtt_connect_t * mqttConnection, received_t * t )
     conn_opts.password = mqttConnection->pass; 
     MQTTClient_setCallbacks(client, NULL, connlost, msgarrvd, delivered);
 	
-    LogMessage("Attempting publication on host: %s\n", address);
-    LogMessage("on topic %s for client with ClientID: %s\n", topic, mqttConnection->clientId);
+    // LogMessage("Attempting publication on host: %s\n", address);
+    // LogMessage("on topic %s for client with ClientID: %s\n", topic, mqttConnection->clientId);
 	
     if ((rc = MQTTClient_connect(client, &conn_opts)) != MQTTCLIENT_SUCCESS)
     {
