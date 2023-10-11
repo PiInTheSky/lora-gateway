@@ -110,17 +110,16 @@ bool UploadMQTTPacket(mqtt_connect_t * mqttConnection, received_t * t )
 	
 	BuildMQTTPath(topic,  mqttConnection, t);
 
-    MQTTClient_create(&client, address, mqttConnection->clientId,
-        MQTTCLIENT_PERSISTENCE_NONE, NULL);
+    MQTTClient_create(&client, address, mqttConnection->clientId, MQTTCLIENT_PERSISTENCE_NONE, NULL);
     conn_opts.keepAliveInterval = 20;
     conn_opts.cleansession = 1;
     conn_opts.username = mqttConnection->user;
     conn_opts.password = mqttConnection->pass; 
     MQTTClient_setCallbacks(client, NULL, connlost, msgarrvd, delivered);
-    // LogMessage("Attempting publication on host: %s\n",
-	// address);
-            //"on topic %s for client with ClientID: %s\n",
-            //t->Message, address, topic, mqttConnection->clientId);
+	
+    LogMessage("Attempting publication on host: %s\n", address);
+    LogMessage("on topic %s for client with ClientID: %s\n", topic, mqttConnection->clientId);
+	
     if ((rc = MQTTClient_connect(client, &conn_opts)) != MQTTCLIENT_SUCCESS)
     {
         LogMessage("MQTT: Failed to connect, return code %d\n", rc);

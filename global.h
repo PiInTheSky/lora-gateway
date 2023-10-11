@@ -151,7 +151,6 @@ struct TConfig
 	char MQTTPort[8];
 	char MQTTUser[16];
 	char MQTTPass[32];
-	char MQTTClient[16];
 	char MQTTTopic[128];
 };
 

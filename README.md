@@ -296,6 +296,9 @@ Many thanks to David Brooke for coding this feature and the AFC.
 Change History
 ==============
 
+## 08/10/2023 - V1.10.6
+	Use callsign for MQTT client ID
+
 ## 08/10/2023 - V1.10.5
 	Fully handle all documented Sondehub responses - see https://github.com/projecthorus/sondehub-infra/wiki/API-(Beta)#notes-on-api-response-codes
 

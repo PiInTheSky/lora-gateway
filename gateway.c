@@ -45,7 +45,7 @@
 #include "udpclient.h"
 #include "lifo_buffer.h"
 
-#define VERSION	"V1.10.5"
+#define VERSION	"V1.10.6"
 bool run = TRUE;
 
 // RFM98
@@ -2142,7 +2142,6 @@ void LoadConfigFile(void)
     RegisterConfigString(MainSection, -1, "MQTTPort", Config.MQTTPort, sizeof(Config.MQTTPort), NULL);
     RegisterConfigString(MainSection, -1, "MQTTUser", Config.MQTTUser, sizeof(Config.MQTTUser), NULL);
     RegisterConfigString(MainSection, -1, "MQTTPass", Config.MQTTPass, sizeof(Config.MQTTPass), NULL);
-    RegisterConfigString(MainSection, -1, "MQTTClient", Config.MQTTClient, sizeof(Config.MQTTClient), NULL);
     RegisterConfigString(MainSection, -1, "MQTTTopic", Config.MQTTTopic, sizeof(Config.MQTTTopic), NULL);
 
 
@@ -2753,7 +2752,7 @@ int main( int argc, char **argv )
         strcpy(mqttConnection->user, Config.MQTTUser);
         strcpy(mqttConnection->pass, Config.MQTTPass);
         strcpy(mqttConnection->topic, Config.MQTTTopic);
-        strcpy(mqttConnection->clientId, Config.MQTTClient);
+        strcpy(mqttConnection->clientId, Config.Tracker);
 
 		if ( pthread_create (&MQTTThread, NULL, MQTTLoop, mqttConnection))
 		{
